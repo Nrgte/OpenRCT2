@@ -57,6 +57,9 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalOptions>$(OPENRCT2_CL_ADDITIONALOPTIONS) %(AdditionalOptions)</AdditionalOptions>
+      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</TreatWarningAsError>
+      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</TreatWarningAsError>
+      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='ReleaseLTCG|x64'">false</TreatWarningAsError>
     </ClCompile>
     <Link>
       <AdditionalDependencies>libopenrct2.lib;libopenrct2ui.lib;%(AdditionalDependencies)</AdditionalDependencies>

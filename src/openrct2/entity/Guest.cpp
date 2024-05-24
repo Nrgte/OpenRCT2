@@ -63,13 +63,16 @@
 
 #include <functional>
 #include <iterator>
+#include <windows.h>
 
 using namespace OpenRCT2;
+
 
 // Locations of the spiral slide platform that a peep walks from the entrance of the ride to the
 // entrance of the slide. Up to 4 waypoints for each 4 sides that an ride entrance can be located
 // and 4 different rotations of the ride. 4 * 4 * 4 = 64 locations.
 // clang-format off
+
 static constexpr CoordsXY SpiralSlideWalkingPath[64] = {
     {  56,   8 },
     {   8,   8 },
@@ -2048,11 +2051,13 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                 // excitement check and will only do a basic intensity check when they arrive at the ride itself.
                 if (ride.id == GuestHeadingToRideId)
                 {
+                    /*
                     if (ride.intensity > RIDE_RATING(10, 00) && !GetGameState().Cheats.IgnoreRideIntensity)
                     {
                         PeepRideIsTooIntense(this, ride, peepAtRide);
                         return false;
                     }
+                    */
                 }
                 else
                 {
@@ -2079,9 +2084,17 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                             // Intensity calculations. Even though the max intensity can go up to 15, it's capped
                             // at 10.0 (before happiness calculations). A full happiness bar will increase the max
                             // intensity and decrease the min intensity by about 2.5.
-                            ride_rating maxIntensity = std::min(Intensity.GetMaximum() * 100, 1000) + Happiness;
+                            ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
                             ride_rating minIntensity = (Intensity.GetMinimum() * 100) - Happiness;
-                            if (ride.intensity < minIntensity)
+
+                            //std::string mxIntensity = "maxIntensity: " + std::to_string(maxIntensity) + "\n";
+                            //std::string mnIntensity = "minIntensity: " + std::to_string(minIntensity) + "\n";
+                            //OutputDebugStringA(mxIntensity.c_str());
+                            //OutputDebugStringA(mnIntensity.c_str());
+
+                            //!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_TRANSPORT_RIDE)
+                            if (ride.intensity < minIntensity
+                                && !ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_TRANSPORT_RIDE))
                             {
                                 if (peepAtRide)
                                 {
@@ -2096,10 +2109,11 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                                 return false;
                             }
                             if (ride.intensity > maxIntensity)
-                            {
+                            {                                                              
                                 PeepRideIsTooIntense(this, ride, peepAtRide);
                                 return false;
                             }
+
 
                             // Nausea calculations.
                             ride_rating maxNausea = NauseaMaximumThresholds[(EnumValue(NauseaTolerance) & 3)] + Happiness;
@@ -2151,7 +2165,39 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                 }
             }
 
+
+            // default value applies to an average_speed of 20 km/h and 90s ride duration
             money64 value = ride.value;
+            int32_t rideTime = ride.GetTotalTime();
+            int32_t averageRideSpeed = ((ride.average_speed * 9) >> 18) * 1.60934;
+            //std::normal_distribution<int32_t> dist(20, 10);
+
+            if (rideTime > 0)
+            {
+                // function graph: y\ =\sqrt{\left(x^{2}\ \cdot\left(\frac{L}{24}\right)\ \cdot\frac{z}{90}\right)}
+                // function graph2: y\ =\sqrt{\left(x^{2}\ \cdot\left(\frac{\sqrt{L\cdot2}}{\sqrt{24}}\right)\cdot\left(\frac{z}{90}\right)\right)}
+                // f log dist: f\left(L,z,\ x\right)\ =\ \left\{x\ <30:\ 3\cdot r^{2}-2r^{3},\ 1\right\}\ \cdot\log_{t}\left(mx^{n}\right)\ +\ \frac{\left(\frac{L^{o}}{24}\ \cdot\ \frac{z^{q}}{90}\right)}{b+\left(\frac{1}{z+L}\right)}
+                // f exp s bend: f\left(L,z,\ x\right)\ =\ u\left(\frac{1}{(1+\exp(-kx))}\right)^{a}\ \cdot\ \frac{\left(\frac{L^{o}}{24}\ \cdot\ \frac{z^{q}}{90}\right)}{b+\left(\frac{1}{z+L}\right)}
+
+                //money64 value2 = sqrt((value * value) * sqrt(averageRideSpeed*2) / sqrt(24) * rideTime / 90);
+                money64 value2 = ride.GetNormalizedRideValue(this);
+                std::string rideValue = "Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName + " ; ridetime: " + std::to_string(rideTime)
+                    + " ; avg. ride speed: " + std::to_string(averageRideSpeed) + " ; values: ("
+                    + std::to_string(value) + "," + std::to_string(value2) + ")\n";
+                OutputDebugStringA(rideValue.c_str());
+
+                value = value2;
+            }
+            else
+            {
+                money64 value2 = ride.GetNormalizedRideValue(this);
+                std::string rideValue = "Flat Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
+                    + " ; ridetime: " + std::to_string(rideTime) + " ; avg. ride speed: " + std::to_string(averageRideSpeed)
+                    + " ; values: (" + std::to_string(value) + "," + std::to_string(value2) + ")\n";
+                OutputDebugStringA(rideValue.c_str());
+
+                value = value2;
+            }
 
             // If the value of the ride hasn't yet been calculated, peeps will be willing to pay any amount for the ride.
             if (value != RIDE_VALUE_UNDEFINED && !PeepHasVoucherForFreeRide(this, ride)
@@ -2163,7 +2209,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
 
                 // Peeps won't pay more than twice the value of the ride.
                 ridePrice = RideGetPrice(ride);
-                if (ridePrice > (value * 2))
+                if (ridePrice > value)
                 {
                     if (peepAtRide)
                     {
@@ -2635,10 +2681,11 @@ static bool PeepCheckRidePriceAtEntrance(Guest* peep, const Ride& ride, money64 
         return false;
     }
 
-    auto value = ride.value;
+    auto value = ride.GetNormalizedRideValue(peep);
+    //auto value = ride.value;
     if (value != RIDE_VALUE_UNDEFINED)
     {
-        if ((value * 2) < ridePrice)
+        if (value < ridePrice)
         {
             peep->InsertNewThought(PeepThoughtType::BadValue, peep->CurrentRide);
             PeepUpdateRideAtEntranceTryLeave(peep);

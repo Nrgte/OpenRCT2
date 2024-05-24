@@ -26,6 +26,7 @@
 #include "Track.h"
 
 #include <iterator>
+#include <windows.h>
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Scripting;
@@ -1038,7 +1039,7 @@ static void RideRatingsCalculate(RideRatingUpdateState& state, Ride& ride)
         }
     }
     // Universl ratings adjustments
-    RideRatingsApplyIntensityPenalty(ratings);
+    // RideRatingsApplyIntensityPenalty(ratings);    
     RideRatingsApplyAdjustments(ride, ratings);
     ride.ratings = ratings;
 
@@ -1131,15 +1132,35 @@ static void RideRatingsCalculateValue(Ride& ride)
 
     // Start with the base ratings, multiplied by the ride type specific weights for excitement, intensity and nausea.
     const auto& ratingsMultipliers = ride.GetRideTypeDescriptor().RatingsMultipliers;
+    
     money64 value = (((ride.excitement * ratingsMultipliers.Excitement) * 32) >> 15)
         + (((ride.intensity * ratingsMultipliers.Intensity) * 32) >> 15)
         + (((ride.nausea * ratingsMultipliers.Nausea) * 32) >> 15);
+    
+
+    money64 newValue = ((((ride.excitement * ratingsMultipliers.Excitement) * 32) >> 15) * 2.5)
+        + (((ride.intensity * ratingsMultipliers.Intensity) * 32) >> 15)
+        + (((ride.nausea * ratingsMultipliers.Nausea) * 32) >> 15);
+
+    newValue /= 2;
+    /*
+    std::string ratMult = "Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName + " ; ratingsMultiplier: ("
+        + std::to_string(ratingsMultipliers.Excitement) + "," + std::to_string(ratingsMultipliers.Intensity) + ","
+        + std::to_string(ratingsMultipliers.Nausea) + ") ; Values = (" + std::to_string(value) + ";" + std::to_string(newValue)
+        + ")\n";
+    OutputDebugStringA(ratMult.c_str());
+    */
+    if (!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_FLAT_RIDE))
+        value = newValue;
 
     int32_t monthsOld = 0;
     if (!GetGameState().Cheats.DisableRideValueAging)
     {
         monthsOld = ride.GetAge();
     }
+
+    // Fix it so that the multiplier and divisor are both 1.
+    monthsOld = 39;
 
     const Row* ageTable = ageTableNew;
     size_t tableSize = std::size(ageTableNew);
@@ -1278,11 +1299,35 @@ static void RideRatingsApplyAdjustments(const Ride& ride, RatingTuple& ratings)
         return;
     }
 
+    /*
+    if (rideEntry->excitement_multiplier > 0)
+    {
+        std::string debugExcitement = ride.GetName()
+            + ": ride entry excitement multiplier = " + std::to_string(rideEntry->excitement_multiplier) + "\n";
+        OutputDebugStringA(debugExcitement.c_str());
+
+        std::string ratingBefore = "Rating before: " + std::to_string(ratings.Excitement) + "\n";
+        OutputDebugStringA(ratingBefore.c_str());
+    }*/
     // Apply ride entry multipliers
+    /*
     RideRatingsAdd(
         ratings, ((static_cast<int32_t>(ratings.Excitement) * rideEntry->excitement_multiplier) >> 7),
         ((static_cast<int32_t>(ratings.Intensity) * rideEntry->intensity_multiplier) >> 7),
         ((static_cast<int32_t>(ratings.Nausea) * rideEntry->nausea_multiplier) >> 7));
+    */
+    RideRatingsAdd(
+        ratings, static_cast<int32_t>((float)ratings.Excitement / 100 * rideEntry->excitement_multiplier),
+        static_cast<int32_t>((float)ratings.Intensity / 100 * rideEntry->intensity_multiplier),
+        static_cast<int32_t>((float)ratings.Nausea / 100 * rideEntry->nausea_multiplier));
+
+    /*
+        if (rideEntry->excitement_multiplier > 0)
+    {
+        std::string ratingAfter = "Rating after: " + std::to_string(ratings.Excitement) + "\n";
+        OutputDebugStringA(ratingAfter.c_str());
+    }
+    */
 
     // Apply total air time
 #ifdef ORIGINAL_RATINGS
@@ -1327,7 +1372,7 @@ static void RideRatingsApplyAdjustments(const Ride& ride, RatingTuple& ratings)
 /**
  * Lowers excitement, the higher the intensity.
  *  rct2: 0x0065E7A3
- */
+ 
 static void RideRatingsApplyIntensityPenalty(RatingTuple& ratings)
 {
     static constexpr ride_rating intensityBounds[] = { 1000, 1100, 1200, 1320, 1450 };
@@ -1341,6 +1386,7 @@ static void RideRatingsApplyIntensityPenalty(RatingTuple& ratings)
     }
     ratings.Excitement = excitement;
 }
+*/
 
 /**
  *

@@ -74,6 +74,8 @@ namespace OpenRCT2::Ui::Windows
     static constexpr int32_t WH = 207;
     static constexpr int32_t WW = 316;
 
+    static const money64 MAX_RIDE_PRICE = 40.00_GBP;
+
     enum
     {
         WINDOW_RIDE_PAGE_MAIN,
@@ -6039,7 +6041,7 @@ static_assert(std::size(RatingNames) == 6);
                 return;
 
             auto price = ride->price[0];
-            if (price < 20.00_GBP)
+            if (price < MAX_RIDE_PRICE)
                 price++;
 
             IncomeSetPrimaryPrice(price);
@@ -6092,7 +6094,7 @@ static_assert(std::size(RatingNames) == 6);
         {
             auto price = IncomeGetSecondaryPrice();
 
-            if (price < 20.00_GBP)
+            if (price < MAX_RIDE_PRICE)
                 price++;
 
             IncomeSetSecondaryPrice(price);
@@ -6213,7 +6215,7 @@ static_assert(std::size(RatingNames) == 6);
                 return;
             }
 
-            price = std::clamp(price, 0.00_GBP, 20.00_GBP);
+            price = std::clamp(price, 0.00_GBP, MAX_RIDE_PRICE);
 
             if (widgetIndex == WIDX_PRIMARY_PRICE)
             {

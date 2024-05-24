@@ -414,6 +414,7 @@ public:
     bool FindTrackGap(const CoordsXYE& input, CoordsXYE* output) const;
 
     uint8_t GetEntranceStyle() const;
+    money64 GetNormalizedRideValue(Guest* guest) const;
 };
 void UpdateSpiralSlide(Ride& ride);
 void UpdateChairlift(Ride& ride);

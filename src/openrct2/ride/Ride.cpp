@@ -5997,3 +5997,34 @@ ResultWithMessage Ride::ChangeStatusCreateVehicles(bool isApplying, const Coords
 
     return { true };
 }
+
+money64 Ride::GetNormalizedRideValue(Guest* guest) const
+{
+    money64 oldValue = this->value;
+    int32_t rideTime = this->GetTotalTime();
+    int32_t averageRideSpeed = ((this->average_speed * 9) >> 18) * 1.60934; // in km/h
+
+    if (rideTime <= 0)
+        return oldValue * 2;
+
+    const int32_t normalizedAverageRideSpeed = 24; // in km/h
+    const int32_t normalizedRideDuration = 90; // in seconds
+
+    const int32_t amplitude = 15900; // 14900 // 10800
+    const float incline = 0.02f;
+    const float falloff = 5;
+
+    const float averageRideSpeedWeight = 0.25f; //0.2f // 0.3f
+    const float rideDurationWeight = 0.32f; // 0.37f
+    const float weightNormalizer = 0.3f; 
+
+    // money64 value2 = sqrt(
+    //    (value * value) * sqrt(averageRideSpeed * 2) / sqrt(normalizedAverageRideSpeed) * rideTime / normalizedRideDuration); // Old function
+
+    money64 newValue = amplitude * pow((1 / (1 + exp(-incline * oldValue))), falloff)
+        * (pow(averageRideSpeed, averageRideSpeedWeight) / normalizedAverageRideSpeed
+            * pow(rideTime,rideDurationWeight) / normalizedRideDuration)
+        / (weightNormalizer + 1 / (rideTime + averageRideSpeed));
+
+    return newValue * 2;
+}
