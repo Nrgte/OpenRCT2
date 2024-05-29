@@ -50,6 +50,8 @@ EntityBase* CreateEntity(EntityType type);
 template<typename T> T* CreateEntity()
 {
     return static_cast<T*>(CreateEntity(T::cEntityType));
+    //void* memory = malloc(sizeof(T)); // Allocate memory
+    //return new (memory) T;            // Call constructor using placement new
 }
 
 // Use only with imports that must happen at a specified index

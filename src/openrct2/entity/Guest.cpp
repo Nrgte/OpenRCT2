@@ -65,6 +65,11 @@
 #include <iterator>
 #include <windows.h>
 
+
+#include <map>
+#include <numbers>
+#include <random>
+
 using namespace OpenRCT2;
 
 
@@ -1757,6 +1762,11 @@ void Guest::OnEnterRide(Ride& ride)
  */
 void Guest::OnExitRide(Ride& ride)
 {
+    this->RateRide(ride);
+    //std::string rideValue = "Guest Ride Rating for Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
+    //    + " ; rating: (" + std::to_string(this->RideSatisfaction[ride.id]) + ")\n";
+    //OutputDebugStringA(rideValue.c_str());
+
     if (PeepFlags & PEEP_FLAGS_RIDE_SHOULD_BE_MARKED_AS_FAVOURITE)
     {
         PeepFlags &= ~PEEP_FLAGS_RIDE_SHOULD_BE_MARKED_AS_FAVOURITE;
@@ -2901,8 +2911,10 @@ static bool PeepShouldGoOnRideAgain(Guest* peep, const Ride& ride)
         return false;
     if (!RideHasRatings(ride))
         return false;
+    /*
     if (ride.intensity > RIDE_RATING(10, 00) && !GetGameState().Cheats.IgnoreRideIntensity)
         return false;
+    */
     if (peep->Happiness < 180)
         return false;
     if (peep->Energy < 100)
@@ -2946,8 +2958,10 @@ static bool PeepReallyLikedRide(Guest* peep, const Ride& ride)
         return false;
     if (!RideHasRatings(ride))
         return false;
+    /*
     if (ride.intensity > RIDE_RATING(10, 00) && !GetGameState().Cheats.IgnoreRideIntensity)
         return false;
+    */
     return true;
 }
 
@@ -7143,6 +7157,14 @@ static constexpr uint8_t tshirt_colours[] = {
 };
 // clang-format on
 
+/*
+void Guest::Initialize(const CoordsXYZ& coords)
+{
+    // ... initialize RideSatisfaction and other members using coords
+    RideSatisfaction = {};
+}
+*/
+
 /**
  *
  *  rct2: 0x0069A05D
@@ -7154,6 +7176,14 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
 
     auto& gameState = GetGameState();
     Guest* peep = CreateEntity<Guest>();
+
+    AdvancedGuestStats ags = *new AdvancedGuestStats();
+    //int numElements = ags.RideSatisfaction.size();
+    //std::cout << "Number of elements: " << numElements << std::endl;
+    peep->AGS = ags;
+    //peep->AGS = {};
+    //new (peep) Guest;
+    //peep->Initialize(coords);
     peep->SpriteType = PeepSpriteType::Normal;
     peep->OutsideOfPark = true;
     peep->State = PeepState::Falling;
@@ -7736,4 +7766,91 @@ void Guest::Serialise(DataSerialiser& stream)
     stream << FavouriteRide;
     stream << FavouriteRideRating;
     stream << ItemFlags;
+    //stream << AGS;
+}
+
+void Guest::RateRide(Ride& ride)
+{
+
+
+    uint8_t rating = 0;
+    float standardDistDeviation = 2.0f;
+    int minIntensity = this->Intensity.GetMinimum();
+    int maxIntensity = this->Intensity.GetMaximum();
+    float standardDeviationM = (maxIntensity - minIntensity) / 2.0f;
+    float averageIntensity = (maxIntensity + minIntensity) / 2.0f;
+    float probability = 0;
+    std::map<uint8_t, float> probRatingMatrix;
+    float totalProbability = 0;
+    for (uint8_t i = minIntensity; i <= maxIntensity; i++)
+    {
+        probability = getRideRatingProbability(i, standardDeviationM, (averageIntensity - standardDeviationM) * -1);
+        totalProbability += probability;
+        probRatingMatrix[i] = probability;
+    }
+
+    //uint8_t rideIntensity = ride.ratings.Intensity / 100;
+    //uint8_t range = ((probRatingMatrix[rideIntensity + 1] - probRatingMatrix[rideIntensity]) + 1);
+    //float randomRating = rand() % range + (probRatingMatrix[rideIntensity] * 100);
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_real_distribution<float> distribution(0, totalProbability);
+    float randomIntensity = distribution(generator);
+    totalProbability = 0;
+    for (uint8_t i = minIntensity; i <= maxIntensity; i++)
+    {
+        totalProbability += probRatingMatrix[i];
+        if (totalProbability > randomIntensity)
+        {
+            std::normal_distribution<float> normalDist(probRatingMatrix[i] * 10, standardDistDeviation);
+            rating = normalDist(generator);
+            break;
+        }
+    }
+
+    if (rating > 10)
+        rating = 10;
+    else if (rating < 1)
+        rating = 1;
+
+    //std::map<RideId, uint8_t> RideSat = std::map<RideId, uint8_t>();
+
+    //RideSat.insert({ ride.id, rating });
+    //RideSatisfaction.insert({ ride.id, rating });
+    //std::swap(RideSatisfaction, RideSat);
+    //RideSat.clear();
+    this->AGS.InsertRide(ride.id, rating);
+
+    size_t numElements = this->AGS.RideSatisfaction.size();
+    if (numElements > 1)
+    {
+        for (int i = 0; i < this->AGS.RideSatisfaction.size(); ++i)
+        {
+            std::string rat = std::to_string(this->AGS.RideSatisfaction[i].getRating());
+            std::string rideName = this->AGS.RideSatisfaction[i].getRide()->GetName();
+            std::cout << this->GetName() << " " << i << "th rating for " << ride.GetName() << " : " << rat << std::endl;
+        }
+        std::string averageRating = std::to_string(this->AGS.GetAverageRating(ride.id));
+        std::cout << "Average Ride Rating for: " << ride.GetName() << " is " << averageRating << std::endl;
+    }
+    else if (numElements > 0)
+    {
+        std::string test = std::to_string(this->AGS.RideSatisfaction[0].getRating());
+        std::cout << this->GetName() << " rated ride: " << this->AGS.RideSatisfaction[0].getRide()->GetName() << " = " << test
+                  << std::endl;
+    }
+
+
+}
+
+float getRideRatingProbability(uint8_t value, float standardDeviation, int8_t offset)
+{
+    float tampering = -2.0f;
+    //const double e = exp(1.0);
+    //float probability = pow(
+    //    (1 / standardDeviation * sqrt(2 * std::numbers::pi_v<float>)) * e, pow(-0.5f * ((value - mean) / standardDeviation),2));
+    // y=l/(1+\exp(-\operatorname{abs}(o\ +\ x-M)*(t/M)))
+    float probability = 2 / (1 + exp(-abs(offset + value - standardDeviation) * (tampering / standardDeviation)));
+
+    return probability;
 }

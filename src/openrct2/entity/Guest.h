@@ -15,6 +15,9 @@
 #include "../ride/ShopItem.h"
 #include "Peep.h"
 
+#include "AdvancedGuestStats.h"
+#include "map"
+
 constexpr int8_t kPeepMaxThoughts = 5;
 
 constexpr int8_t kPeepHungerWarningThreshold = 25;
@@ -320,6 +323,9 @@ public:
     uint8_t FavouriteRideRating;
     uint64_t ItemFlags;
 
+    AdvancedGuestStats AGS;
+
+    //void Initialize(const CoordsXYZ&);
     void UpdateGuest();
     void Tick128UpdateGuest(uint32_t index);
     int64_t GetFoodOrDrinkFlags() const;
@@ -425,10 +431,14 @@ private:
     OpenRCT2::BitSet<OpenRCT2::Limits::MaxRidesInPark> FindRidesToGoOn();
     bool FindVehicleToEnter(const Ride& ride, std::vector<uint8_t>& car_array);
     void GoToRideEntrance(const Ride& ride);
+   
+    void RateRide(Ride&);
+
 };
 
 void UpdateRideApproachVehicleWaypointsMotionSimulator(Guest&, const CoordsXY&, int16_t&);
 void UpdateRideApproachVehicleWaypointsDefault(Guest&, const CoordsXY&, int16_t&);
+float getRideRatingProbability(uint8_t, float, int8_t);
 
 static_assert(sizeof(Guest) <= 512);
 

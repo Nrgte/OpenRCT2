@@ -62,6 +62,8 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalOptions>$(OPENRCT2_CL_ADDITIONALOPTIONS) %(AdditionalOptions)</AdditionalOptions>
+      <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</TreatWarningAsError>
+      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
     </ClCompile>
     <Lib>
       <TargetMachine Condition="'$(Platform)'=='Win32'">MachineX86</TargetMachine>
@@ -163,6 +165,7 @@
     <ClInclude Include="actions\WaterLowerAction.h" />
     <ClInclude Include="actions\WaterRaiseAction.h" />
     <ClInclude Include="actions\WaterSetHeightAction.h" />
+    <ClInclude Include="entity\AdvancedGuestStats.h" />
     <ClInclude Include="AssetPack.h" />
     <ClInclude Include="AssetPackManager.h" />
     <ClInclude Include="audio\audio.h" />
@@ -703,6 +706,7 @@
     <ClCompile Include="actions\WaterLowerAction.cpp" />
     <ClCompile Include="actions\WaterRaiseAction.cpp" />
     <ClCompile Include="actions\WaterSetHeightAction.cpp" />
+    <ClCompile Include="entity\AdvancedGuestStats.cpp" />
     <ClCompile Include="AssetPack.cpp" />
     <ClCompile Include="AssetPackManager.cpp" />
     <ClCompile Include="audio\Audio.cpp" />

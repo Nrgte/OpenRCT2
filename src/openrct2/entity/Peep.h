@@ -19,6 +19,7 @@
 
 #include <array>
 #include <optional>
+#include <map>
 
 constexpr uint8_t kPeepMinEnergy = 32;
 constexpr uint8_t kPeepMaxEnergy = 128;
