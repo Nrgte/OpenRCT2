@@ -6490,7 +6490,8 @@ static_assert(std::size(RatingNames) == 6);
         void CustomerResize()
         {
             flags |= WF_RESIZABLE;
-            WindowSetResize(*this, 316, 163, 316, 163);
+            // WindowSetResize(*this, 316, 163, 316, 163);
+            WindowSetResize(*this, 316, 175, 316, 175);
         }
 
         void CustomerUpdate()
@@ -6665,6 +6666,23 @@ static_assert(std::size(RatingNames) == 6);
             ft = Formatter();
             ft.Add<int16_t>(age);
             DrawTextBasic(dpi, screenCoords, stringId, ft);
+
+            // Average customer rating
+            std::tuple<float, uint16_t> guestRideRatings = ride->RideGetGuestRatings();
+            if (std::get<uint16_t>(guestRideRatings) > 0)
+            {
+                std::stringstream ss;
+                ss << std::fixed << std::setprecision(1) << std::get<float>(guestRideRatings);
+
+                screenCoords.y += kListRowHeight;
+                stringId = STR_BLACK_STRING;
+                ft = Formatter();
+                ft.Add<StringId>(STR_STRING);
+                ft.Add<const char*>(("Average Guest Rating : " + ss.str() + " - Rated by "
+                                     + std::to_string(std::get<uint16_t>(guestRideRatings)) + " guests.")
+                                        .c_str());
+                DrawTextBasic(dpi, screenCoords, stringId, ft);
+            }
         }
 
 #pragma endregion

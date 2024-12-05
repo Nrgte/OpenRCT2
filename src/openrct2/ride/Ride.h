@@ -323,7 +323,7 @@ private:
 public:
     bool CanBreakDown() const;
     RideClassification GetClassification() const;
-    bool IsRide() const;
+    bool IsRide() const;  
     void Renew();
     void Delete();
     void Crash(uint8_t vehicleIndex);
@@ -415,6 +415,8 @@ public:
 
     uint8_t GetEntranceStyle() const;
     money64 GetNormalizedRideValue(Guest* guest) const;
+
+    std::tuple<float, uint16_t> RideGetGuestRatings() const;
 };
 void UpdateSpiralSlide(Ride& ride);
 void UpdateChairlift(Ride& ride);

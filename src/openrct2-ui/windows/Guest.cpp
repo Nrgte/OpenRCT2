@@ -1373,7 +1373,16 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
                 if (r != nullptr)
                 {
                     auto ft = Formatter();
-                    r->FormatNameTo(ft);
+                    const auto guest = GetGuest();
+                    float medianIntensityRating = guest->AGS.GetMedianIntensityRating(r->id, r->intensity);
+                    if (medianIntensityRating > 0)
+                    {
+                        ft.Add<StringId>(STR_STRING);
+                        ft.Add<const char*>(
+                            (r->GetName() + " - " + guest->AGS.GetMedianIntensityRatingString(r->id, r->intensity)).c_str());
+                    }
+                    else
+                        r->FormatNameTo(ft);
                     DrawTextBasic(dpi, { 0, y - 1 }, stringId, ft);
                 }
             }

@@ -439,6 +439,21 @@ private:
 void UpdateRideApproachVehicleWaypointsMotionSimulator(Guest&, const CoordsXY&, int16_t&);
 void UpdateRideApproachVehicleWaypointsDefault(Guest&, const CoordsXY&, int16_t&);
 float getRideRatingProbability(uint8_t, float, int8_t);
+double normal_pdf(double x, double mean, double std_dev);
+double normal_cdf(double x, double mean, double std_dev);
+double tampered_function(double min, double max, double rideIntensity);
+
+float getRandomUniformDistributionValue(float minValue, float maxValue);
+
+template<typename T>
+typename std::enable_if<std::is_same<T, uint8_t>::value, T>::type
+getRandomUniformDistributionValue(uint8_t minValue, uint8_t maxValue);
+
+template<typename T>
+std::enable_if_t<std::is_same_v<T, uint8_t> || std::is_same_v<T, float>, T>
+getRandomNormalDistributionValue(T mean, T standardDeviation);
+
+uint8_t getRandomTemperdFunctionValue(uint8_t highestMinIntensity);
 
 static_assert(sizeof(Guest) <= 512);
 

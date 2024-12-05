@@ -1,39 +1,70 @@
 #include "AdvancedGuestStats.h"
 
-#include "../ride/Ride.h"
 #include "../core/DataSerialiser.h"
+#include "../ride/Ride.h"
 #include "Guest.h"
 
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 
 using namespace OpenRCT2;
 
 // Empty constructor with no arguments
-AdvancedGuestStats::AdvancedGuestStats() 
+AdvancedGuestStats::AdvancedGuestStats()
 {
 }
 
-void AdvancedGuestStats::InsertRide(RideId id, uint8_t rating)
+void AdvancedGuestStats::InsertRideIntensityRating(RideId id, uint8_t rating, ride_rating rideRating)
 {
-    GuestRideRating temp(id, rating);
-    this->RideSatisfaction.push_back(temp);
+    GuestRideRating temp(id, rating, rideRating);
+    this->RideIntensitySatisfaction.push_back(temp);
 }
 
-uint8_t AdvancedGuestStats::GetAverageRating(RideId id)
+float AdvancedGuestStats::GetMedianIntensityRating(RideId id, ride_rating currentIntensity)
 {
-    std::vector<GuestRideRating> matches = FindRidesByRideId(this->RideSatisfaction, id);
-    if (matches.size() == 0)
+    // Delete old intensityRatings in case the ride has changed.
+    this->DeleteOldIntensityRatings(id, currentIntensity);
+
+    std::vector<GuestRideRating> matches = FindRideIntensityRatingsByRideId(id);
+
+    int n = matches.size();
+
+    if (n == 0)
         return 0;
 
+    std::sort(
+        matches.begin(), matches.end(), [](const GuestRideRating& a, const GuestRideRating& b) { return a.Rating < b.Rating; });
 
+    if (n % 2 == 0)
+    {
+        // Even number of elements
+        int mid1 = n / 2 - 1;
+        int mid2 = n / 2;
+        return roundf((matches[mid1].Rating + matches[mid2].Rating) / 2.0f * 10) / 10;
+    }
+    else
+    {
+        // Odd number of elements
+        int mid = n / 2;
+        return matches[mid].Rating;
+    }
+    /*
     int totalRideRating = 0;
     for (GuestRideRating& ride : matches)
     {
         totalRideRating += ride.getRating();
     }
 
-    return totalRideRating / matches.size();
+    return roundf((float)totalRideRating / matches.size() * 10) / 10;
+    */
+}
+
+std::string AdvancedGuestStats::GetMedianIntensityRatingString(RideId id, ride_rating currentIntensity)
+{
+    float medianIntensity = GetMedianIntensityRating(id, currentIntensity);
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << medianIntensity;
+    return ss.str();
 }
 
 std::vector<GuestRideRating> AdvancedGuestStats::FindRidesByRideId(std::vector<GuestRideRating>& ratings, RideId targetId)
@@ -43,13 +74,41 @@ std::vector<GuestRideRating> AdvancedGuestStats::FindRidesByRideId(std::vector<G
     std::copy_if(ratings.begin(), ratings.end(), std::back_inserter(matchingRides), [targetId](GuestRideRating& rating) {
         return rating.getRideID() == targetId;
     });
+
     return matchingRides;
 }
 
+std::vector<GuestRideRating> AdvancedGuestStats::FindRideIntensityRatingsByRideId(RideId id)
+{
+    return this->FindRidesByRideId(this->RideIntensitySatisfaction, id);
+}
+
+void AdvancedGuestStats::DeleteOldIntensityRatings(RideId id, ride_rating currentIntensity)
+{
+    this->RideIntensitySatisfaction.erase(
+        std::remove_if(
+            this->RideIntensitySatisfaction.begin(), this->RideIntensitySatisfaction.end(),
+            [id, currentIntensity](const GuestRideRating& rating) {
+                return rating.ID == id && rating.MeasuredRideValue != currentIntensity;
+            }),
+        this->RideIntensitySatisfaction.end());
+}
+
+// Set the default Queue Time Tolerance to 7 minutes.
+uint8_t AdvancedGuestStats::GetQueueTimeThreshold()
+{
+    return 7;
+}
+
+// Set the default QueueTimeCancelChance to 25%
+uint8_t AdvancedGuestStats::GetQueueTimeCancelChance()
+{
+    return 0x4000U;
+}
 
 void AdvancedGuestStats::Serialise(DataSerialiser& stream)
 {
-    //stream << RideSatisfaction;
+    // stream << RideIntensitySatisfaction;
     stream << testbla;
 }
 

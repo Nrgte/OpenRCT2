@@ -5318,6 +5318,28 @@ bool Ride::IsRide() const
     return GetClassification() == RideClassification::Ride;
 }
 
+
+std::tuple<float, uint16_t> Ride::RideGetGuestRatings() const
+{
+    float total_ride_rating = 0;
+    uint16_t totalGuestRatings = 0;
+
+    for (auto guest : EntityList<Guest>())
+    {
+        float rideRating = guest->AGS.GetMedianIntensityRating(this->id, this->intensity);
+        if (rideRating > 0)
+        {
+            total_ride_rating += rideRating;
+            totalGuestRatings++;
+        }
+    }
+
+    if (totalGuestRatings > 0)
+        return std::make_tuple(roundf(total_ride_rating / totalGuestRatings * 10) / 10, totalGuestRatings);
+    else
+        return std::make_tuple(0, 0);
+}
+
 money64 RideGetPrice(const Ride& ride)
 {
     if (GetGameState().Park.Flags & PARK_FLAGS_NO_MONEY)

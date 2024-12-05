@@ -63,15 +63,12 @@
 
 #include <functional>
 #include <iterator>
-#include <windows.h>
-
-
 #include <map>
 #include <numbers>
 #include <random>
+#include <windows.h>
 
 using namespace OpenRCT2;
-
 
 // Locations of the spiral slide platform that a peep walks from the entrance of the ride to the
 // entrance of the slide. Up to 4 waypoints for each 4 sides that an ride entrance can be located
@@ -1763,9 +1760,9 @@ void Guest::OnEnterRide(Ride& ride)
 void Guest::OnExitRide(Ride& ride)
 {
     this->RateRide(ride);
-    //std::string rideValue = "Guest Ride Rating for Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
-    //    + " ; rating: (" + std::to_string(this->RideSatisfaction[ride.id]) + ")\n";
-    //OutputDebugStringA(rideValue.c_str());
+    // std::string rideValue = "Guest Ride Rating for Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
+    //     + " ; rating: (" + std::to_string(this->RideIntensitySatisfaction[ride.id]) + ")\n";
+    // OutputDebugStringA(rideValue.c_str());
 
     if (PeepFlags & PEEP_FLAGS_RIDE_SHOULD_BE_MARKED_AS_FAVOURITE)
     {
@@ -2097,14 +2094,16 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                             ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
                             ride_rating minIntensity = (Intensity.GetMinimum() * 100) - Happiness;
 
-                            //std::string mxIntensity = "maxIntensity: " + std::to_string(maxIntensity) + "\n";
-                            //std::string mnIntensity = "minIntensity: " + std::to_string(minIntensity) + "\n";
-                            //OutputDebugStringA(mxIntensity.c_str());
-                            //OutputDebugStringA(mnIntensity.c_str());
+                            // std::string mxIntensity = "maxIntensity: " + std::to_string(maxIntensity) + "\n";
+                            // std::string mnIntensity = "minIntensity: " + std::to_string(minIntensity) + "\n";
+                            // OutputDebugStringA(mxIntensity.c_str());
+                            // OutputDebugStringA(mnIntensity.c_str());
 
-                            //!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_TRANSPORT_RIDE)
+                            //! ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_TRANSPORT_RIDE)
+
+                            // Ignore minIntensity if ride is a transport ride or guest is very nauseous.
                             if (ride.intensity < minIntensity
-                                && !ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_TRANSPORT_RIDE))
+                                && !ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_TRANSPORT_RIDE) && Nausea < 160)
                             {
                                 if (peepAtRide)
                                 {
@@ -2118,12 +2117,15 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                                 ChoseNotToGoOnRide(ride, peepAtRide, true);
                                 return false;
                             }
-                            if (ride.intensity > maxIntensity)
-                            {                                                              
+
+                            float averageIntensityRating = this->AGS.GetMedianIntensityRating(ride.id, ride.intensity);
+                            float random_value = (rand() % 901 + 100) / 100.0f;
+                            // if (ride.intensity > maxIntensity)
+                            if (averageIntensityRating > 0 && random_value > averageIntensityRating)
+                            {
                                 PeepRideIsTooIntense(this, ride, peepAtRide);
                                 return false;
                             }
-
 
                             // Nausea calculations.
                             ride_rating maxNausea = NauseaMaximumThresholds[(EnumValue(NauseaTolerance) & 3)] + Happiness;
@@ -2175,25 +2177,45 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                 }
             }
 
+            // Don't go on ride if the Queue time is too long and the guest has a low patience (to be implemented).
+            if (ride.GetMaxQueueTime() > this->AGS.GetQueueTimeThreshold()
+                && (ScenarioRand() & 0xFFFF) < this->AGS.GetQueueTimeCancelChance())
+            {
+                if (peepAtRide)
+                {
+                    InsertNewThought(PeepThoughtType::QueuingAges, ride.id);
+                    if (HappinessTarget >= 64)
+                    {
+                        HappinessTarget -= 8;
+                    }
+                    ride.UpdatePopularity(0);
+                }
+                ChoseNotToGoOnRide(ride, peepAtRide, true);
+                return false;
+            }
 
             // default value applies to an average_speed of 20 km/h and 90s ride duration
             money64 value = ride.value;
             int32_t rideTime = ride.GetTotalTime();
             int32_t averageRideSpeed = ((ride.average_speed * 9) >> 18) * 1.60934;
-            //std::normal_distribution<int32_t> dist(20, 10);
+            // std::normal_distribution<int32_t> dist(20, 10);
 
             if (rideTime > 0)
             {
                 // function graph: y\ =\sqrt{\left(x^{2}\ \cdot\left(\frac{L}{24}\right)\ \cdot\frac{z}{90}\right)}
-                // function graph2: y\ =\sqrt{\left(x^{2}\ \cdot\left(\frac{\sqrt{L\cdot2}}{\sqrt{24}}\right)\cdot\left(\frac{z}{90}\right)\right)}
-                // f log dist: f\left(L,z,\ x\right)\ =\ \left\{x\ <30:\ 3\cdot r^{2}-2r^{3},\ 1\right\}\ \cdot\log_{t}\left(mx^{n}\right)\ +\ \frac{\left(\frac{L^{o}}{24}\ \cdot\ \frac{z^{q}}{90}\right)}{b+\left(\frac{1}{z+L}\right)}
-                // f exp s bend: f\left(L,z,\ x\right)\ =\ u\left(\frac{1}{(1+\exp(-kx))}\right)^{a}\ \cdot\ \frac{\left(\frac{L^{o}}{24}\ \cdot\ \frac{z^{q}}{90}\right)}{b+\left(\frac{1}{z+L}\right)}
+                // function graph2:
+                // y\ =\sqrt{\left(x^{2}\ \cdot\left(\frac{\sqrt{L\cdot2}}{\sqrt{24}}\right)\cdot\left(\frac{z}{90}\right)\right)}
+                // f log dist: f\left(L,z,\ x\right)\ =\ \left\{x\ <30:\ 3\cdot
+                // r^{2}-2r^{3},\ 1\right\}\ \cdot\log_{t}\left(mx^{n}\right)\ +\ \frac{\left(\frac{L^{o}}{24}\ \cdot\ \frac{z^{q}}{90}\right)}{b+\left(\frac{1}{z+L}\right)}
+                // f exp s bend:
+                // f\left(L,z,\ x\right)\ =\ u\left(\frac{1}{(1+\exp(-kx))}\right)^{a}\ \cdot\ \frac{\left(\frac{L^{o}}{24}\ \cdot\
+                // \frac{z^{q}}{90}\right)}{b+\left(\frac{1}{z+L}\right)}
 
-                //money64 value2 = sqrt((value * value) * sqrt(averageRideSpeed*2) / sqrt(24) * rideTime / 90);
+                // money64 value2 = sqrt((value * value) * sqrt(averageRideSpeed*2) / sqrt(24) * rideTime / 90);
                 money64 value2 = ride.GetNormalizedRideValue(this);
-                std::string rideValue = "Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName + " ; ridetime: " + std::to_string(rideTime)
-                    + " ; avg. ride speed: " + std::to_string(averageRideSpeed) + " ; values: ("
-                    + std::to_string(value) + "," + std::to_string(value2) + ")\n";
+                std::string rideValue = "Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
+                    + " ; ridetime: " + std::to_string(rideTime) + " ; avg. ride speed: " + std::to_string(averageRideSpeed)
+                    + " ; values: (" + std::to_string(value) + "," + std::to_string(value2) + ")\n";
                 OutputDebugStringA(rideValue.c_str());
 
                 value = value2;
@@ -2692,7 +2714,7 @@ static bool PeepCheckRidePriceAtEntrance(Guest* peep, const Ride& ride, money64 
     }
 
     auto value = ride.GetNormalizedRideValue(peep);
-    //auto value = ride.value;
+    // auto value = ride.value;
     if (value != RIDE_VALUE_UNDEFINED)
     {
         if (value < ridePrice)
@@ -2927,6 +2949,9 @@ static bool PeepShouldGoOnRideAgain(Guest* peep, const Ride& ride)
         return false;
     if (peep->Toilet > 170)
         return false;
+
+    if (peep->AGS.GetMedianIntensityRating(ride.id, ride.intensity) >= 7)
+        return true;
 
     uint8_t r = (ScenarioRand() & 0xFF);
     if (r <= 128)
@@ -7160,8 +7185,8 @@ static constexpr uint8_t tshirt_colours[] = {
 /*
 void Guest::Initialize(const CoordsXYZ& coords)
 {
-    // ... initialize RideSatisfaction and other members using coords
-    RideSatisfaction = {};
+    // ... initialize RideIntensitySatisfaction and other members using coords
+    RideIntensitySatisfaction = {};
 }
 */
 
@@ -7178,12 +7203,12 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     Guest* peep = CreateEntity<Guest>();
 
     AdvancedGuestStats ags = *new AdvancedGuestStats();
-    //int numElements = ags.RideSatisfaction.size();
-    //std::cout << "Number of elements: " << numElements << std::endl;
+    // int numElements = ags.RideIntensitySatisfaction.size();
+    // std::cout << "Number of elements: " << numElements << std::endl;
     peep->AGS = ags;
-    //peep->AGS = {};
-    //new (peep) Guest;
-    //peep->Initialize(coords);
+    // peep->AGS = {};
+    // new (peep) Guest;
+    // peep->Initialize(coords);
     peep->SpriteType = PeepSpriteType::Normal;
     peep->OutsideOfPark = true;
     peep->State = PeepState::Falling;
@@ -7210,14 +7235,49 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     std::get<0>(peep->Thoughts).type = PeepThoughtType::None;
     peep->WindowInvalidateFlags = 0;
 
-    uint8_t intensityHighest = (ScenarioRand() & 0x7) + 3;
-    uint8_t intensityLowest = std::min(intensityHighest, static_cast<uint8_t>(7)) - 3;
 
-    if (intensityHighest >= 7)
+    // increase this to gravitate towards higher intensity preferences.
+    uint8_t intensityOffset = 7;
+    const uint8_t offsetParkPrefLessIntenseRides = -2;
+    const uint8_t offsetParkPrefMoreIntenseRides = 10;
+
+    uint8_t intensityRange = getRandomUniformDistributionValue<uint8_t>(4, 10);
+    if (gameState.Park.Flags & PARK_FLAGS_PREF_LESS_INTENSE_RIDES)
+    {
+        if (gameState.Park.Flags & PARK_FLAGS_PREF_MORE_INTENSE_RIDES)
+        {
+            intensityRange = 4;
+            intensityOffset = ScenarioRand() & 0x2 % 2 ? offsetParkPrefLessIntenseRides : offsetParkPrefMoreIntenseRides;
+        }
+        else
+        {
+            intensityOffset = offsetParkPrefLessIntenseRides;
+        }
+    }
+    else if (gameState.Park.Flags & PARK_FLAGS_PREF_MORE_INTENSE_RIDES)
+    {
+        intensityOffset = offsetParkPrefMoreIntenseRides;
+    }
+
+    uint8_t highestMinIntensity = getRandomUniformDistributionValue < uint8_t>(0, 15 - intensityRange + intensityOffset);
+    uint8_t intensityLowest = getRandomTemperdFunctionValue(highestMinIntensity);
+    uint8_t intensityHighest = intensityLowest + intensityRange;
+
+    if (intensityLowest == 1)
+        intensityLowest = 0;
+    if (intensityHighest > 15)
         intensityHighest = 15;
+
+    //uint8_t intensityHighest = (ScenarioRand() & 0x7) + 3;
+    //uint8_t intensityLowest = std::min(intensityHighest, static_cast<uint8_t>(7)) - 3;
+
+    //if (intensityHighest >= 7)
+    //    intensityHighest = 15;
 
     /* Check which intensity boxes are enabled
      * and apply the appropriate intensity settings. */
+
+    /*
     if (gameState.Park.Flags & PARK_FLAGS_PREF_LESS_INTENSE_RIDES)
     {
         if (gameState.Park.Flags & PARK_FLAGS_PREF_MORE_INTENSE_RIDES)
@@ -7236,6 +7296,7 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
         intensityLowest = 9;
         intensityHighest = 15;
     }
+    */
 
     peep->Intensity = IntensityRange(intensityLowest, intensityHighest);
 
@@ -7766,19 +7827,20 @@ void Guest::Serialise(DataSerialiser& stream)
     stream << FavouriteRide;
     stream << FavouriteRideRating;
     stream << ItemFlags;
-    //stream << AGS;
+    // stream << AGS;
 }
 
+// Currently only rates the ride depending on the Intensity.
 void Guest::RateRide(Ride& ride)
 {
-
-
     uint8_t rating = 0;
     float standardDistDeviation = 2.0f;
     int minIntensity = this->Intensity.GetMinimum();
     int maxIntensity = this->Intensity.GetMaximum();
     float standardDeviationM = (maxIntensity - minIntensity) / 2.0f;
     float averageIntensity = (maxIntensity + minIntensity) / 2.0f;
+    /*
+
     float probability = 0;
     std::map<uint8_t, float> probRatingMatrix;
     float totalProbability = 0;
@@ -7795,62 +7857,163 @@ void Guest::RateRide(Ride& ride)
     std::random_device rd;
     std::default_random_engine generator(rd());
     std::uniform_real_distribution<float> distribution(0, totalProbability);
-    float randomIntensity = distribution(generator);
+    float randomIntensityProbability = distribution(generator);
     totalProbability = 0;
     for (uint8_t i = minIntensity; i <= maxIntensity; i++)
     {
         totalProbability += probRatingMatrix[i];
-        if (totalProbability > randomIntensity)
+        if (totalProbability > randomIntensityProbability)
         {
-            std::normal_distribution<float> normalDist(probRatingMatrix[i] * 10, standardDistDeviation);
-            rating = normalDist(generator);
+            //std::normal_distribution<float> normalDist(probRatingMatrix[i] * 10, standardDistDeviation);
+            //rating = normalDist(generator);
+            rating = (normal_pdf(ride.intensity / 100.0f, i, standardDistDeviation) / 0.2f) * 10;
+            rating++; // Rounding up since a 10 is almost impossible.
             break;
         }
     }
+
+    */
+
+    // Main function if the intensity is within the parameters the guest likes.
+    if (ride.intensity / 100.0f > minIntensity && ride.intensity / 100.0f < maxIntensity)
+    {
+        rating = (tampered_function(minIntensity - 0.1f, maxIntensity + 0.1f, (ride.intensity / 100.0f)) / 1) * 10;
+    }
+    else
+    {
+        rating = getRideRatingProbability(
+                     ride.intensity / 100.0f, standardDeviationM, (averageIntensity - standardDeviationM) * -1)
+            * 10;
+    }
+    rating = ((rating * 2) + (ride.excitement / 100.0f)) / 3;
+    rating++;
 
     if (rating > 10)
         rating = 10;
     else if (rating < 1)
         rating = 1;
 
-    //std::map<RideId, uint8_t> RideSat = std::map<RideId, uint8_t>();
+    // Currently it's just an intensity rating. The name is misleading.
+    this->AGS.InsertRideIntensityRating(ride.id, rating, ride.intensity);
+    std::vector<GuestRideRating> rideRatings = this->AGS.FindRideIntensityRatingsByRideId(ride.id);
 
-    //RideSat.insert({ ride.id, rating });
-    //RideSatisfaction.insert({ ride.id, rating });
-    //std::swap(RideSatisfaction, RideSat);
-    //RideSat.clear();
-    this->AGS.InsertRide(ride.id, rating);
-
-    size_t numElements = this->AGS.RideSatisfaction.size();
-    if (numElements > 1)
+    if (rideRatings.size() > 1)
     {
-        for (int i = 0; i < this->AGS.RideSatisfaction.size(); ++i)
+        for (int i = 0; i < rideRatings.size(); ++i)
         {
-            std::string rat = std::to_string(this->AGS.RideSatisfaction[i].getRating());
-            std::string rideName = this->AGS.RideSatisfaction[i].getRide()->GetName();
-            std::cout << this->GetName() << " " << i << "th rating for " << ride.GetName() << " : " << rat << std::endl;
+            std::string rat = std::to_string(rideRatings[i].getRating());
+            std::string rideName = rideRatings[i].getRide()->GetName();
+            std::cout << this->GetName() << " " << i << "th rating for " << rideName << " : " << rat << std::endl;
         }
-        std::string averageRating = std::to_string(this->AGS.GetAverageRating(ride.id));
-        std::cout << "Average Ride Rating for: " << ride.GetName() << " is " << averageRating << std::endl;
+        std::string averageRating = std::to_string(this->AGS.GetMedianIntensityRating(ride.id, ride.intensity));
+        std::cout << "Median Ride Rating for: " << ride.GetName() << " is " << averageRating << std::endl;
     }
-    else if (numElements > 0)
+    else if (rideRatings.size() > 0)
     {
-        std::string test = std::to_string(this->AGS.RideSatisfaction[0].getRating());
-        std::cout << this->GetName() << " rated ride: " << this->AGS.RideSatisfaction[0].getRide()->GetName() << " = " << test
-                  << std::endl;
+        std::string r = std::to_string(this->AGS.RideIntensitySatisfaction[0].getRating());
+        std::cout << this->GetName() << " rated ride: " << this->AGS.RideIntensitySatisfaction[0].getRide()->GetName() << " = "
+                  << r << std::endl;
     }
-
-
 }
 
 float getRideRatingProbability(uint8_t value, float standardDeviation, int8_t offset)
 {
     float tampering = -2.0f;
-    //const double e = exp(1.0);
-    //float probability = pow(
-    //    (1 / standardDeviation * sqrt(2 * std::numbers::pi_v<float>)) * e, pow(-0.5f * ((value - mean) / standardDeviation),2));
-    // y=l/(1+\exp(-\operatorname{abs}(o\ +\ x-M)*(t/M)))
+    // const double e = exp(1.0);
+    // float probability = pow(
+    //     (1 / standardDeviation * sqrt(2 * std::numbers::pi_v<float>)) * e, pow(-0.5f * ((value - mean) /
+    //     standardDeviation),2));
+    //  y=l/(1+\exp(-\operatorname{abs}(o\ +\ x-M)*(t/M)))
     float probability = 2 / (1 + exp(-abs(offset + value - standardDeviation) * (tampering / standardDeviation)));
 
     return probability;
+}
+
+// RideIntensity = x
+// y=\frac{\left(x-i\right)^{\left(a-1\right)}\cdot\left(m-x\right)^{\left(a-1\right)}}{\left(m-i\right)}\cdot T
+// second function:
+// y=\frac{\left(x-i\right)^{\left(a-1\right)}\cdot\left(m-x\right)^{\left(a-1\right)}}{\left(m-i\right)^{t}}\cdot T
+double tampered_function(double min, double max, double rideIntensity)
+{
+    /* Good values:
+    const double a = 1.68f;
+    const double T = 2.7f;
+    const double n = 1.3f;
+    */
+    const double a = 1.81f;
+    const double T = 2.0f;
+    const double n = 1.81f;
+    const double upperBoundOffset = 1.05;
+
+    double peakIntensity = (max + min) / 2;
+    double peak = (std::pow(peakIntensity - min, a - 1) * std::pow(max - peakIntensity, a - 1) / std::pow(max - min, 1 + (a - n))) * T;
+
+    return (
+        (std::pow(rideIntensity - min, a - 1) * std::pow(max - rideIntensity, a - 1) / std::pow(max - min, 1 + (a - n))) * T) * upperBoundOffset / peak;
+}
+
+// probability density function (PDF)
+// f(x)=(1/(d\ *\ \sqrt{(2*\pi)}))*\exp(-((x-M)^{2})/8)
+// d = standard deviation, M = mean, peak is always ~0.2 with a standard deviation of 2
+double normal_pdf(double x, double mean, double std_dev)
+{
+    return (1.0 / (std_dev * std::sqrt(2 * std::numbers::pi))) * std::exp(-0.5 * std::pow((x - mean) / std_dev, 2));
+}
+
+// cumulative probability (CDF)
+double normal_cdf(double x, double mean, double std_dev)
+{
+    return 0.5 * (1 + std::erf((x - mean) / (std_dev * std::sqrt(2))));
+}
+
+
+float getRandomUniformDistributionValue(float minValue, float maxValue) {
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_real_distribution<float> distribution(minValue, maxValue);
+    return distribution(generator);
+}
+
+template<typename T>
+typename std::enable_if<std::is_same<T, uint8_t>::value, T>::type
+getRandomUniformDistributionValue(uint8_t minValue, uint8_t maxValue)
+{
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(minValue, maxValue);
+    return distribution(generator);
+}
+
+
+template<typename T>
+std::enable_if_t<std::is_same_v<T, uint8_t> || std::is_same_v<T, float>, T>
+getRandomNormalDistributionValue(T mean, T standardDeviation) {
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::normal_distribution<T> normalDist(mean, standardDeviation);
+    return normalDist(generator);
+}
+
+uint8_t getRandomTemperdFunctionValue(uint8_t highestMinIntensity)
+{
+    std::map<uint8_t, float> probRatingMatrix;
+    float totalProbability = 0;
+    for (uint8_t i = 0; i <= highestMinIntensity; i++)
+    {
+        float probability = tampered_function(-0.1f, highestMinIntensity, i);
+        totalProbability += probability;
+        probRatingMatrix[i] = probability;
+    }
+
+    float randomProbability = getRandomUniformDistributionValue(0.0f, totalProbability);
+    totalProbability = 0;
+    for (uint8_t i = 0; i <= highestMinIntensity; i++)
+    {
+        totalProbability += probRatingMatrix[i];
+        if (totalProbability > randomProbability)
+        {
+            return i;
+        }
+    }
+    return 0;
 }
