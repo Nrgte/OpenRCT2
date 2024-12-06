@@ -2212,7 +2212,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                 // \frac{z^{q}}{90}\right)}{b+\left(\frac{1}{z+L}\right)}
 
                 // money64 value2 = sqrt((value * value) * sqrt(averageRideSpeed*2) / sqrt(24) * rideTime / 90);
-                money64 value2 = ride.GetNormalizedRideValue(this);
+                money64 value2 = ride.GetNormalizedRideValue();
                 std::string rideValue = "Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
                     + " ; ridetime: " + std::to_string(rideTime) + " ; avg. ride speed: " + std::to_string(averageRideSpeed)
                     + " ; values: (" + std::to_string(value) + "," + std::to_string(value2) + ")\n";
@@ -2222,7 +2222,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
             }
             else
             {
-                money64 value2 = ride.GetNormalizedRideValue(this);
+                money64 value2 = ride.GetNormalizedRideValue();
                 std::string rideValue = "Flat Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
                     + " ; ridetime: " + std::to_string(rideTime) + " ; avg. ride speed: " + std::to_string(averageRideSpeed)
                     + " ; values: (" + std::to_string(value) + "," + std::to_string(value2) + ")\n";
@@ -2713,7 +2713,7 @@ static bool PeepCheckRidePriceAtEntrance(Guest* peep, const Ride& ride, money64 
         return false;
     }
 
-    auto value = ride.GetNormalizedRideValue(peep);
+    auto value = ride.GetNormalizedRideValue();
     // auto value = ride.value;
     if (value != RIDE_VALUE_UNDEFINED)
     {

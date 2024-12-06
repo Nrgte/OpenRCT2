@@ -6020,7 +6020,7 @@ ResultWithMessage Ride::ChangeStatusCreateVehicles(bool isApplying, const Coords
     return { true };
 }
 
-money64 Ride::GetNormalizedRideValue(Guest* guest) const
+money64 Ride::GetNormalizedRideValue() const
 {
     money64 oldValue = this->value;
     int32_t rideTime = this->GetTotalTime();

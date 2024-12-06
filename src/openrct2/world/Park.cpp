@@ -39,6 +39,7 @@
 #include "Entrance.h"
 #include "Map.h"
 #include "Surface.h"
+#include "Windows.h"
 
 #include <limits>
 #include <type_traits>
@@ -129,9 +130,25 @@ namespace OpenRCT2::Park
             if (ride.lifecycle_flags & RIDE_LIFECYCLE_CRASHED)
                 continue;
 
-            // Add guest score for ride type
-            suggestedMaxGuests += ride.GetRideTypeDescriptor().BonusValue;
+            // Shops should not count to the soft guest cap.
+            if (ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY))
+                continue;
 
+            money64 realRideValue = ride.GetNormalizedRideValue();
+            float amplifier = realRideValue / (ride.value * 2.0f);
+
+            // Give rides that got hammered a boost.
+            if (amplifier < 0.75)
+                amplifier *= 1.15f;
+
+            // We give them a little boost to compensate for the facility guest cap loss.
+            if (!gameState.Park.Flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION || ride.excitement > RIDE_RATING(6, 00))
+                amplifier *= 1.25f;
+
+            // Add guest score for ride type
+            suggestedMaxGuests += ride.GetRideTypeDescriptor().BonusValue * amplifier;
+
+            /*
             // If difficult guest generation, extra guests are available for good rides
             if (gameState.Park.Flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
             {
@@ -149,15 +166,22 @@ namespace OpenRCT2::Park
                 // Bonus guests for good ride
                 difficultGenerationBonus += ride.GetRideTypeDescriptor().BonusValue * 2;
             }
+            */
         }
-
+        /*
         if (gameState.Park.Flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION)
         {
             suggestedMaxGuests = std::min<uint32_t>(suggestedMaxGuests, 1000);
             suggestedMaxGuests += difficultGenerationBonus;
         }
+        */
 
         suggestedMaxGuests = std::min<uint32_t>(suggestedMaxGuests, 65535);
+
+        // Delete Debug Output
+        std::string softGuestCapString = "Soft Guest Cap = " + std::to_string(suggestedMaxGuests) + "\n";
+        OutputDebugStringA(softGuestCapString.c_str());
+
         return suggestedMaxGuests;
     }
 
