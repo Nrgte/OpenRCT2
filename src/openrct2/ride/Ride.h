@@ -57,7 +57,9 @@ constexpr uint8_t kRideMaxNumPoweredLiftsCount = 3;
 constexpr uint8_t kRideNumPoweredLiftsMask = 0b11000000;
 
 constexpr money64 kRideMinPrice = 0.00_GBP;
-constexpr money64 kRideMaxPrice = 20.00_GBP;
+//constexpr money64 kRideMaxPrice = 20.00_GBP;
+constexpr money64 kRideMaxPrice = 40.00_GBP;
+constexpr money64 MAX_RIDE_PRICE = 40.00_GBP;
 
 extern const StringId kRideInspectionIntervalNames[];
 

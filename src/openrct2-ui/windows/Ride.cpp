@@ -80,8 +80,6 @@ namespace OpenRCT2::Ui::Windows
     static constexpr int32_t WH = 207;
     static constexpr int32_t WW = 316;
 
-    static const money64 MAX_RIDE_PRICE = 40.00_GBP;
-
     enum
     {
         WINDOW_RIDE_PAGE_MAIN,
