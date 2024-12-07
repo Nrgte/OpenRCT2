@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../core/String.hpp"
+#include "../core/StringTypes.h"
+#include "Colour.h"
 
 #include <string_view>
 
@@ -38,7 +38,7 @@ void ChatToggle();
 
 void ChatInit();
 void ChatUpdate();
-void ChatDraw(DrawPixelInfo& dpi, uint8_t chatBackgroundColour);
+void ChatDraw(DrawPixelInfo& dpi, ColourWithFlags chatBackgroundColour);
 
 void ChatAddHistory(std::string_view s);
 void ChatInput(ChatInput input);

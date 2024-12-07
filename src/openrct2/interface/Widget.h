@@ -38,6 +38,7 @@ enum class WindowWidgetType : uint8_t
     Scroll = 22,
     Checkbox = 23,
     Placeholder = 25,
+    ProgressBar = 29,
     Custom = 28,
     TextBox = 27,
     Last = 26,
@@ -61,5 +62,3 @@ enum
     SCROLL_VERTICAL = (1 << 1),
     SCROLL_BOTH = SCROLL_HORIZONTAL | SCROLL_VERTICAL
 };
-
-void WidgetScrollUpdateThumbs(WindowBase& w, WidgetIndex widget_index);

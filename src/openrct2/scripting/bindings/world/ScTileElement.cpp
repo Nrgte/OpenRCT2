@@ -12,15 +12,23 @@
 #    include "ScTileElement.hpp"
 
 #    include "../../../Context.h"
-#    include "../../../common.h"
 #    include "../../../core/Guard.hpp"
 #    include "../../../entity/EntityRegistry.h"
+#    include "../../../object/LargeSceneryEntry.h"
+#    include "../../../object/WallSceneryEntry.h"
 #    include "../../../ride/Ride.h"
 #    include "../../../ride/RideData.h"
 #    include "../../../ride/Track.h"
 #    include "../../../world/Footpath.h"
 #    include "../../../world/Scenery.h"
-#    include "../../../world/Surface.h"
+#    include "../../../world/tile_element/BannerElement.h"
+#    include "../../../world/tile_element/EntranceElement.h"
+#    include "../../../world/tile_element/LargeSceneryElement.h"
+#    include "../../../world/tile_element/PathElement.h"
+#    include "../../../world/tile_element/SmallSceneryElement.h"
+#    include "../../../world/tile_element/SurfaceElement.h"
+#    include "../../../world/tile_element/TrackElement.h"
+#    include "../../../world/tile_element/WallElement.h"
 #    include "../../Duktape.hpp"
 #    include "../../ScriptEngine.h"
 
@@ -63,6 +71,7 @@ namespace OpenRCT2::Scripting
 
     void ScTileElement::type_set(std::string value)
     {
+        RemoveBannerEntryIfNeeded();
         if (value == "surface")
             _element->SetType(TileElementType::Surface);
         else if (value == "footpath")
@@ -85,7 +94,7 @@ namespace OpenRCT2::Scripting
             scriptEngine.LogPluginInfo("Element type not recognised!");
             return;
         }
-
+        CreateBannerEntryIfNeeded();
         Invalidate();
     }
 
@@ -414,7 +423,7 @@ namespace OpenRCT2::Scripting
         auto* el = _element->AsTrack();
         if (el != nullptr)
         {
-            duk_push_int(ctx, el->GetTrackType());
+            duk_push_int(ctx, EnumValue(el->GetTrackType()));
         }
         else
         {
@@ -434,7 +443,7 @@ namespace OpenRCT2::Scripting
             return;
         }
 
-        el->SetTrackType(value);
+        el->SetTrackType(static_cast<TrackElemType>(value));
         Invalidate();
     }
 
@@ -499,7 +508,7 @@ namespace OpenRCT2::Scripting
                     if (ride != nullptr)
                     {
                         const auto& rtd = ride->GetRideTypeDescriptor();
-                        if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+                        if (rtd.HasFlag(RtdFlag::isMaze))
                             throw DukException() << "Cannot read 'sequence' property, TrackElement belongs to a maze.";
                     }
 
@@ -537,8 +546,10 @@ namespace OpenRCT2::Scripting
             {
                 case TileElementType::LargeScenery:
                 {
+                    RemoveBannerEntryIfNeeded();
                     auto* el = _element->AsLargeScenery();
                     el->SetSequenceIndex(value.as_uint());
+                    CreateBannerEntryIfNeeded();
                     Invalidate();
                     break;
                 }
@@ -550,7 +561,7 @@ namespace OpenRCT2::Scripting
                     if (ride != nullptr)
                     {
                         const auto& rtd = ride->GetRideTypeDescriptor();
-                        if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+                        if (rtd.HasFlag(RtdFlag::isMaze))
                             throw DukException() << "Cannot set 'sequence' property, TrackElement belongs to a maze.";
                     }
 
@@ -823,7 +834,7 @@ namespace OpenRCT2::Scripting
                 throw DukException() << "Cannot read 'mazeEntry' property, ride is invalid.";
 
             const auto& rtd = ride->GetRideTypeDescriptor();
-            if (!rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+            if (!rtd.HasFlag(RtdFlag::isMaze))
                 throw DukException() << "Cannot read 'mazeEntry' property, ride is not a maze.";
 
             duk_push_int(ctx, el->GetMazeEntry());
@@ -853,7 +864,7 @@ namespace OpenRCT2::Scripting
                 throw DukException() << "Cannot set 'mazeEntry' property, ride is invalid.";
 
             const auto& rtd = ride->GetRideTypeDescriptor();
-            if (!rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+            if (!rtd.HasFlag(RtdFlag::isMaze))
                 throw DukException() << "Cannot set 'mazeEntry' property, ride is not a maze.";
 
             el->SetMazeEntry(value.as_uint());
@@ -881,7 +892,7 @@ namespace OpenRCT2::Scripting
                 throw DukException() << "Cannot read 'colourScheme' property, ride is invalid.";
 
             const auto& rtd = ride->GetRideTypeDescriptor();
-            if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+            if (rtd.HasFlag(RtdFlag::isMaze))
                 throw DukException() << "Cannot read 'colourScheme' property, TrackElement belongs to a maze.";
 
             duk_push_int(ctx, el->GetColourScheme());
@@ -911,10 +922,10 @@ namespace OpenRCT2::Scripting
                 throw DukException() << "Cannot set 'colourScheme', ride is invalid.";
 
             const auto& rtd = ride->GetRideTypeDescriptor();
-            if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+            if (rtd.HasFlag(RtdFlag::isMaze))
                 throw DukException() << "Cannot set 'colourScheme' property, TrackElement belongs to a maze.";
 
-            el->SetColourScheme(value.as_uint());
+            el->SetColourScheme(static_cast<RideColourScheme>(value.as_uint()));
             Invalidate();
         }
         catch (const DukException& e)
@@ -939,7 +950,7 @@ namespace OpenRCT2::Scripting
                 throw DukException() << "Cannot read 'seatRotation' property, ride is invalid.";
 
             const auto& rtd = ride->GetRideTypeDescriptor();
-            if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+            if (rtd.HasFlag(RtdFlag::isMaze))
                 throw DukException() << "Cannot read 'seatRotation' property, TrackElement belongs to a maze.";
 
             duk_push_int(ctx, el->GetSeatRotation());
@@ -969,7 +980,7 @@ namespace OpenRCT2::Scripting
                 throw DukException() << "Cannot set 'seatRotation' property, ride is invalid.";
 
             const auto& rtd = ride->GetRideTypeDescriptor();
-            if (!rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+            if (!rtd.HasFlag(RtdFlag::isMaze))
                 throw DukException() << "Cannot set 'seatRotation' property, TrackElement belongs to a maze.";
 
             el->SetSeatRotation(value.as_uint());
@@ -1194,15 +1205,19 @@ namespace OpenRCT2::Scripting
             }
             case TileElementType::LargeScenery:
             {
+                RemoveBannerEntryIfNeeded();
                 auto* el = _element->AsLargeScenery();
                 el->SetEntryIndex(index);
+                CreateBannerEntryIfNeeded();
                 Invalidate();
                 break;
             }
             case TileElementType::Wall:
             {
+                RemoveBannerEntryIfNeeded();
                 auto* el = _element->AsWall();
                 el->SetEntryIndex(index);
+                CreateBannerEntryIfNeeded();
                 Invalidate();
                 break;
             }
@@ -1653,7 +1668,7 @@ namespace OpenRCT2::Scripting
             if (value.type() == DukValue::Type::NUMBER)
             {
                 el->SetSloped(true);
-                el->SetSlopeDirection(value.as_int());
+                el->SetSlopeDirection(value.as_uint());
             }
             else
             {
@@ -1706,7 +1721,7 @@ namespace OpenRCT2::Scripting
             if (value.type() == DukValue::Type::NUMBER)
             {
                 el->SetHasQueueBanner(true);
-                el->SetQueueBannerDirection(value.as_int());
+                el->SetQueueBannerDirection(value.as_uint());
             }
             else
             {
@@ -1856,8 +1871,8 @@ namespace OpenRCT2::Scripting
         {
             if (value.type() == DukValue::Type::NUMBER)
             {
-                auto addition = value.as_int();
-                if (addition >= 0 && addition <= 254)
+                auto addition = value.as_uint();
+                if (addition <= 254)
                 {
                     el->SetAdditionEntryIndex(addition);
                 }
@@ -2138,6 +2153,128 @@ namespace OpenRCT2::Scripting
     void ScTileElement::Invalidate()
     {
         MapInvalidateTileFull(_coords);
+    }
+
+    const LargeSceneryElement* ScTileElement::GetOtherLargeSceneryElement(
+        const CoordsXY& loc, const LargeSceneryElement* const largeScenery)
+    {
+        const auto* const largeEntry = largeScenery->GetEntry();
+        const auto direction = largeScenery->GetDirection();
+        const auto sequenceIndex = largeScenery->GetSequenceIndex();
+        const auto& tiles = largeEntry->tiles;
+        const auto& initialTile = tiles[sequenceIndex];
+        const auto rotatedFirstTile = CoordsXYZ{
+            CoordsXY{ initialTile.offset }.Rotate(direction),
+            initialTile.offset.z,
+        };
+
+        const auto firstTile = CoordsXYZ{ loc, largeScenery->GetBaseZ() } - rotatedFirstTile;
+        for (auto& tile : tiles)
+        {
+            const auto rotatedCurrentTile = CoordsXYZ{ CoordsXY{ tile.offset }.Rotate(direction), tile.offset.z };
+
+            const auto currentTile = firstTile + rotatedCurrentTile;
+
+            const TileElement* tileElement = MapGetFirstElementAt(currentTile);
+            if (tileElement != nullptr)
+            {
+                do
+                {
+                    if (tileElement->GetType() != TileElementType::LargeScenery)
+                        continue;
+                    if (tileElement->GetDirection() != direction)
+                        continue;
+                    if (tileElement->GetBaseZ() != currentTile.z)
+                        continue;
+
+                    if (tileElement->AsLargeScenery() == largeScenery)
+                        continue;
+                    if (tileElement->AsLargeScenery()->GetEntryIndex() != largeScenery->GetEntryIndex())
+                        continue;
+                    if (tileElement->AsLargeScenery()->GetSequenceIndex() != tile.index)
+                        continue;
+
+                    return tileElement->AsLargeScenery();
+                } while (!(tileElement++)->IsLastForTile());
+            }
+        }
+        return nullptr;
+    }
+
+    void ScTileElement::RemoveBannerEntryIfNeeded()
+    {
+        // check if other element still uses the banner entry
+        if (_element->GetType() == TileElementType::LargeScenery
+            && _element->AsLargeScenery()->GetEntry()->scrolling_mode != SCROLLING_MODE_NONE
+            && GetOtherLargeSceneryElement(_coords, _element->AsLargeScenery()) != nullptr)
+            return;
+        // remove banner entry (if one exists)
+        _element->RemoveBannerEntry();
+    }
+
+    void ScTileElement::CreateBannerEntryIfNeeded()
+    {
+        // check if creation is needed
+        switch (_element->GetType())
+        {
+            case TileElementType::Banner:
+                break;
+            case TileElementType::Wall:
+            {
+                auto wallEntry = _element->AsWall()->GetEntry();
+                if (wallEntry == nullptr || wallEntry->scrolling_mode == SCROLLING_MODE_NONE)
+                    return;
+                break;
+            }
+            case TileElementType::LargeScenery:
+            {
+                auto largeScenery = _element->AsLargeScenery();
+                auto largeSceneryEntry = largeScenery->GetEntry();
+                if (largeSceneryEntry == nullptr || largeSceneryEntry->scrolling_mode == SCROLLING_MODE_NONE)
+                    return;
+
+                auto otherElement = GetOtherLargeSceneryElement(_coords, largeScenery);
+                if (otherElement != nullptr)
+                {
+                    largeScenery->SetBannerIndex(otherElement->GetBannerIndex());
+                    return;
+                }
+
+                break;
+            }
+            default:
+                return;
+        }
+
+        // create banner entry and initialise it
+        auto* banner = CreateBanner();
+        if (banner == nullptr)
+            GetContext()->GetScriptEngine().LogPluginInfo("No free banners available.");
+        else
+        {
+            banner->text = {};
+            banner->colour = 0;
+            banner->text_colour = 0;
+            banner->flags = 0;
+            if (_element->GetType() == TileElementType::Wall)
+                banner->flags = BANNER_FLAG_IS_WALL;
+            if (_element->GetType() == TileElementType::LargeScenery)
+                banner->flags = BANNER_FLAG_IS_LARGE_SCENERY;
+            banner->type = 0;
+            banner->position = TileCoordsXY(_coords);
+
+            if (_element->GetType() == TileElementType::Wall || _element->GetType() == TileElementType::LargeScenery)
+            {
+                RideId rideIndex = BannerGetClosestRideIndex({ _coords, _element->BaseHeight });
+                if (!rideIndex.IsNull())
+                {
+                    banner->ride_index = rideIndex;
+                    banner->flags |= BANNER_FLAG_LINKED_TO_RIDE;
+                }
+            }
+
+            _element->SetBannerIndex(banner->id);
+        }
     }
 
     void ScTileElement::Register(duk_context* ctx)

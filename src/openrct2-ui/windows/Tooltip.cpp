@@ -16,21 +16,18 @@
 #include <openrct2/drawing/Drawing.h>
 #include <openrct2/localisation/Formatter.h>
 #include <openrct2/localisation/Formatting.h>
-#include <openrct2/localisation/Localisation.h>
 
 namespace OpenRCT2::Ui::Windows
 {
-    // clang-format off
-enum {
-    WIDX_BACKGROUND
-};
+    enum
+    {
+        WIDX_BACKGROUND
+    };
 
-static Widget _tooltipWidgets[] = {
-    MakeWidget({0, 0}, {200, 32}, WindowWidgetType::ImgBtn, WindowColour::Primary),
-    kWidgetsEnd,
-};
-
-    // clang-format on
+    static Widget _tooltipWidgets[] = {
+        MakeWidget({ 0, 0 }, { 200, 32 }, WindowWidgetType::ImgBtn, WindowColour::Primary),
+        kWidgetsEnd,
+    };
 
     class TooltipWindow final : public Window
     {

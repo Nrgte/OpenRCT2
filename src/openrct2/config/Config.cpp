@@ -11,6 +11,7 @@
 
 #include "../Context.h"
 #include "../Date.h"
+#include "../Diagnostic.h"
 #include "../OpenRCT2.h"
 #include "../PlatformEnvironment.h"
 #include "../core/Console.hpp"
@@ -21,8 +22,8 @@
 #include "../drawing/IDrawingEngine.h"
 #include "../interface/Window.h"
 #include "../localisation/Currency.h"
+#include "../localisation/Formatting.h"
 #include "../localisation/Language.h"
-#include "../localisation/Localisation.h"
 #include "../localisation/StringIds.h"
 #include "../network/network.h"
 #include "../paint/VirtualFloor.h"
@@ -39,9 +40,14 @@ using namespace OpenRCT2;
 using namespace OpenRCT2::Ui;
 
 #ifdef __APPLE__
-static constexpr bool WindowButtonsOnTheLeftDefault = true;
+static constexpr bool kWindowButtonsOnTheLeftDefault = true;
 #else
-static constexpr bool WindowButtonsOnTheLeftDefault = false;
+static constexpr bool kWindowButtonsOnTheLeftDefault = false;
+#endif
+#ifdef __ANDROID__
+static constexpr bool kEnlargedUiDefault = true;
+#else
+static constexpr bool kEnlargedUiDefault = false;
 #endif
 
 namespace OpenRCT2::Config
@@ -183,7 +189,7 @@ namespace OpenRCT2::Config
             model->WindowWidth = reader->GetInt32("window_width", -1);
             model->DefaultDisplay = reader->GetInt32("default_display", 0);
             model->DrawingEngine = reader->GetEnum<DrawingEngine>(
-                "drawing_engine", DrawingEngine::Software, Enum_DrawingEngine);
+                "drawing_engine", DrawingEngine::SoftwareWithHardwareDisplay, Enum_DrawingEngine);
             model->UncapFPS = reader->GetBoolean("uncap_fps", false);
             model->UseVSync = reader->GetBoolean("use_vsync", true);
             model->VirtualFloorStyle = reader->GetEnum<VirtualFloorStyles>(
@@ -207,6 +213,7 @@ namespace OpenRCT2::Config
             model->DisableLightningEffect = reader->GetBoolean("disable_lightning_effect", false);
             model->SteamOverlayPause = reader->GetBoolean("steam_overlay_pause", true);
             model->WindowScale = reader->GetFloat("window_scale", Platform::GetDefaultScale());
+            model->InferDisplayDPI = reader->GetBoolean("infer_display_dpi", true);
             model->ShowFPS = reader->GetBoolean("show_fps", false);
 #ifdef _DEBUG
             // Always have multi-threading disabled in debug builds, this makes things slower.
@@ -230,6 +237,7 @@ namespace OpenRCT2::Config
             model->RenderWeatherGloom = reader->GetBoolean("render_weather_gloom", true);
             model->ShowGuestPurchases = reader->GetBoolean("show_guest_purchases", false);
             model->ShowRealNamesOfGuests = reader->GetBoolean("show_real_names_of_guests", true);
+            model->ShowRealNamesOfStaff = reader->GetBoolean("show_real_names_of_staff", false);
             model->AllowEarlyCompletion = reader->GetBoolean("allow_early_completion", false);
             model->AssetPackOrder = reader->GetString("asset_pack_order", "");
             model->EnabledAssetPacks = reader->GetString("enabled_asset_packs", "");
@@ -297,6 +305,7 @@ namespace OpenRCT2::Config
         writer->WriteBoolean("disable_lightning_effect", model->DisableLightningEffect);
         writer->WriteBoolean("steam_overlay_pause", model->SteamOverlayPause);
         writer->WriteFloat("window_scale", model->WindowScale);
+        writer->WriteBoolean("infer_display_dpi", model->InferDisplayDPI);
         writer->WriteBoolean("show_fps", model->ShowFPS);
         writer->WriteBoolean("multithreading", model->MultiThreading);
         writer->WriteBoolean("trap_cursor", model->TrapCursor);
@@ -315,6 +324,7 @@ namespace OpenRCT2::Config
         writer->WriteBoolean("render_weather_gloom", model->RenderWeatherGloom);
         writer->WriteBoolean("show_guest_purchases", model->ShowGuestPurchases);
         writer->WriteBoolean("show_real_names_of_guests", model->ShowRealNamesOfGuests);
+        writer->WriteBoolean("show_real_names_of_staff", model->ShowRealNamesOfStaff);
         writer->WriteBoolean("allow_early_completion", model->AllowEarlyCompletion);
         writer->WriteString("asset_pack_order", model->AssetPackOrder);
         writer->WriteString("enabled_asset_packs", model->EnabledAssetPacks);
@@ -350,7 +360,9 @@ namespace OpenRCT2::Config
             model->ObjectSelectionFilterFlags = reader->GetInt32("object_selection_filter_flags", 0x3FFF);
             model->ScenarioselectLastTab = reader->GetInt32("scenarioselect_last_tab", 0);
             model->ListRideVehiclesSeparately = reader->GetBoolean("list_ride_vehicles_separately", false);
-            model->WindowButtonsOnTheLeft = reader->GetBoolean("window_buttons_on_the_left", WindowButtonsOnTheLeftDefault);
+            model->WindowButtonsOnTheLeft = reader->GetBoolean("window_buttons_on_the_left", kWindowButtonsOnTheLeftDefault);
+            model->EnlargedUi = reader->GetBoolean("enlarged_ui", kEnlargedUiDefault);
+            model->TouchEnhancements = reader->GetBoolean("touch_enhancements", kEnlargedUiDefault);
         }
     }
 
@@ -374,6 +386,8 @@ namespace OpenRCT2::Config
         writer->WriteInt32("scenarioselect_last_tab", model->ScenarioselectLastTab);
         writer->WriteBoolean("list_ride_vehicles_separately", model->ListRideVehiclesSeparately);
         writer->WriteBoolean("window_buttons_on_the_left", model->WindowButtonsOnTheLeft);
+        writer->WriteBoolean("enlarged_ui", model->EnlargedUi);
+        writer->WriteBoolean("touch_enhancements", model->TouchEnhancements);
     }
 
     static void ReadSound(IIniReader* reader)
@@ -664,15 +678,7 @@ namespace OpenRCT2::Config
     {
         LOG_VERBOSE("config_find_rct1_path(...)");
 
-        static constexpr u8string_view searchLocations[] = {
-            R"(C:\Program Files\Steam\steamapps\common\Rollercoaster Tycoon Deluxe)",
-            R"(C:\Program Files (x86)\Steam\steamapps\common\Rollercoaster Tycoon Deluxe)",
-            R"(C:\GOG Games\RollerCoaster Tycoon Deluxe)",
-            R"(C:\Program Files\GalaxyClient\Games\RollerCoaster Tycoon Deluxe)",
-            R"(C:\Program Files (x86)\GalaxyClient\Games\RollerCoaster Tycoon Deluxe)",
-            R"(C:\Program Files\Hasbro Interactive\RollerCoaster Tycoon)",
-            R"(C:\Program Files (x86)\Hasbro Interactive\RollerCoaster Tycoon)",
-        };
+        static std::vector<u8string_view> searchLocations = Platform::GetSearchablePathsRCT1();
 
         for (const auto& location : searchLocations)
         {
@@ -709,19 +715,7 @@ namespace OpenRCT2::Config
     {
         LOG_VERBOSE("config_find_rct2_path(...)");
 
-        static constexpr u8string_view searchLocations[] = {
-            R"(C:\Program Files\Steam\steamapps\common\Rollercoaster Tycoon 2)",
-            R"(C:\Program Files (x86)\Steam\steamapps\common\Rollercoaster Tycoon 2)",
-            R"(C:\GOG Games\RollerCoaster Tycoon 2 Triple Thrill Pack)",
-            R"(C:\Program Files\GalaxyClient\Games\RollerCoaster Tycoon 2 Triple Thrill Pack)",
-            R"(C:\Program Files (x86)\GalaxyClient\Games\RollerCoaster Tycoon 2 Triple Thrill Pack)",
-            R"(C:\Program Files\Atari\RollerCoaster Tycoon 2)",
-            R"(C:\Program Files (x86)\Atari\RollerCoaster Tycoon 2)",
-            R"(C:\Program Files\Infogrames\RollerCoaster Tycoon 2)",
-            R"(C:\Program Files (x86)\Infogrames\RollerCoaster Tycoon 2)",
-            R"(C:\Program Files\Infogrames Interactive\RollerCoaster Tycoon 2)",
-            R"(C:\Program Files (x86)\Infogrames Interactive\RollerCoaster Tycoon 2)",
-        };
+        static std::vector<u8string_view> searchLocations = Platform::GetSearchablePathsRCT2();
 
         for (const auto& location : searchLocations)
         {
@@ -755,7 +749,7 @@ namespace OpenRCT2::Config
         return {};
     }
 
-    static bool SelectGogInstaller(utf8* installerPath)
+    static u8string SelectGogInstaller()
     {
         FileDialogDesc desc{};
         desc.Type = FileDialogType::Open;
@@ -766,7 +760,7 @@ namespace OpenRCT2::Config
         const auto userHomePath = Platform::GetFolderPath(SPECIAL_FOLDER::USER_HOME);
         desc.InitialDirectory = userHomePath;
 
-        return ContextOpenCommonFileDialog(installerPath, desc, 4096);
+        return ContextOpenCommonFileDialog(desc);
     }
 
     static bool ExtractGogInstaller(const u8string& installerPath, const u8string& targetPath)
@@ -894,8 +888,8 @@ namespace OpenRCT2::Config
                         while (true)
                         {
                             uiContext->ShowMessageBox(LanguageGetString(STR_PLEASE_SELECT_GOG_INSTALLER));
-                            utf8 gogPath[4096];
-                            if (!SelectGogInstaller(gogPath))
+                            auto gogPath = SelectGogInstaller();
+                            if (gogPath.empty())
                             {
                                 // The user clicked "Cancel", so stop trying.
                                 return false;

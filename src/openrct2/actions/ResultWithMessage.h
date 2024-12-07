@@ -9,8 +9,7 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../localisation/StringIds.h"
+#include "../localisation/StringIdType.h"
 
 struct ResultWithMessage
 {

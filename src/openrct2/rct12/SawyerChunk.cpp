@@ -9,12 +9,13 @@
 
 #include "SawyerChunk.h"
 
-#include "../core/Memory.hpp"
 #include "SawyerChunkReader.h"
 
-SawyerChunk::SawyerChunk(SAWYER_ENCODING encoding, std::unique_ptr<uint8_t[]> data, size_t length)
+namespace OpenRCT2
 {
-    _encoding = encoding;
-    _data = std::move(data);
-    _length = length;
-}
+    SawyerChunk::SawyerChunk(SAWYER_ENCODING encoding, MemoryStream&& data)
+        : _data(std::move(data))
+        , _encoding(encoding)
+    {
+    }
+} // namespace OpenRCT2

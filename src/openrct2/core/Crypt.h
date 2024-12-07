@@ -11,12 +11,14 @@
 
 #include <array>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
-namespace Crypt
+namespace OpenRCT2::Crypt
 {
-    template<size_t TLength> class HashAlgorithm
+    template<size_t TLength>
+    class HashAlgorithm
     {
     public:
         using Result = std::array<uint8_t, TLength>;
@@ -71,4 +73,4 @@ namespace Crypt
     {
         return CreateSHA256()->Update(data, dataLen)->Finish();
     }
-} // namespace Crypt
+} // namespace OpenRCT2::Crypt

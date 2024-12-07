@@ -9,9 +9,9 @@
 
 #include "Text.h"
 
+#include "../core/UTF8.h"
 #include "../localisation/Formatter.h"
 #include "../localisation/Formatting.h"
-#include "../localisation/Localisation.h"
 #include "Drawing.h"
 
 class StaticLayout
@@ -52,7 +52,7 @@ public:
         for (int32_t line = 0; line < LineCount; ++line)
         {
             DrawText(dpi, lineCoords, tempPaint, buffer);
-            tempPaint.Colour = TEXT_COLOUR_254;
+            tempPaint.Colour = kTextColour254;
             buffer = GetStringEnd(buffer) + 1;
             lineCoords.y += LineHeight;
         }
@@ -152,7 +152,7 @@ int32_t DrawTextWrapped(
 {
     const void* args = ft.Data();
 
-    StaticLayout layout(FormatStringIDLegacy(format, args), textPaint, width);
+    StaticLayout layout(OpenRCT2::FormatStringIDLegacy(format, args), textPaint, width);
 
     if (textPaint.Alignment == TextAlignment::CENTRE)
     {

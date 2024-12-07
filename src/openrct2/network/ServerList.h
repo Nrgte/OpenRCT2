@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "../common.h"
 #include "../core/JsonFwd.hpp"
+#include "../localisation/StringIdType.h"
 
 #include <future>
 #include <optional>
@@ -80,4 +80,6 @@ public:
         : StatusText(statusText)
     {
     }
+
+    const char* what() const noexcept override;
 };

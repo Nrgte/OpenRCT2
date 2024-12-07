@@ -10,18 +10,18 @@
 #include "RideSetColourSchemeAction.h"
 
 #include "../Cheats.h"
-#include "../common.h"
 #include "../core/MemoryStream.h"
 #include "../interface/Window.h"
-#include "../localisation/Localisation.h"
 #include "../localisation/StringIds.h"
 #include "../management/Finance.h"
 #include "../ride/Ride.h"
 #include "../ride/RideConstruction.h"
 #include "../world/Park.h"
 
+using namespace OpenRCT2;
+
 RideSetColourSchemeAction::RideSetColourSchemeAction(
-    const CoordsXYZD& location, track_type_t trackType, uint16_t newColourScheme)
+    const CoordsXYZD& location, OpenRCT2::TrackElemType trackType, uint16_t newColourScheme)
     : _loc(location)
     , _trackType(trackType)
     , _newColourScheme(newColourScheme)
@@ -64,7 +64,7 @@ GameActions::Result RideSetColourSchemeAction::Query() const
                 GameActions::Status::InvalidParameters, STR_CANT_SET_COLOUR_SCHEME, STR_INVALID_TRACK_PARAMETERS);
         }
     }
-    if (_newColourScheme >= OpenRCT2::Limits::NumColourSchemes)
+    if (_newColourScheme >= kNumRideColourSchemes)
     {
         return GameActions::Result(
             GameActions::Status::InvalidParameters, STR_CANT_SET_COLOUR_SCHEME, STR_INVALID_COLOUR_SCHEME_PARAMETER);

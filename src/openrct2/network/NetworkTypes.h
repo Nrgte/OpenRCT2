@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "../common.h"
 #include "../core/Endianness.h"
 #include "../ride/RideTypes.h"
 #include "../util/Util.h"
@@ -109,7 +108,8 @@ struct NetworkServerState
 // this structure can be used in combination with DataSerialiser
 // to provide extra details with template specialization.
 #pragma pack(push, 1)
-template<typename T, size_t _TypeID> struct NetworkObjectId
+template<typename T, size_t _TypeID>
+struct NetworkObjectId
 {
     NetworkObjectId(T v)
         : id(v)

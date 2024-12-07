@@ -13,8 +13,8 @@
 
 #    include <SDL_video.h>
 #    include <algorithm>
+#    include <cassert>
 #    include <memory>
-#    include <openrct2/common.h>
 
 using namespace OpenRCT2::Ui;
 
@@ -105,7 +105,7 @@ void OpenGLFramebuffer::GetPixels(DrawPixelInfo& dpi) const
     {
         std::copy_n(src, _width, dst);
         src -= _width;
-        dst += dpi.width + dpi.pitch;
+        dst += dpi.LineStride();
     }
 }
 

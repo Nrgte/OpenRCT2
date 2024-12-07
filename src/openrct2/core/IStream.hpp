@@ -9,9 +9,7 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../object/Object.h"
-#include "Memory.hpp"
+#include "StringTypes.h"
 
 #include <istream>
 #include <memory>
@@ -48,20 +46,20 @@ namespace OpenRCT2
         {
         }
 
-        virtual bool CanRead() const abstract;
-        virtual bool CanWrite() const abstract;
+        virtual bool CanRead() const = 0;
+        virtual bool CanWrite() const = 0;
 
-        virtual uint64_t GetLength() const abstract;
-        virtual uint64_t GetPosition() const abstract;
-        virtual void SetPosition(uint64_t position) abstract;
-        virtual void Seek(int64_t offset, int32_t origin) abstract;
+        virtual uint64_t GetLength() const = 0;
+        virtual uint64_t GetPosition() const = 0;
+        virtual void SetPosition(uint64_t position) = 0;
+        virtual void Seek(int64_t offset, int32_t origin) = 0;
 
-        virtual void Read(void* buffer, uint64_t length) abstract;
-        virtual void Write(const void* buffer, uint64_t length) abstract;
+        virtual void Read(void* buffer, uint64_t length) = 0;
+        virtual void Write(const void* buffer, uint64_t length) = 0;
 
-        virtual uint64_t TryRead(void* buffer, uint64_t length) abstract;
+        virtual uint64_t TryRead(void* buffer, uint64_t length) = 0;
 
-        virtual const void* GetData() const abstract;
+        virtual const void* GetData() const = 0;
 
         ///////////////////////////////////////////////////////////////////////////
         // Fast path methods, class can override them to use specialised copies.
@@ -114,7 +112,8 @@ namespace OpenRCT2
         /**
          * Reads the size of the given type from the stream directly into the given address.
          */
-        template<typename T> void Read(T* value)
+        template<typename T>
+        void Read(T* value)
         {
             // Selects the best path at compile time
             if constexpr (sizeof(T) == 1)
@@ -146,7 +145,8 @@ namespace OpenRCT2
         /**
          * Writes the size of the given type to the stream directly from the given address.
          */
-        template<typename T> void Write(const T* value)
+        template<typename T>
+        void Write(const T* value)
         {
             // Selects the best path at compile time
             if constexpr (sizeof(T) == 1)
@@ -178,7 +178,8 @@ namespace OpenRCT2
         /**
          * Reads the given type from the stream. Use this only for small types (e.g. int8_t, int64_t, double)
          */
-        template<typename T> T ReadValue()
+        template<typename T>
+        T ReadValue()
         {
             T buffer;
             Read(&buffer);
@@ -188,24 +189,26 @@ namespace OpenRCT2
         /**
          * Writes the given type to the stream. Use this only for small types (e.g. int8_t, int64_t, double)
          */
-        template<typename T> void WriteValue(const T value)
+        template<typename T>
+        void WriteValue(const T value)
         {
             Write(&value);
         }
 
-        template<typename T> [[nodiscard]] std::unique_ptr<T[]> ReadArray(size_t count)
+        template<typename T>
+        [[nodiscard]] std::unique_ptr<T[]> ReadArray(size_t count)
         {
             auto buffer = std::make_unique<T[]>(count);
             Read(buffer.get(), sizeof(T) * count);
             return buffer;
         }
 
-        template<typename T> void WriteArray(T* buffer, size_t count)
+        template<typename T>
+        void WriteArray(T* buffer, size_t count)
         {
             Write(buffer, sizeof(T) * count);
         }
 
-        utf8* ReadString();
         std::string ReadStdString();
         void WriteString(const utf8* str);
         void WriteString(const std::string_view string);
@@ -227,7 +230,8 @@ public:
     }
 };
 
-template<typename T> class ivstream : public std::istream
+template<typename T>
+class ivstream : public std::istream
 {
 private:
     class vector_streambuf : public std::basic_streambuf<char, std::char_traits<char>>

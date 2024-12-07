@@ -10,20 +10,18 @@
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Context.h>
-#include <openrct2/localisation/Localisation.h>
 
 namespace OpenRCT2::Ui::Windows
 {
-    // clang-format off
-enum WindowTitleOptionsWidgetIdx {
-    WIDX_OPTIONS,
-};
+    enum WindowTitleOptionsWidgetIdx
+    {
+        WIDX_OPTIONS,
+    };
 
-static Widget _windowTitleOptionsWidgets[] = {
-    MakeWidget({0, 0}, {80, 15}, WindowWidgetType::Button, WindowColour::Tertiary, STR_OPTIONS, STR_OPTIONS_TIP),
-    kWidgetsEnd,
-};
-    // clang-format on
+    static Widget _windowTitleOptionsWidgets[] = {
+        MakeWidget({ 0, 0 }, { 80, 15 }, WindowWidgetType::Button, WindowColour::Tertiary, STR_OPTIONS, STR_OPTIONS_TIP),
+        kWidgetsEnd,
+    };
 
     class TitleOptionsWindow final : public Window
     {

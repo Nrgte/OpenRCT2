@@ -8,8 +8,11 @@
  *****************************************************************************/
 
 #include <limits>
+#include <openrct2-ui/UiContext.h>
+#include <openrct2-ui/input/InputManager.h>
 #include <openrct2-ui/interface/Dropdown.h>
 #include <openrct2-ui/interface/Viewport.h>
+#include <openrct2-ui/interface/ViewportQuery.h>
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Context.h>
@@ -27,7 +30,6 @@
 #include <openrct2/entity/PatrolArea.h>
 #include <openrct2/entity/Staff.h>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/management/Finance.h>
 #include <openrct2/peep/PeepAnimationData.h>
 #include <openrct2/sprites.h>
@@ -72,21 +74,21 @@ namespace OpenRCT2::Ui::Windows
     constexpr int32_t MAX_WH = 450;
 
     // clang-format off
-static Widget _staffListWidgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({  0, 43}, {    WW, WH - 43}, WindowWidgetType::Resize,    WindowColour::Secondary                                                 ), // tab content panel
-    MakeTab   ({  3, 17},                                                                             STR_STAFF_HANDYMEN_TAB_TIP    ), // handymen tab
-    MakeTab   ({ 34, 17},                                                                             STR_STAFF_MECHANICS_TAB_TIP   ), // mechanics tab
-    MakeTab   ({ 65, 17},                                                                             STR_STAFF_SECURITY_TAB_TIP    ), // security guards tab
-    MakeTab   ({ 96, 17},                                                                             STR_STAFF_ENTERTAINERS_TAB_TIP), // entertainers tab
-    MakeWidget({  3, 72}, {WW - 6,     195}, WindowWidgetType::Scroll,    WindowColour::Secondary, SCROLL_VERTICAL                                ), // staff list
-    MakeWidget({130, 58}, {    12,      12}, WindowWidgetType::ColourBtn, WindowColour::Secondary, STR_NONE,        STR_UNIFORM_COLOUR_TIP        ), // uniform colour picker
-    MakeWidget({165, 17}, {   145,      13}, WindowWidgetType::Button,    WindowColour::Primary  , STR_NONE,        STR_HIRE_STAFF_TIP            ), // hire button
-    MakeWidget({243, 46}, {    24,      24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_DEMOLISH),    STR_QUICK_FIRE_STAFF          ), // quick fire staff
-    MakeWidget({267, 46}, {    24,      24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_PATROL_BTN),  STR_SHOW_PATROL_AREA_TIP      ), // show staff patrol area tool
-    MakeWidget({291, 46}, {    24,      24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_MAP),         STR_SHOW_STAFF_ON_MAP_TIP     ), // show staff on map button
-    kWidgetsEnd,
-};
+    static Widget _staffListWidgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({  0, 43}, {    WW, WH - 43}, WindowWidgetType::Resize,    WindowColour::Secondary                                                     ), // tab content panel
+        MakeTab   ({  3, 17},                                                                          STR_STAFF_HANDYMEN_TAB_TIP                         ), // handymen tab
+        MakeTab   ({ 34, 17},                                                                          STR_STAFF_MECHANICS_TAB_TIP                        ), // mechanics tab
+        MakeTab   ({ 65, 17},                                                                          STR_STAFF_SECURITY_TAB_TIP                         ), // security guards tab
+        MakeTab   ({ 96, 17},                                                                          STR_STAFF_ENTERTAINERS_TAB_TIP                     ), // entertainers tab
+        MakeWidget({  3, 72}, {WW - 6,     195}, WindowWidgetType::Scroll,    WindowColour::Secondary, SCROLL_VERTICAL                                    ), // staff list
+        MakeWidget({130, 58}, {    12,      12}, WindowWidgetType::ColourBtn, WindowColour::Secondary, STR_NONE,        STR_UNIFORM_COLOUR_TIP            ), // uniform colour picker
+        MakeWidget({165, 17}, {   145,      13}, WindowWidgetType::Button,    WindowColour::Primary  , STR_NONE,        STR_HIRE_STAFF_TIP                ), // hire button
+        MakeWidget({243, 46}, {    24,      24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_DEMOLISH),    STR_QUICK_FIRE_STAFF     ), // quick fire staff
+        MakeWidget({267, 46}, {    24,      24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_PATROL_BTN),  STR_SHOW_PATROL_AREA_TIP ), // show staff patrol area tool
+        MakeWidget({291, 46}, {    24,      24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_MAP),         STR_SHOW_STAFF_ON_MAP_TIP), // show staff on map button
+        kWidgetsEnd,
+    };
     // clang-format on
 
     class StaffListWindow final : public Window
@@ -227,8 +229,9 @@ static Widget _staffListWidgets[] = {
                     if (_selectedTab != newSelectedTab)
                     {
                         _selectedTab = static_cast<uint8_t>(newSelectedTab);
+                        RefreshList();
                         Invalidate();
-                        scrolls[0].v_top = 0;
+                        scrolls[0].contentOffsetY = 0;
                         CancelTools();
                     }
                     break;
@@ -327,9 +330,9 @@ static Widget _staffListWidgets[] = {
             auto i = scrollHeight - widgets[WIDX_STAFF_LIST_LIST].bottom + widgets[WIDX_STAFF_LIST_LIST].top + 21;
             if (i < 0)
                 i = 0;
-            if (i < scrolls[0].v_top)
+            if (i < scrolls[0].contentOffsetY)
             {
-                scrolls[0].v_top = i;
+                scrolls[0].contentOffsetY = i;
                 Invalidate();
             }
 
@@ -381,7 +384,7 @@ static Widget _staffListWidgets[] = {
             auto dpiCoords = ScreenCoordsXY{ dpi.x, dpi.y };
             GfxFillRect(
                 dpi, { dpiCoords, dpiCoords + ScreenCoordsXY{ dpi.width - 1, dpi.height - 1 } },
-                ColourMapA[colours[1]].mid_light);
+                ColourMapA[colours[1].colour].mid_light);
 
             // How much space do we have for the name and action columns? (Discount scroll area and icons.)
             const int32_t nonIconSpace = widgets[WIDX_STAFF_LIST_LIST].width() - 15 - 68;
@@ -405,12 +408,18 @@ static Widget _staffListWidgets[] = {
                     {
                         continue;
                     }
-                    int32_t format = (_quickFireMode ? STR_RED_STRINGID : STR_BLACK_STRING);
+
+                    StringId format = STR_BLACK_STRING;
+                    if (_quickFireMode)
+                        format = STR_RED_STRINGID;
 
                     if (i == _highlightedIndex)
                     {
                         GfxFilterRect(dpi, { 0, y, 800, y + (kScrollableRowHeight - 1) }, FilterPaletteID::PaletteDarken1);
-                        format = (_quickFireMode ? STR_LIGHTPINK_STRINGID : STR_WINDOW_COLOUR_2_STRINGID);
+
+                        format = STR_WINDOW_COLOUR_2_STRINGID;
+                        if (_quickFireMode)
+                            format = STR_LIGHTPINK_STRINGID;
                     }
 
                     auto ft = Formatter();
@@ -447,7 +456,7 @@ static Widget _staffListWidgets[] = {
                     }
                     else
                     {
-                        GfxDrawSprite(dpi, ImageId(GetEntertainerCostumeSprite(peep->SpriteType)), { staffOrderIcon_x, y });
+                        GfxDrawSprite(dpi, ImageId(GetEntertainerCostumeSprite(peep->AnimationGroup)), { staffOrderIcon_x, y });
                     }
                 }
 
@@ -518,7 +527,7 @@ static Widget _staffListWidgets[] = {
         void HireNewMember(StaffType staffType, EntertainerCostume entertainerType)
         {
             bool autoPosition = Config::Get().general.AutoStaffPlacement;
-            if (gInputPlaceObjectModifier & PLACE_OBJECT_MODIFIER_SHIFT_Z)
+            if (GetInputManager().IsModifierKeyPressed(ModifierKey::shift))
             {
                 autoPosition = autoPosition ^ 1;
             }
@@ -590,13 +599,13 @@ static Widget _staffListWidgets[] = {
         void DrawTabImages(DrawPixelInfo& dpi) const
         {
             const auto& gameState = GetGameState();
-            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_HANDYMEN, PeepSpriteType::Handyman, gameState.StaffHandymanColour);
-            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_MECHANICS, PeepSpriteType::Mechanic, gameState.StaffMechanicColour);
-            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_SECURITY, PeepSpriteType::Security, gameState.StaffSecurityColour);
-            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_ENTERTAINERS, PeepSpriteType::EntertainerElephant);
+            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_HANDYMEN, PeepAnimationGroup::Handyman, gameState.StaffHandymanColour);
+            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_MECHANICS, PeepAnimationGroup::Mechanic, gameState.StaffMechanicColour);
+            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_SECURITY, PeepAnimationGroup::Security, gameState.StaffSecurityColour);
+            DrawTabImage(dpi, WINDOW_STAFF_LIST_TAB_ENTERTAINERS, PeepAnimationGroup::EntertainerElephant);
         }
 
-        void DrawTabImage(DrawPixelInfo& dpi, int32_t tabIndex, PeepSpriteType type, colour_t colour) const
+        void DrawTabImage(DrawPixelInfo& dpi, int32_t tabIndex, PeepAnimationGroup type, colour_t colour) const
         {
             auto widgetIndex = WIDX_STAFF_LIST_HANDYMEN_TAB + tabIndex;
             const auto& widget = widgets[widgetIndex];
@@ -607,7 +616,7 @@ static Widget _staffListWidgets[] = {
                 windowPos + ScreenCoordsXY{ (widget.left + widget.right) / 2, widget.bottom - 6 });
         }
 
-        void DrawTabImage(DrawPixelInfo& dpi, int32_t tabIndex, PeepSpriteType type) const
+        void DrawTabImage(DrawPixelInfo& dpi, int32_t tabIndex, PeepAnimationGroup type) const
         {
             auto widgetIndex = WIDX_STAFF_LIST_HANDYMEN_TAB + tabIndex;
             const auto& widget = widgets[widgetIndex];
@@ -624,13 +633,8 @@ static Widget _staffListWidgets[] = {
 
         void CancelTools()
         {
-            if (InputTestFlag(INPUT_FLAG_TOOL_ACTIVE))
-            {
-                if (classification == gCurrentToolWidget.window_classification && number == gCurrentToolWidget.window_number)
-                {
-                    ToolCancel();
-                }
-            }
+            if (isToolActive(classification, number))
+                ToolCancel();
         }
 
         Peep* GetClosestStaffMemberTo(const ScreenCoordsXY& screenCoords)
@@ -662,7 +666,7 @@ static Widget _staffListWidgets[] = {
                     }
                 }
 
-                if (peep->x == LOCATION_NULL)
+                if (peep->x == kLocationNull)
                 {
                     continue;
                 }
@@ -719,33 +723,35 @@ static Widget _staffListWidgets[] = {
             }
         }
 
-        static uint32_t GetEntertainerCostumeSprite(PeepSpriteType type)
+        static uint32_t GetEntertainerCostumeSprite(PeepAnimationGroup type)
         {
             switch (type)
             {
-                default:
-                case PeepSpriteType::EntertainerPanda:
+                case PeepAnimationGroup::EntertainerPanda:
                     return SPR_STAFF_COSTUME_PANDA;
-                case PeepSpriteType::EntertainerTiger:
+                case PeepAnimationGroup::EntertainerTiger:
                     return SPR_STAFF_COSTUME_TIGER;
-                case PeepSpriteType::EntertainerElephant:
+                case PeepAnimationGroup::EntertainerElephant:
                     return SPR_STAFF_COSTUME_ELEPHANT;
-                case PeepSpriteType::EntertainerRoman:
+                case PeepAnimationGroup::EntertainerRoman:
                     return SPR_STAFF_COSTUME_ROMAN;
-                case PeepSpriteType::EntertainerGorilla:
+                case PeepAnimationGroup::EntertainerGorilla:
                     return SPR_STAFF_COSTUME_GORILLA;
-                case PeepSpriteType::EntertainerSnowman:
+                case PeepAnimationGroup::EntertainerSnowman:
                     return SPR_STAFF_COSTUME_SNOWMAN;
-                case PeepSpriteType::EntertainerKnight:
+                case PeepAnimationGroup::EntertainerKnight:
                     return SPR_STAFF_COSTUME_KNIGHT;
-                case PeepSpriteType::EntertainerAstronaut:
+                case PeepAnimationGroup::EntertainerAstronaut:
                     return SPR_STAFF_COSTUME_ASTRONAUT;
-                case PeepSpriteType::EntertainerBandit:
+                case PeepAnimationGroup::EntertainerBandit:
                     return SPR_STAFF_COSTUME_BANDIT;
-                case PeepSpriteType::EntertainerSheriff:
+                case PeepAnimationGroup::EntertainerSheriff:
                     return SPR_STAFF_COSTUME_SHERIFF;
-                case PeepSpriteType::EntertainerPirate:
+                case PeepAnimationGroup::EntertainerPirate:
                     return SPR_STAFF_COSTUME_PIRATE;
+                case PeepAnimationGroup::Normal:
+                default:
+                    return SPR_PEEP_SMALL_FACE_HAPPY;
             }
         }
     };

@@ -322,7 +322,8 @@ namespace OpenRCT2::Scripting
                 auto importMode = getImportModeFromPalette(pixelData.Palette);
                 auto pngData = DukGetDataFromBufferLikeObject(pixelData.Data);
                 auto image = Imaging::ReadFromBuffer(pngData, imageFormat);
-                ImageImportMeta meta = { { 0, 0 }, palette, ImportFlags::RLE, importMode };
+                uint8_t flags = EnumToFlag(ImportFlags::RLE);
+                ImageImportMeta meta = { { 0, 0 }, palette, flags, importMode };
 
                 ImageImporter importer;
                 auto importResult = importer.Import(image, meta);
@@ -340,7 +341,8 @@ namespace OpenRCT2::Scripting
         return imageData;
     }
 
-    template<> PixelDataKind FromDuk(const DukValue& d)
+    template<>
+    PixelDataKind FromDuk(const DukValue& d)
     {
         if (d.type() == DukValue::Type::STRING)
         {
@@ -357,7 +359,8 @@ namespace OpenRCT2::Scripting
         return PixelDataKind::Unknown;
     }
 
-    template<> PixelDataPaletteKind FromDuk(const DukValue& d)
+    template<>
+    PixelDataPaletteKind FromDuk(const DukValue& d)
     {
         if (d.type() == DukValue::Type::STRING)
         {

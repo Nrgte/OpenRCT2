@@ -10,20 +10,18 @@
 #include "SmallScenerySetColourAction.h"
 
 #include "../Cheats.h"
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../OpenRCT2.h"
-#include "../common.h"
 #include "../core/MemoryStream.h"
 #include "../interface/Window.h"
-#include "../localisation/Localisation.h"
 #include "../localisation/StringIds.h"
 #include "../management/Finance.h"
 #include "../ride/Ride.h"
 #include "../ride/TrackDesign.h"
 #include "../world/MapAnimation.h"
 #include "../world/Park.h"
-#include "../world/Surface.h"
-#include "../world/TileElement.h"
+#include "../world/tile_element/SmallSceneryElement.h"
 
 using namespace OpenRCT2;
 

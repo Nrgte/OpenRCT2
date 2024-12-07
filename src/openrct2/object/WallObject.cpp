@@ -9,6 +9,7 @@
 
 #include "WallObject.h"
 
+#include "../core/Guard.hpp"
 #include "../core/IStream.hpp"
 #include "../core/Json.hpp"
 #include "../core/String.hpp"
@@ -16,6 +17,8 @@
 #include "../interface/Cursors.h"
 #include "../localisation/Language.h"
 #include "../world/Banner.h"
+
+using namespace OpenRCT2;
 
 void WallObject::ReadLegacy(IReadObjectContext* context, OpenRCT2::IStream* stream)
 {

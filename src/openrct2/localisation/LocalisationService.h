@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "../common.h"
+#include "../core/StringTypes.h"
+#include "../localisation/StringIdType.h"
 
 #include <memory>
 #include <stack>
@@ -58,7 +59,6 @@ namespace OpenRCT2::Localisation
         ~LocalisationService();
 
         const char* GetString(StringId id) const;
-        std::tuple<StringId, StringId, StringId> GetLocalisedScenarioStrings(const std::string& scenarioFilename) const;
         std::string GetLanguagePath(uint32_t languageId) const;
 
         void OpenLanguage(int32_t id);

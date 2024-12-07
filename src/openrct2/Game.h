@@ -9,11 +9,9 @@
 
 #pragma once
 
-#include "common.h"
-#include "core/String.hpp"
+#include "core/StringTypes.h"
 
 #include <memory>
-#include <string>
 
 class Intent;
 struct ParkLoadResult;

@@ -12,6 +12,7 @@
 #    include "ServerList.h"
 
 #    include "../Context.h"
+#    include "../Diagnostic.h"
 #    include "../PlatformEnvironment.h"
 #    include "../config/Config.h"
 #    include "../core/File.h"
@@ -22,6 +23,7 @@
 #    include "../core/Memory.hpp"
 #    include "../core/Path.hpp"
 #    include "../core/String.hpp"
+#    include "../localisation/Language.h"
 #    include "../platform/Platform.h"
 #    include "Socket.h"
 #    include "network.h"
@@ -359,7 +361,7 @@ std::future<std::vector<ServerListEntry>> ServerList::FetchOnlineServerListAsync
     auto p = std::make_shared<std::promise<std::vector<ServerListEntry>>>();
     auto f = p->get_future();
 
-    std::string masterServerUrl = OPENRCT2_MASTER_SERVER_URL;
+    std::string masterServerUrl = kMasterServerURL;
     if (!Config::Get().network.MasterServerUrl.empty())
     {
         masterServerUrl = Config::Get().network.MasterServerUrl;
@@ -429,6 +431,12 @@ uint32_t ServerList::GetTotalPlayerCount() const
     return std::accumulate(_serverEntries.begin(), _serverEntries.end(), 0, [](uint32_t acc, const ServerListEntry& entry) {
         return acc + entry.Players;
     });
+}
+
+const char* MasterServerException::what() const noexcept
+{
+    static std::string localisedStatusText = LanguageGetString(StatusText);
+    return localisedStatusText.c_str();
 }
 
 #endif

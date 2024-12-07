@@ -9,6 +9,7 @@
 
 #include "BannerObject.h"
 
+#include "../core/Guard.hpp"
 #include "../core/IStream.hpp"
 #include "../core/Json.hpp"
 #include "../drawing/Drawing.h"
@@ -16,6 +17,8 @@
 #include "../object/Object.h"
 #include "../object/ObjectRepository.h"
 #include "ObjectList.h"
+
+using namespace OpenRCT2;
 
 void BannerObject::ReadLegacy(IReadObjectContext* context, OpenRCT2::IStream* stream)
 {

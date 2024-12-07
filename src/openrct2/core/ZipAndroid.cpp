@@ -9,8 +9,10 @@
 
 #ifdef __ANDROID__
 
+#    include "../Diagnostic.h"
 #    include "../platform/Platform.h"
 #    include "IStream.hpp"
+#    include "Memory.hpp"
 #    include "MemoryStream.h"
 #    include "Zip.h"
 
@@ -135,7 +137,7 @@ public:
     }
 };
 
-namespace Zip
+namespace OpenRCT2::Zip
 {
     std::unique_ptr<IZipArchive> Open(std::string_view path, ZIP_ACCESS access)
     {
@@ -154,7 +156,7 @@ namespace Zip
         }
         return result;
     }
-} // namespace Zip
+} // namespace OpenRCT2::Zip
 
 extern "C" {
 JNIEXPORT jlong JNICALL Java_io_openrct2_ZipArchive_allocBytes(JNIEnv* env, jclass, jbyteArray input, jint numBytes);

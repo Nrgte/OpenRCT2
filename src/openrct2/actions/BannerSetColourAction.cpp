@@ -10,10 +10,14 @@
 #include "BannerSetColourAction.h"
 
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../management/Finance.h"
 #include "../windows/Intent.h"
 #include "../world/Banner.h"
+#include "../world/tile_element/BannerElement.h"
 #include "GameAction.h"
+
+using namespace OpenRCT2;
 
 BannerSetColourAction::BannerSetColourAction(const CoordsXYZD& loc, uint8_t primaryColour)
     : _loc(loc)

@@ -20,9 +20,9 @@
 #include <openrct2/entity/EntityRegistry.h>
 #include <openrct2/entity/Guest.h>
 #include <openrct2/entity/Staff.h>
-#include <openrct2/localisation/Date.h>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
+#include <openrct2/localisation/Localisation.Date.h>
+#include <openrct2/localisation/StringIds.h>
 #include <openrct2/management/Finance.h>
 #include <openrct2/management/NewsItem.h>
 #include <openrct2/peep/PeepAnimationData.h>
@@ -32,43 +32,43 @@
 
 namespace OpenRCT2::Ui::Windows
 {
+    enum WindowGameBottomToolbarWidgetIdx
+    {
+        WIDX_LEFT_OUTSET,
+        WIDX_LEFT_INSET,
+        WIDX_MONEY,
+        WIDX_GUESTS,
+        WIDX_PARK_RATING,
+
+        WIDX_MIDDLE_OUTSET,
+        WIDX_MIDDLE_INSET,
+        WIDX_NEWS_SUBJECT,
+        WIDX_NEWS_LOCATE,
+
+        WIDX_RIGHT_OUTSET,
+        WIDX_RIGHT_INSET,
+        WIDX_DATE
+    };
+
     // clang-format off
-enum WindowGameBottomToolbarWidgetIdx
-{
-    WIDX_LEFT_OUTSET,
-    WIDX_LEFT_INSET,
-    WIDX_MONEY,
-    WIDX_GUESTS,
-    WIDX_PARK_RATING,
+    static Widget window_game_bottom_toolbar_widgets[] =
+    {
+        MakeWidget({  0,  0}, {142, 34}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Left outset panel
+        MakeWidget({  2,  2}, {138, 30}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Left inset panel
+        MakeWidget({  2,  1}, {138, 12}, WindowWidgetType::FlatBtn,     WindowColour::Primary , 0xFFFFFFFF, STR_PROFIT_PER_WEEK_AND_PARK_VALUE_TIP), // Money window
+        MakeWidget({  2, 11}, {138, 12}, WindowWidgetType::FlatBtn,     WindowColour::Primary                                                     ), // Guests window
+        MakeWidget({  2, 21}, {138, 11}, WindowWidgetType::FlatBtn,     WindowColour::Primary , 0xFFFFFFFF, STR_PARK_RATING_TIP                   ), // Park rating window
 
-    WIDX_MIDDLE_OUTSET,
-    WIDX_MIDDLE_INSET,
-    WIDX_NEWS_SUBJECT,
-    WIDX_NEWS_LOCATE,
+        MakeWidget({142,  0}, {356, 34}, WindowWidgetType::ImgBtn,      WindowColour::Tertiary                                                    ), // Middle outset panel
+        MakeWidget({144,  2}, {352, 30}, WindowWidgetType::FlatBtn,     WindowColour::Tertiary                                                    ), // Middle inset panel
+        MakeWidget({147,  5}, { 24, 24}, WindowWidgetType::FlatBtn,     WindowColour::Tertiary, 0xFFFFFFFF, STR_SHOW_SUBJECT_TIP                  ), // Associated news item window
+        MakeWidget({469,  5}, { 24, 24}, WindowWidgetType::FlatBtn,     WindowColour::Tertiary, ImageId(SPR_LOCATE), STR_LOCATE_SUBJECT_TIP                ), // Scroll to news item target
 
-    WIDX_RIGHT_OUTSET,
-    WIDX_RIGHT_INSET,
-    WIDX_DATE
-};
-
-static Widget window_game_bottom_toolbar_widgets[] =
-{
-    MakeWidget({  0,  0}, {142, 34}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Left outset panel
-    MakeWidget({  2,  2}, {138, 30}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Left inset panel
-    MakeWidget({  2,  1}, {138, 12}, WindowWidgetType::FlatBtn,     WindowColour::Primary , 0xFFFFFFFF, STR_PROFIT_PER_WEEK_AND_PARK_VALUE_TIP), // Money window
-    MakeWidget({  2, 11}, {138, 12}, WindowWidgetType::FlatBtn,     WindowColour::Primary                                                     ), // Guests window
-    MakeWidget({  2, 21}, {138, 11}, WindowWidgetType::FlatBtn,     WindowColour::Primary , 0xFFFFFFFF, STR_PARK_RATING_TIP                   ), // Park rating window
-
-    MakeWidget({142,  0}, {356, 34}, WindowWidgetType::ImgBtn,      WindowColour::Tertiary                                                    ), // Middle outset panel
-    MakeWidget({144,  2}, {352, 30}, WindowWidgetType::FlatBtn,     WindowColour::Tertiary                                                    ), // Middle inset panel
-    MakeWidget({147,  5}, { 24, 24}, WindowWidgetType::FlatBtn,     WindowColour::Tertiary, 0xFFFFFFFF, STR_SHOW_SUBJECT_TIP                  ), // Associated news item window
-    MakeWidget({469,  5}, { 24, 24}, WindowWidgetType::FlatBtn,     WindowColour::Tertiary, ImageId(SPR_LOCATE), STR_LOCATE_SUBJECT_TIP                ), // Scroll to news item target
-
-    MakeWidget({498,  0}, {142, 34}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Right outset panel
-    MakeWidget({500,  2}, {138, 30}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Right inset panel
-    MakeWidget({500,  2}, {138, 12}, WindowWidgetType::FlatBtn,     WindowColour::Primary                                                     ), // Date
-    kWidgetsEnd,
-};
+        MakeWidget({498,  0}, {142, 34}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Right outset panel
+        MakeWidget({500,  2}, {138, 30}, WindowWidgetType::ImgBtn,      WindowColour::Primary                                                     ), // Right inset panel
+        MakeWidget({500,  2}, {138, 12}, WindowWidgetType::FlatBtn,     WindowColour::Primary                                                     ), // Date
+        kWidgetsEnd,
+    };
     // clang-format on
 
     uint8_t gToolbarDirtyFlags;
@@ -76,6 +76,14 @@ static Widget window_game_bottom_toolbar_widgets[] =
     class GameBottomToolbar final : public Window
     {
     private:
+        colour_t GetHoverWidgetColour(WidgetIndex index)
+        {
+            return (
+                gHoverWidget.window_classification == WindowClass::BottomToolbar && gHoverWidget.widget_index == index
+                    ? static_cast<colour_t>(COLOUR_WHITE)
+                    : colours[0].colour);
+        }
+
         void DrawLeftPanel(DrawPixelInfo& dpi)
         {
             const auto topLeft = windowPos
@@ -99,11 +107,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
                 auto screenCoords = ScreenCoordsXY{ windowPos.x + widget.midX(),
                                                     windowPos.y + widget.midY() - (line_height == 10 ? 5 : 6) };
 
-                colour_t colour
-                    = (gHoverWidget.window_classification == WindowClass::BottomToolbar
-                               && gHoverWidget.widget_index == WIDX_MONEY
-                           ? COLOUR_WHITE
-                           : NOT_TRANSLUCENT(colours[0]));
+                auto colour = GetHoverWidgetColour(WIDX_MONEY);
                 StringId stringId = gameState.Cash < 0 ? STR_BOTTOM_TOOLBAR_CASH_NEGATIVE : STR_BOTTOM_TOOLBAR_CASH;
                 auto ft = Formatter();
                 ft.Add<money64>(gameState.Cash);
@@ -129,11 +133,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
 
                 StringId stringId = gameState.NumGuestsInPark == 1 ? _guestCountFormatsSingular[gameState.GuestChangeModifier]
                                                                    : _guestCountFormats[gameState.GuestChangeModifier];
-                colour_t colour
-                    = (gHoverWidget.window_classification == WindowClass::BottomToolbar
-                               && gHoverWidget.widget_index == WIDX_GUESTS
-                           ? COLOUR_WHITE
-                           : NOT_TRANSLUCENT(colours[0]));
+                auto colour = GetHoverWidgetColour(WIDX_GUESTS);
                 auto ft = Formatter();
                 ft.Add<uint32_t>(gameState.NumGuestsInPark);
                 DrawTextBasic(dpi, screenCoords, stringId, ft, { colour, TextAlignment::CENTRE });
@@ -144,7 +144,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
                 Widget widget = window_game_bottom_toolbar_widgets[WIDX_PARK_RATING];
                 auto screenCoords = windowPos + ScreenCoordsXY{ widget.left + 11, widget.midY() - 5 };
 
-                DrawParkRating(dpi, colours[3], screenCoords, std::max(10, ((gameState.Park.Rating / 4) * 263) / 256));
+                DrawParkRating(dpi, colours[3].colour, screenCoords, std::max(10, ((gameState.Park.Rating / 4) * 263) / 256));
             }
         }
 
@@ -158,7 +158,8 @@ static Widget window_game_bottom_toolbar_widgets[] =
                 if (bar_width > 2)
                 {
                     GfxFillRectInset(
-                        dpi, { coords + ScreenCoordsXY{ 2, 2 }, coords + ScreenCoordsXY{ bar_width - 1, 8 } }, colour, 0);
+                        dpi, { coords + ScreenCoordsXY{ 2, 2 }, coords + ScreenCoordsXY{ bar_width - 1, 8 } },
+                        ColourWithFlags{ static_cast<uint8_t>(colour) }, 0);
                 }
             }
 
@@ -190,10 +191,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
             int32_t month = date.GetMonth();
             int32_t day = date.GetDay();
 
-            colour_t colour
-                = (gHoverWidget.window_classification == WindowClass::BottomToolbar && gHoverWidget.widget_index == WIDX_DATE
-                       ? COLOUR_WHITE
-                       : NOT_TRANSLUCENT(colours[0]));
+            auto colour = GetHoverWidgetColour(WIDX_DATE);
             StringId stringId = DateFormatStringFormatIds[Config::Get().general.DateFormat];
             auto ft = Formatter();
             ft.Add<StringId>(DateDayNames[day]);
@@ -208,7 +206,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
             screenCoords = { windowPos.x + window_game_bottom_toolbar_widgets[WIDX_RIGHT_OUTSET].left + 15,
                              static_cast<int32_t>(screenCoords.y + line_height + 1) };
 
-            int32_t temperature = OpenRCT2::GetGameState().ClimateCurrent.Temperature;
+            int32_t temperature = GetGameState().ClimateCurrent.Temperature;
             StringId format = STR_CELSIUS_VALUE;
             if (Config::Get().general.TemperatureFormat == TemperatureUnit::Fahrenheit)
             {
@@ -221,7 +219,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
             screenCoords.x += 30;
 
             // Current weather
-            auto currentWeatherSpriteId = ClimateGetWeatherSpriteId(OpenRCT2::GetGameState().ClimateCurrent);
+            auto currentWeatherSpriteId = ClimateGetWeatherSpriteId(GetGameState().ClimateCurrent);
             GfxDrawSprite(dpi, ImageId(currentWeatherSpriteId), screenCoords);
 
             // Next weather
@@ -287,7 +285,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
                         clipCoords.y += 3;
                     }
 
-                    uint32_t image_id_base = GetPeepAnimation(peep->SpriteType).base_image;
+                    uint32_t image_id_base = GetPeepAnimation(peep->AnimationGroup).base_image;
                     image_id_base += frame_no & 0xFFFFFFFC;
                     image_id_base++;
 
@@ -361,6 +359,7 @@ static Widget window_game_bottom_toolbar_widgets[] =
             std::memcpy(&stringId, ft.Data(), sizeof(StringId));
             if (stringId == STR_NONE)
             {
+                // TODO: this string probably shouldn't be reused for this
                 DrawTextWrapped(
                     dpi, middleWidgetCoords, panelWidth, STR_TITLE_SEQUENCE_OPENRCT2, ft,
                     { colours[0], TextAlignment::CENTRE });

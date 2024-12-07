@@ -9,12 +9,14 @@
 
 #include "StationObject.h"
 
+#include "../core/Guard.hpp"
 #include "../core/IStream.hpp"
 #include "../core/Json.hpp"
 #include "../core/String.hpp"
 #include "../drawing/Drawing.h"
-#include "../localisation/Localisation.h"
 #include "../world/Banner.h"
+
+using namespace OpenRCT2;
 
 void StationObject::Load()
 {

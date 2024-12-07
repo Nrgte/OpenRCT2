@@ -21,7 +21,6 @@
 #include "../localisation/LocalisationService.h"
 #include "../object/ObjectRepository.h"
 #include "../ride/RideData.h"
-#include "../util/Util.h"
 #include "TrackDesign.h"
 
 #include <memory>
@@ -61,26 +60,26 @@ private:
 public:
     explicit TrackDesignFileIndex(const IPlatformEnvironment& env)
         : FileIndex(
-            "track design index", MAGIC_NUMBER, VERSION, env.GetFilePath(PATHID::CACHE_TRACKS), std::string(PATTERN),
-            std::vector<std::string>({
-                env.GetDirectoryPath(DIRBASE::RCT1, DIRID::TRACK),
-                env.GetDirectoryPath(DIRBASE::RCT2, DIRID::TRACK),
-                env.GetDirectoryPath(DIRBASE::USER, DIRID::TRACK),
-            }))
+              "track design index", MAGIC_NUMBER, VERSION, env.GetFilePath(PATHID::CACHE_TRACKS), std::string(PATTERN),
+              std::vector<std::string>({
+                  env.GetDirectoryPath(DIRBASE::RCT1, DIRID::TRACK),
+                  env.GetDirectoryPath(DIRBASE::RCT2, DIRID::TRACK),
+                  env.GetDirectoryPath(DIRBASE::USER, DIRID::TRACK),
+              }))
     {
     }
 
 public:
     std::optional<TrackRepositoryItem> Create(int32_t, const std::string& path) const override
     {
-        auto td6 = TrackDesignImport(path.c_str());
-        if (td6 != nullptr)
+        auto td = TrackDesignImport(path.c_str());
+        if (td != nullptr)
         {
             TrackRepositoryItem item;
             item.Name = GetNameFromTrackPath(path);
             item.Path = path;
-            item.RideType = td6->type;
-            item.ObjectEntry = std::string(td6->vehicle_object.Entry.name, 8);
+            item.RideType = td->trackAndVehicle.rtdIndex;
+            item.ObjectEntry = std::string(td->trackAndVehicle.vehicleObject.Entry.name, 8);
             item.Flags = 0;
             if (IsTrackReadOnly(path))
             {
@@ -151,7 +150,7 @@ public:
             {
                 const ObjectRepositoryItem* ori = repo.FindObjectLegacy(item.ObjectEntry.c_str());
 
-                if (ori == nullptr || !GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+                if (ori == nullptr || !GetRideTypeDescriptor(rideType).HasFlag(RtdFlag::listVehiclesSeparately))
                     entryIsNotSeparate = true;
             }
 
@@ -185,7 +184,7 @@ public:
             {
                 const ObjectRepositoryItem* ori = repo.FindObjectLegacy(item.ObjectEntry.c_str());
 
-                if (ori == nullptr || !GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+                if (ori == nullptr || !GetRideTypeDescriptor(rideType).HasFlag(RtdFlag::listVehiclesSeparately))
                     entryIsNotSeparate = true;
             }
 

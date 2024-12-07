@@ -118,6 +118,13 @@ declare global {
     }
 
     /**
+     * A track piece coordinate and type within the game.
+     */
+    interface CarTrackLocation extends CoordsXYZD {
+        trackType: number;
+    }
+
+    /**
      * A rectangular area specified using two coordinates.
      */
     interface MapRange {
@@ -217,9 +224,9 @@ declare global {
         readonly mode: GameMode;
 
         /**
-         * Whether the game is currently paused or not.
+         * Whether the game is currently paused or not. Readonly in network mode.
          */
-        readonly paused: boolean;
+        paused: boolean;
 
         /**
          * Render the current state of the map and save to disc.
@@ -317,7 +324,7 @@ declare global {
         queryAction(action: string, args: object, callback?: (result: GameActionResult) => void): void;
         queryAction(action: ActionType, args: object, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "balloonpress", args: BalloonPressArgs, callback?: (result: GameActionResult) => void): void;
-        queryAction(action: "bannerplace", args: BannerPlaceArgs, callback?: (result: GameActionResult) => void): void;
+        queryAction(action: "bannerplace", args: BannerPlaceArgs, callback?: (result: BannerCreateActionResult) => void): void;
         queryAction(action: "bannerremove", args: BannerRemoveArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "bannersetcolour", args: BannerSetColourArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "bannersetname", args: BannerSetNameArgs, callback?: (result: GameActionResult) => void): void;
@@ -339,7 +346,7 @@ declare global {
         queryAction(action: "landsetheight", args: LandSetHeightArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "landsetrights", args: LandSetRightsArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "landsmooth", args: LandSmoothArgs, callback?: (result: GameActionResult) => void): void;
-        queryAction(action: "largesceneryplace", args: LargeSceneryPlaceArgs, callback?: (result: GameActionResult) => void): void;
+        queryAction(action: "largesceneryplace", args: LargeSceneryPlaceArgs, callback?: (result: BannerCreateActionResult) => void): void;
         queryAction(action: "largesceneryremove", args: LargeSceneryRemoveArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "largescenerysetcolour", args: LargeScenerySetColourArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "loadorquit", args: LoadOrQuitArgs, callback?: (result: GameActionResult) => void): void;
@@ -392,7 +399,7 @@ declare global {
         queryAction(action: "trackplace", args: TrackPlaceArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "trackremove", args: TrackRemoveArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "tracksetbrakespeed", args: TrackSetBrakeSpeedArgs, callback?: (result: GameActionResult) => void): void;
-        queryAction(action: "wallplace", args: WallPlaceArgs, callback?: (result: GameActionResult) => void): void;
+        queryAction(action: "wallplace", args: WallPlaceArgs, callback?: (result: BannerCreateActionResult) => void): void;
         queryAction(action: "wallremove", args: WallRemoveArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "wallsetcolour", args: WallSetColourArgs, callback?: (result: GameActionResult) => void): void;
         queryAction(action: "waterlower", args: WaterLowerArgs, callback?: (result: GameActionResult) => void): void;
@@ -409,7 +416,7 @@ declare global {
         executeAction(action: string, args: object, callback?: (result: GameActionResult) => void): void;
         executeAction(action: ActionType, args: object, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "balloonpress", args: BalloonPressArgs, callback?: (result: GameActionResult) => void): void;
-        executeAction(action: "bannerplace", args: BannerPlaceArgs, callback?: (result: GameActionResult) => void): void;
+        executeAction(action: "bannerplace", args: BannerPlaceArgs, callback?: (result: BannerCreateActionResult) => void): void;
         executeAction(action: "bannerremove", args: BannerRemoveArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "bannersetcolour", args: BannerSetColourArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "bannersetname", args: BannerSetNameArgs, callback?: (result: GameActionResult) => void): void;
@@ -431,7 +438,7 @@ declare global {
         executeAction(action: "landsetheight", args: LandSetHeightArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "landsetrights", args: LandSetRightsArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "landsmooth", args: LandSmoothArgs, callback?: (result: GameActionResult) => void): void;
-        executeAction(action: "largesceneryplace", args: LargeSceneryPlaceArgs, callback?: (result: GameActionResult) => void): void;
+        executeAction(action: "largesceneryplace", args: LargeSceneryPlaceArgs, callback?: (result: BannerCreateActionResult) => void): void;
         executeAction(action: "largesceneryremove", args: LargeSceneryRemoveArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "largescenerysetcolour", args: LargeScenerySetColourArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "loadorquit", args: LoadOrQuitArgs, callback?: (result: GameActionResult) => void): void;
@@ -484,7 +491,7 @@ declare global {
         executeAction(action: "trackplace", args: TrackPlaceArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "trackremove", args: TrackRemoveArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "tracksetbrakespeed", args: TrackSetBrakeSpeedArgs, callback?: (result: GameActionResult) => void): void;
-        executeAction(action: "wallplace", args: WallPlaceArgs, callback?: (result: GameActionResult) => void): void;
+        executeAction(action: "wallplace", args: WallPlaceArgs, callback?: (result: BannerCreateActionResult) => void): void;
         executeAction(action: "wallremove", args: WallRemoveArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "wallsetcolour", args: WallSetColourArgs, callback?: (result: GameActionResult) => void): void;
         executeAction(action: "waterlower", args: WaterLowerArgs, callback?: (result: GameActionResult) => void): void;
@@ -496,20 +503,21 @@ declare global {
          */
         subscribe(hook: HookType, callback: Function): IDisposable;
 
-        subscribe(hook: "action.query", callback: (e: GameActionEventArgs) => void): IDisposable;
         subscribe(hook: "action.execute", callback: (e: GameActionEventArgs) => void): IDisposable;
-        subscribe(hook: "interval.tick", callback: () => void): IDisposable;
+        subscribe(hook: "action.location", callback: (e: ActionLocationArgs) => void): IDisposable;
+        subscribe(hook: "action.query", callback: (e: GameActionEventArgs) => void): IDisposable;
+        subscribe(hook: "guest.generation", callback: (e: GuestGenerationArgs) => void): IDisposable;
         subscribe(hook: "interval.day", callback: () => void): IDisposable;
-        subscribe(hook: "network.chat", callback: (e: NetworkChatEventArgs) => void): IDisposable;
+        subscribe(hook: "interval.tick", callback: () => void): IDisposable;
+        subscribe(hook: "map.change", callback: () => void): IDisposable;
+        subscribe(hook: "map.save", callback: () => void): IDisposable;
         subscribe(hook: "network.authenticate", callback: (e: NetworkAuthenticateEventArgs) => void): IDisposable;
+        subscribe(hook: "network.chat", callback: (e: NetworkChatEventArgs) => void): IDisposable;
         subscribe(hook: "network.join", callback: (e: NetworkEventArgs) => void): IDisposable;
         subscribe(hook: "network.leave", callback: (e: NetworkEventArgs) => void): IDisposable;
+        subscribe(hook: "park.guest.softcap.calculate", callback: (e: ParkCalculateGuestCapArgs) => void): IDisposable;
         subscribe(hook: "ride.ratings.calculate", callback: (e: RideRatingsCalculateArgs) => void): IDisposable;
-        subscribe(hook: "action.location", callback: (e: ActionLocationArgs) => void): IDisposable;
-        subscribe(hook: "guest.generation", callback: (e: GuestGenerationArgs) => void): IDisposable;
         subscribe(hook: "vehicle.crash", callback: (e: VehicleCrashArgs) => void): IDisposable;
-        subscribe(hook: "map.save", callback: () => void): IDisposable;
-        subscribe(hook: "map.change", callback: () => void): IDisposable;
 
         /**
          * Can only be used in intransient plugins.
@@ -620,10 +628,22 @@ declare global {
         "footpath_railings";
 
     type HookType =
-        "interval.tick" | "interval.day" |
-        "network.chat" | "network.action" | "network.join" | "network.leave" |
-        "ride.ratings.calculate" | "action.location" | "vehicle.crash" |
-        "map.change" | "map.changed" | "map.save";
+        "action.execute" |
+        "action.location" |
+        "action.query" |
+        "guest.generation" |
+        "interval.day" |
+        "interval.tick" |
+        "map.change" |
+        "map.changed" |
+        "map.save" |
+        "network.authenticate" |
+        "network.chat" |
+        "network.join" |
+        "network.leave" |
+        "park.guest.softcap.calculate" |
+        "ride.ratings.calculate" |
+        "vehicle.crash";
 
     type ExpenditureType =
         "ride_construction" |
@@ -876,7 +896,7 @@ declare global {
         x: number;
         y: number;
         height: number;
-        style: number; // see TILE_ELEMENT_SLOPE in openrct2/world/Surface.h
+        style: number; // see openrct2/world/tile_element/Slope.h
     }
 
     interface LandSetRightsArgs extends GameActionArgs {
@@ -939,6 +959,8 @@ declare global {
     interface MapChangeSizeArgs extends GameActionArgs {
         targetSizeX: number;
         targetSizeY: number;
+        shiftX: number;
+        shiftY: number;
     }
 
     interface MazePlaceTrackArgs extends GameActionArgs {
@@ -1341,6 +1363,10 @@ declare global {
         expenditureType?: ExpenditureType;
     }
 
+    interface BannerCreateActionResult extends GameActionResult {
+        readonly bannerIndex?: number;
+    }
+
     interface RideCreateActionResult extends GameActionResult {
         readonly ride?: number;
     }
@@ -1389,6 +1415,14 @@ declare global {
     interface VehicleCrashArgs {
         readonly id: number;
         readonly crashIntoType: VehicleCrashIntoType;
+    }
+
+    /**
+     * The 'suggestedGuestMaximum' field in this interface can be used to override
+     * the park's suggested guest cap.
+     */
+    interface ParkCalculateGuestCapArgs {
+        suggestedGuestMaximum: number;
     }
 
     /**
@@ -1916,6 +1950,39 @@ declare global {
 
     interface LargeSceneryObject extends SceneryObject {
 
+        readonly tiles: LargeSceneryObjectTile[];
+    }
+
+    interface LargeSceneryObjectTile {
+        /**
+         * The offset from tile index 0's location to this tile
+         */
+        readonly offset: CoordsXYZ;
+
+        /**
+         * The clearance height for this tile
+         */
+        readonly zClearance: number;
+
+        /**
+         * Set if the tile will draw supports
+         */
+        readonly hasSupports: boolean;
+
+        /**
+         * Set if the tile allows for drawing supports above this tile
+         */
+        readonly allowSupportsAbove: boolean;
+
+        /**
+         * A tile can be split into 4 sub tiles this defines what of those 4 are occupied by this tile
+         */
+        readonly corners: number;
+
+        /**
+         * Indicates if an edge can have walls built on it
+         */
+        readonly walls: number;
     }
 
     interface WallObject extends SceneryObject {
@@ -2096,7 +2163,7 @@ declare global {
         readonly downtime: number;
 
         /**
-         * The currently set chain lift speed in miles per hour.
+         * The currently set chain lift speed in miles per hour. Use `context.formatString()` to convert speed values to a localised value/unit string. Ex: `formatString('{VELOCITY}', ride.liftHillSpeed)`.
          */
         liftHillSpeed: number;
 
@@ -2109,6 +2176,66 @@ declare global {
          * The min chain lift speed for this ride in miles per hour.
          */
         readonly minLiftHillSpeed: number;
+
+        /**
+         * The satisfaction rating of the ride from 0 to 100.
+         */
+        readonly satisfaction: number;
+
+        /**
+         * The max speed in miles per hour.
+         */
+        readonly maxSpeed: number;
+
+        /**
+         * The average speed in miles per hour.
+         */
+        readonly averageSpeed: number;
+
+        /**
+         * The ride time in seconds.
+         */
+        readonly rideTime: number;
+
+        /**
+         * Total length of the ride in meters. Use `context.formatString()` to convert into localised value/unit string. Ex: `formatString('{LENGTH}', ride.rideLength)`.
+         */
+        readonly rideLength: number;
+
+        /**
+         * The max positive vertical Gs.
+         */
+        readonly maxPositiveVerticalGs: number;
+
+        /**
+         * The max negative vertical Gs.
+         */
+        readonly maxNegativeVerticalGs: number;
+
+        /**
+         * The max lateral Gs.
+         */
+        readonly maxLateralGs: number;
+
+        /**
+         * The total airtime in seconds.
+         */
+        readonly totalAirTime: number;
+
+        /**
+         * The number of drops.
+         */
+        readonly numDrops: number;
+
+        /**
+         * The number of lift hills.
+         */
+        readonly numLiftHills: number;
+
+        /**
+         * Highest drop height in height units. Use `context.formatString()` to convert into metres/feet. Ex: `formatString('{HEIGHT}', ride.highestDropHeight)`.
+         */
+        readonly highestDropHeight: number;
     }
 
     type RideClassification = "ride" | "stall" | "facility";
@@ -2119,6 +2246,11 @@ declare global {
         main: number;
         additional: number;
         supports: number;
+    }
+
+    interface CrashedVehicleColour {
+        body: number;
+        trim: number;
     }
 
     interface VehicleColour {
@@ -2528,10 +2660,18 @@ declare global {
          */
         status: VehicleStatus;
 
+
+        /**
+         * Current vehicle spin rotation.
+         * Values are 0-255. The game actually only considers the higher
+         * 5 bits when rendering.
+         */
+        spin: number;
+
         /**
          * The location and direction of where the car is on the track.
          */
-        trackLocation: CoordsXYZD;
+        trackLocation: CarTrackLocation;
 
         /**
          * The current g-forces of this car.
@@ -2606,6 +2746,63 @@ declare global {
         "waiting_to_depart" |
         "waiting_to_start";
 
+    type CrashParticleType = "corner" | "rod" | "wheel" | "panel" | "seat";
+
+    /**
+     * Override properties for launch data. All properties except colour are randomly
+     * chosen if not overridden, using the same algorithm as regular crashed particles.
+     */
+    interface CrashParticleLaunchData {
+        colours?: CrashedVehicleColour;
+        timeToLive?: number;
+        velocity?: CoordsXYZ;
+        crashParticleType?: CrashParticleType;
+        frame?: number;
+    }
+
+    /**
+     * Represents a vehicle explosion particle. They are emitted during a vehicle
+     * crash and will bounce until their timer expires and they are automatically
+     * removed.
+     */
+    interface CrashedVehicleParticle extends Entity {
+        /**
+         * The colour of the particle.
+         */
+        colours: CrashedVehicleColour;
+
+        /**
+         * The lifetime of the particle in ticks. Default value 65535. Entity is
+         * automatically removed at 0.
+         */
+        timeToLive: number;
+
+        /**
+         * The particle velocity.
+         */
+        velocity: CoordsXYZ;
+
+        /**
+         * The acceleration of the particle in the x, y, and z directions.
+         */
+        acceleration: CoordsXYZ;
+
+        /**
+         * The type of crash particle.
+         */
+        crashParticleType: CrashParticleType;
+
+        /**
+         * The current frame of the crash particle.
+         */
+        frame: number;
+
+        /**
+         * Sets the sprite bounds and launches the particle.
+         */
+        launch(launchData?: CrashParticleLaunchData): void;
+    }
+
     /**
      * Represents a guest or staff member.
      * @deprecated since version 34, use guest or staff instead.
@@ -2625,6 +2822,11 @@ declare global {
          * The peep's direct destination.
          */
         destination: CoordsXY;
+
+        /**
+         * The peep's orthogonal direction, from 0 to 3.
+         */
+        direction: Direction;
 
         /**
          * How tired the guest is between 32 and 128 where lower is more tired.
@@ -2675,7 +2877,9 @@ declare global {
         "joy" |
         "angry" |
         "iceCream" |
-        "hereWeAre";
+        "hereWeAre" |
+        "positionFrozen" |
+        "animationFrozen";
 
     /**
      * @deprecated since version 34, use EntityType instead.
@@ -2872,6 +3076,11 @@ declare global {
          * The total number of frames in the current animation.
          */
         readonly animationLength: number;
+
+        /**
+         * The ride ID of the guest's favourite ride.
+         */
+        favouriteRide: number | null;
     }
 
     /**
@@ -3189,7 +3398,7 @@ declare global {
     /**
      * Represents a staff member.
      */
-    interface Staff extends Peep {
+    interface BaseStaff extends Peep {
         /**
          * The type of staff member, e.g. handyman, mechanic.
          */
@@ -3247,6 +3456,68 @@ declare global {
     }
 
     type StaffType = "handyman" | "mechanic" | "security" | "entertainer";
+
+    type Staff = Handyman | Mechanic | Security | Entertainer;
+
+    /**
+     * Represents a handyman.
+     */
+    interface Handyman extends BaseStaff {
+        staffType: "handyman";
+
+        /**
+         * The number of lawns mown by the handyman.
+         */
+        readonly lawnsMown: number;
+
+        /**
+         * The number of gardens watered by the handyman.
+         */
+        readonly gardensWatered: number;
+
+        /**
+         * The number of litter swept by the handyman.
+         */
+        readonly litterSwept: number;
+
+        /**
+         * The number of bins emptied by the handyman.
+         */
+        readonly binsEmptied: number;
+    }
+
+    /**
+     * Represents a mechanic.
+     */
+    interface Mechanic extends BaseStaff {
+        staffType: "mechanic";
+
+        /**
+         * The number of rides fixed by the mechanic.
+         */
+        readonly ridesFixed: number;
+
+        /**
+         * The number of inspections performed by the mechanic.
+         */
+        readonly ridesInspected: number;
+    }
+
+    /**
+     * Represents a security guard.
+     */
+    interface Security extends BaseStaff {
+        staffType: "security";
+
+        /**
+         * The number of vandals stopped by the security guard.
+         */
+        readonly vandalsStopped: number;
+    }
+
+    interface Entertainer extends BaseStaff {
+        staffType: "entertainer";
+    }
 
     interface PatrolArea {
         /**
@@ -3625,6 +3896,12 @@ declare global {
         readonly guestGenerationProbability: number;
 
         /**
+         * Spawns a new guest at a random peep spawn point.
+         * Note: The "guest.generation" hook will be called before this function returns.
+         */
+        generateGuest(): Guest;
+
+        /**
          * The average amount of cash guests will spawn with.
          */
         readonly guestInitialCash: number;
@@ -3726,6 +4003,14 @@ declare global {
 
         postMessage(message: string): void;
         postMessage(message: ParkMessageDesc): void;
+
+        /**
+         * Gets the monthly expenditure history for a given type.
+         * Index 0 represents the current month, index 1 the previous month, etc.
+         * The maximum length of the array is 16.
+         * @param type The type of expenditure to get.
+         */
+        getMonthlyExpenditure(type: ExpenditureType): number[]
     }
 
     interface Research {
@@ -4177,7 +4462,7 @@ declare global {
     interface ToolEventArgs {
         readonly isDown: boolean;
         readonly screenCoords: ScreenCoordsXY;
-        readonly mapCoords?: CoordsXYZ;
+        readonly mapCoords?: CoordsXY;
         readonly tileElementIndex?: number;
         readonly entityId?: number;
     }
@@ -4281,25 +4566,29 @@ declare global {
         ButtonWidget | CheckboxWidget | ColourPickerWidget | CustomWidget | DropdownWidget | GroupBoxWidget |
         LabelWidget | ListViewWidget | SpinnerWidget | TextBoxWidget | ViewportWidget;
 
-    type IconName = "arrow_down" | "arrow_up" | "chat" | "cheats" | "copy" | "empty" | "eyedropper" |
-        "fast_forward" | "game_speed_indicator" | "game_speed_indicator_double" | "glassy_recolourable" |
-        "hide_full" | "hide_partial" | "hide_scenery" | "hide_supports" | "hide_vegetation" | "hide_vehicles" |
-        "large_scenery" | "legacy_paths" | "link_chain" | "logo" | "logo_text" | "map_east" |
-        "map_east_pressed" | "map_gen_land" | "map_gen_noise" | "map_gen_trees" | "map_north" |
-        "map_north_pressed" | "map_south" | "map_south_pressed" | "map_west" | "map_west_pressed" |
+    type IconName =
+        "arrow_down" | "arrow_up" | "award" | "awards" | "chain_lift" | "chat" | "cheats" | "closed" | "construction" |
+        "copy" | "demolish" | "empty" | "eyedropper" | "fast_forward" | "finance" | "floppy_disk" | "game_speed_indicator" |
+        "game_speed_indicator_double" | "glassy_recolourable" | "graph" | "guest_inventory" | "guests" |
+        "hearing" | "hide_full" | "hide_partial" | "hide_scenery" | "hide_supports" | "hide_vegetation" | "hide_vehicles" |
+        "kiosks_and_facilities" | "large_scenery" | "legacy_paths" | "link_chain" | "locate" | "logo" | "logo_text" | "map" |
+        "map_east" | "map_east_pressed" | "map_gen_land" | "map_gen_noise" | "map_gen_trees" | "map_north" | "map_north_pressed" |
+        "map_south" | "map_south_pressed" | "map_west" | "map_west_pressed" | "mechanic" | "mirror_arrow" |
         "mountain_tool_even" | "mountain_tool_odd" | "multiplayer" | "multiplayer_desync" | "multiplayer_sync" |
-        "multiplayer_toolbar" | "multiplayer_toolbar_pressed" | "mute" | "mute_pressed" | "news_messages" |
-        "normal_selection_6x6" | "palette_invisible" | "palette_invisible_pressed" | "paste" | "path_railings" | "path_surfaces" | "paths" | "placeholder" |
-        "rct1_close_off" | "rct1_close_off_pressed" | "rct1_close_on" | "rct1_close_on_pressed" | "rct1_open_off" |
-        "rct1_open_off_pressed" | "rct1_open_on" | "rct1_open_on_pressed" | "rct1_simulate_off" |
-        "rct1_simulate_off_pressed" | "rct1_simulate_on" | "rct1_simulate_on_pressed" | "rct1_test_off" |
-        "rct1_test_off_pressed" | "rct1_test_on" | "rct1_test_on_pressed" | "reload" | "ride_stations" |
-        "scenery_scatter_high" | "scenery_scatter_low" | "scenery_scatter_medium" | "search" |
-        "selection_edge_ne" | "selection_edge_nw" | "selection_edge_se" | "selection_edge_sw" |
-        "server_password" | "sideways_tab" | "sideways_tab_active" | "simulate" | "small_scenery" | "sort" |
-        "terrain_edges" | "title_play" | "title_restart" | "title_skip" | "title_stop" | "unmute" |
-        "unmute_pressed" | "view" | "zoom_in" | "zoom_in_background" | "zoom_out" | "zoom_out_background";
-
+        "multiplayer_toolbar" | "multiplayer_toolbar_pressed" | "music" | "mute" | "mute_pressed" | "news_messages" |
+        "new_ride" | "next" | "no_entry" | "open" | "paintbrush" | "palette_invisible" | "palette_invisible_pressed" | "park" |
+        "paste" | "path_railings" | "path_surfaces" | "paths" | "patrol" | "pause" | "pickup" | "placeholder" | "previous" |
+        "question" | "rct1_close_off" | "rct1_close_off_pressed" | "rct1_close_on" | "rct1_close_on_pressed" | "rct1_open_off" |
+        "rct1_open_off_pressed" | "rct1_open_on" | "rct1_open_on_pressed" | "rct1_simulate_off" | "rct1_simulate_off_pressed" |
+        "rct1_simulate_on" | "rct1_simulate_on_pressed" | "rct1_test_off" | "rct1_test_off_pressed" | "rct1_test_on" |
+        "rct1_test_on_pressed" | "reload" | "rename" | "research" | "ride" | "ride_stations" | "rides_gentle" |
+        "rides_rollercoasters" | "rides_shop" | "rides_thrill" | "rides_transport" | "rides_water" | "rotate_arrow" | "scenery" |
+        "scenery_cluster" | "scenery_paths" | "scenery_paths_items" | "scenery_scatter_high" | "scenery_scatter_low" |
+        "scenery_scatter_medium" | "scenery_signage" | "scenery_statues" | "scenery_trees" | "scenery_urban" | "scenery_walls" |
+        "search" | "selection_edge_ne" | "selection_edge_nw" | "selection_edge_se" | "selection_edge_sw" | "server_password" |
+        "shops_and_stalls" | "sideways_tab" | "sideways_tab_active" | "simulate" | "small_scenery" | "sort" | "stats" | "testing" |
+        "terrain_edges" | "title_play" | "title_restart" | "title_skip" | "title_stop" | "unmute" | "unmute_pressed" | "view" |
+        "water" | "zoom_in" | "zoom_in_background" | "zoom_out" | "zoom_out_background";
 
     interface WidgetBase {
         readonly window: Window;
@@ -4405,6 +4694,7 @@ declare global {
         type: "textbox";
         text: string;
         maxLength: number;
+        focus(): void;
     }
 
     interface ViewportWidget extends WidgetBase {

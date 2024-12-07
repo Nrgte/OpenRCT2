@@ -9,10 +9,7 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../core/String.hpp"
-
-#include <string>
+#include "../core/StringTypes.h"
 
 /**
  * Class for constructing strings efficiently. A buffer is automatically allocated and reallocated when characters or strings

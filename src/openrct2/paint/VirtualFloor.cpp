@@ -10,6 +10,7 @@
 #include "VirtualFloor.h"
 
 #include "../Cheats.h"
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../Input.h"
 #include "../config/Config.h"
@@ -20,6 +21,8 @@
 #include "../world/Location.hpp"
 #include "../world/Map.h"
 #include "../world/TileElementsView.h"
+#include "../world/tile_element/SurfaceElement.h"
+#include "../world/tile_element/TileElement.h"
 #include "Paint.h"
 #include "VirtualFloor.h"
 #include "tile_element/Paint.TileElement.h"
@@ -300,10 +303,10 @@ void VirtualFloorPaint(PaintSession& session)
     PROFILED_FUNCTION();
 
     static constexpr CoordsXY scenery_half_tile_offsets[4] = {
-        { -COORDS_XY_STEP, 0 },
-        { 0, COORDS_XY_STEP },
-        { COORDS_XY_STEP, 0 },
-        { 0, -COORDS_XY_STEP },
+        { -kCoordsXYStep, 0 },
+        { 0, kCoordsXYStep },
+        { kCoordsXYStep, 0 },
+        { 0, -kCoordsXYStep },
     };
 
     if (_virtualFloorHeight < kMinimumLandHeight)
@@ -336,9 +339,9 @@ void VirtualFloorPaint(PaintSession& session)
 
     // Try the four tiles next to us for the same parameters as above,
     //  if our parameters differ we set an edge towards that tile
-    for (uint8_t i = 0; i < NumOrthogonalDirections; i++)
+    for (uint8_t i = 0; i < kNumOrthogonalDirections; i++)
     {
-        uint8_t effectiveRotation = (NumOrthogonalDirections + i - direction) % NumOrthogonalDirections;
+        uint8_t effectiveRotation = (kNumOrthogonalDirections + i - direction) % kNumOrthogonalDirections;
         CoordsXY theirLocation = session.MapPosition + scenery_half_tile_offsets[effectiveRotation];
 
         bool theyAreOccupied;
@@ -352,7 +355,7 @@ void VirtualFloorPaint(PaintSession& session)
             theirLocation, virtualFloorClipHeight, &theyAreOccupied, &theyAreOwned, &theirOccupiedEdges, &theyAreBelowGround,
             &theyAreAboveGround, &theyAreLit);
 
-        if (theirOccupiedEdges & (1 << ((effectiveRotation + 2) % NumOrthogonalDirections)) && (weAreOwned && !theyAreOwned))
+        if (theirOccupiedEdges & (1 << ((effectiveRotation + 2) % kNumOrthogonalDirections)) && (weAreOwned && !theyAreOwned))
         {
             occupiedEdges |= 1 << i;
         }

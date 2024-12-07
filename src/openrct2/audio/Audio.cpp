@@ -29,6 +29,7 @@
 #include "../ui/UiContext.h"
 #include "../util/Util.h"
 #include "../world/Climate.h"
+#include "../world/tile_element/SurfaceElement.h"
 #include "AudioChannel.h"
 #include "AudioContext.h"
 #include "AudioMixer.h"
@@ -93,7 +94,6 @@ namespace OpenRCT2::Audio
                 }
             }
         }
-        LoadAudioObjects();
     }
 
     void LoadAudioObjects()
@@ -203,7 +203,7 @@ namespace OpenRCT2::Audio
     static void Play(IAudioSource* audioSource, int32_t volume, int32_t pan)
     {
         int32_t mixerPan = 0;
-        if (pan != AUDIO_PLAY_AT_CENTRE)
+        if (pan != kAudioPlayAtCentre)
         {
             int32_t x2 = pan << 16;
             uint16_t screenWidth = std::max<int32_t>(64, OpenRCT2::GetContext()->GetUiContext()->GetWidth());

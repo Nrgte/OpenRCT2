@@ -9,13 +9,12 @@
 
 #pragma once
 
-#include "../common.h"
 #include "../entity/Peep.h"
 #include "RCT1.h"
 
 #include <vector>
 
-namespace RCT1
+namespace OpenRCT2::RCT1
 {
     struct VehicleColourSchemeCopyDescriptor
     {
@@ -23,10 +22,10 @@ namespace RCT1
     };
 
     enum class RideType : uint8_t;
-    enum class PeepSpriteType : uint8_t;
+    enum class PeepAnimationGroup : uint8_t;
 
     colour_t GetColour(colour_t colour);
-    ::PeepSpriteType GetPeepSpriteType(PeepSpriteType rct1SpriteType);
+    ::PeepAnimationGroup GetPeepAnimationGroup(PeepAnimationGroup rct1AnimationGroup);
 
     uint8_t GetRideType(RideType rideType, VehicleType vehicleType);
     VehicleColourSchemeCopyDescriptor GetColourSchemeCopyDescriptor(VehicleType vehicleType);
@@ -56,4 +55,4 @@ namespace RCT1
     const std::vector<const char*> GetSceneryObjects(uint8_t sceneryType);
 
     bool VehicleTypeIsReversed(const VehicleType vehicleType);
-} // namespace RCT1
+} // namespace OpenRCT2::RCT1

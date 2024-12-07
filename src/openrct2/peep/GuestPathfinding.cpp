@@ -9,6 +9,7 @@
 
 #include "GuestPathfinding.h"
 
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../core/Guard.hpp"
 #include "../entity/Guest.h"
@@ -18,33 +19,49 @@
 #include "../ride/Station.h"
 #include "../ride/Track.h"
 #include "../scenario/Scenario.h"
-#include "../util/Util.h"
 #include "../world/Entrance.h"
 #include "../world/Footpath.h"
+#include "../world/tile_element/BannerElement.h"
+#include "../world/tile_element/EntranceElement.h"
+#include "../world/tile_element/PathElement.h"
+#include "../world/tile_element/TileElement.h"
+#include "../world/tile_element/TrackElement.h"
 
+#include <bit>
 #include <bitset>
+#include <cassert>
 #include <cstring>
-
-bool gPeepPathFindIgnoreForeignQueues;
-RideId gPeepPathFindQueueRideIndex;
 
 namespace OpenRCT2::PathFinding
 {
-    static int8_t _peepPathFindNumJunctions;
-    static int8_t _peepPathFindMaxJunctions;
-    static int32_t _peepPathFindTilesChecked;
+    // The search limits the maximum junctions by certain conditions.
+    static constexpr uint8_t kMaxJunctionsStaff = 8;
+    static constexpr uint8_t kMaxJunctionsGuest = 5;
+    static constexpr uint8_t kMaxJunctionsGuestWithMap = 7;
+    static constexpr uint8_t kMaxJunctionsGuestLeavingPark = 7;
+    static constexpr uint8_t kMaxJunctionsGuestLeavingParkLost = 8;
+
+    // Maximum amount of junctions.
+    static constexpr uint8_t kMaxJunctions = std::max({ kMaxJunctionsStaff, kMaxJunctionsGuest, kMaxJunctionsGuestWithMap,
+                                                        kMaxJunctionsGuestLeavingPark, kMaxJunctionsGuestLeavingParkLost });
+
+    struct PathFindingState
+    {
+        int8_t junctionCount;
+        int8_t maxJunctions;
+        int32_t countTilesChecked;
+        // TODO: Move them, those are query parameters not really state, but for now its easier to pass it down.
+        bool ignoreForeignQueues;
+        RideId queueRideIndex;
+        // A junction history for the peep path finding heuristic search.
+        struct
+        {
+            TileCoordsXYZ location;
+            Direction direction;
+        } history[kMaxJunctions + 1];
+    };
 
     static int32_t GuestSurfacePathFinding(Peep& peep);
-
-    /* A junction history for the peep pathfinding heuristic search
-     * The magic number 16 is the largest value returned by
-     * PeepPathfindGetMaxNumberJunctions() which should eventually
-     * be declared properly. */
-    static struct
-    {
-        TileCoordsXYZ location;
-        Direction direction;
-    } _peepPathFindHistory[16];
 
     enum class PathSearchResult
     {
@@ -127,14 +144,14 @@ namespace OpenRCT2::PathFinding
     }
 #pragma endregion
 
-    static TileElement* GetBannerOnPath(TileElement* pathElement)
+    static const TileElement* GetBannerOnPath(const TileElement* pathElement)
     {
         // This is an improved version of original.
         // That only checked for one fence in the way.
         if (pathElement->IsLastForTile())
             return nullptr;
 
-        TileElement* bannerElement = pathElement + 1;
+        const TileElement* bannerElement = pathElement + 1;
         do
         {
             // Path on top, so no banners
@@ -152,11 +169,11 @@ namespace OpenRCT2::PathFinding
         return nullptr;
     }
 
-    static int32_t BannerClearPathEdges(bool ignoreBanners, PathElement* pathElement, int32_t edges)
+    static int32_t BannerClearPathEdges(bool ignoreBanners, const PathElement* pathElement, int32_t edges)
     {
         if (ignoreBanners)
             return edges;
-        TileElement* bannerElement = GetBannerOnPath(reinterpret_cast<TileElement*>(pathElement));
+        const TileElement* bannerElement = GetBannerOnPath(reinterpret_cast<const TileElement*>(pathElement));
         if (bannerElement != nullptr)
         {
             do
@@ -170,7 +187,7 @@ namespace OpenRCT2::PathFinding
     /**
      * Gets the connected edges of a path that are permitted (i.e. no 'no entry' signs)
      */
-    static int32_t PathGetPermittedEdges(bool ignoreBanners, PathElement* pathElement)
+    static int32_t PathGetPermittedEdges(bool ignoreBanners, const PathElement* pathElement)
     {
         return BannerClearPathEdges(ignoreBanners, pathElement, pathElement->GetEdgesAndCorners()) & 0x0F;
     }
@@ -214,14 +231,14 @@ namespace OpenRCT2::PathFinding
             if (direction == 0 || direction == 2)
             {
                 // Peep is moving along X, so apply the offset to the X position of the destination and clamp their current Y
-                const int32_t centreLine = (peep.y & 0xFFE0) + COORDS_XY_HALF_TILE;
+                const int32_t centreLine = (peep.y & 0xFFE0) + kCoordsXYHalfTile;
                 newTile.x += offset;
                 newTile.y = std::clamp<int32_t>(peep.y, centreLine - 3, centreLine + 3);
             }
             else
             {
                 // Peep is moving along Y, so apply the offset to the Y position of the destination and clamp their current X
-                const int32_t centreLine = (peep.x & 0xFFE0) + COORDS_XY_HALF_TILE;
+                const int32_t centreLine = (peep.x & 0xFFE0) + kCoordsXYHalfTile;
                 newTile.x = std::clamp<int32_t>(peep.x, centreLine - 3, centreLine + 3);
                 newTile.y += offset;
             }
@@ -237,7 +254,7 @@ namespace OpenRCT2::PathFinding
      */
     static int32_t GuestSurfacePathFinding(Peep& peep)
     {
-        auto pathPos = CoordsXYRangedZ{ peep.NextLoc, peep.NextLoc.z, peep.NextLoc.z + PATH_CLEARANCE };
+        auto pathPos = CoordsXYRangedZ{ peep.NextLoc, peep.NextLoc.z, peep.NextLoc.z + kPathClearance };
         Direction randDirection = ScenarioRand() & 3;
 
         if (!WallInTheWay(pathPos, randDirection))
@@ -345,12 +362,13 @@ namespace OpenRCT2::PathFinding
                 continue;
             if (nextTileElement->GetType() != TileElementType::Path)
                 continue;
-            if (!IsValidPathZAndDirection(nextTileElement, loc.z, chosenDirection))
+            const auto* nextPathElement = nextTileElement->AsPath();
+            if (!FootpathIsZAndDirectionValid(*nextPathElement, loc.z, chosenDirection))
                 continue;
-            if (nextTileElement->AsPath()->IsWide())
+            if (nextPathElement->IsWide())
                 return PathSearchResult::Wide;
             // Only queue tiles that are connected to a ride are returned as ride queues.
-            if (nextTileElement->AsPath()->IsQueue() && !nextTileElement->AsPath()->GetRideIndex().IsNull())
+            if (nextPathElement->IsQueue() && !nextPathElement->GetRideIndex().IsNull())
                 return PathSearchResult::RideQueue;
 
             return PathSearchResult::Other;
@@ -405,7 +423,7 @@ namespace OpenRCT2::PathFinding
                         continue;
                     RideId rideIndex = tileElement->AsTrack()->GetRideIndex();
                     auto ride = GetRide(rideIndex);
-                    if (ride != nullptr && ride->GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY))
+                    if (ride != nullptr && ride->GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility))
                     {
                         *outRideIndex = rideIndex;
                         return PathSearchResult::ShopEntrance;
@@ -439,12 +457,13 @@ namespace OpenRCT2::PathFinding
                     break;
                 case TileElementType::Path:
                 {
-                    if (!IsValidPathZAndDirection(tileElement, loc.z, chosenDirection))
+                    const auto* pathElement = tileElement->AsPath();
+                    if (!FootpathIsZAndDirectionValid(*pathElement, loc.z, chosenDirection))
                         continue;
                     if (tileElement->AsPath()->IsWide())
                         return PathSearchResult::Wide;
 
-                    uint8_t edges = PathGetPermittedEdges(ignoreBanners, tileElement->AsPath());
+                    uint8_t edges = PathGetPermittedEdges(ignoreBanners, pathElement);
                     edges &= ~(1 << DirectionReverse(chosenDirection));
                     loc.z = tileElement->BaseHeight;
 
@@ -547,24 +566,25 @@ namespace OpenRCT2::PathFinding
     static uint8_t PeepPathfindGetMaxNumberJunctions(Peep& peep)
     {
         if (peep.Is<Staff>())
-            return 8;
+            return kMaxJunctionsStaff;
 
         auto* guest = peep.As<Guest>();
         if (guest == nullptr)
-            return 8;
+            return kMaxJunctionsStaff;
 
-        if (guest->PeepFlags & PEEP_FLAGS_LEAVING_PARK && guest->GuestIsLostCountdown < 90)
+        bool isLeavingPark = (guest->PeepFlags & PEEP_FLAGS_LEAVING_PARK) != 0;
+        if (isLeavingPark && guest->GuestIsLostCountdown < 90)
         {
-            return 8;
+            return kMaxJunctionsGuestLeavingParkLost;
         }
 
+        if (isLeavingPark)
+            return kMaxJunctionsGuestLeavingPark;
+
         if (guest->HasItem(ShopItem::Map))
-            return 7;
+            return kMaxJunctionsGuestWithMap;
 
-        if (guest->PeepFlags & PEEP_FLAGS_LEAVING_PARK)
-            return 7;
-
-        return 5;
+        return kMaxJunctionsGuest;
     }
 
     /**
@@ -579,9 +599,9 @@ namespace OpenRCT2::PathFinding
     {
         PROFILED_FUNCTION();
 
-        uint8_t edges = path->GetEdges();
+        uint32_t edges = path->GetEdges();
 
-        int32_t testEdge = UtilBitScanForward(edges);
+        int32_t testEdge = Numerics::bitScanForward(edges);
         if (testEdge == -1)
             return false;
 
@@ -606,7 +626,7 @@ namespace OpenRCT2::PathFinding
                 break;
             }
             edges &= ~(1 << testEdge);
-        } while ((testEdge = UtilBitScanForward(edges)) != -1);
+        } while ((testEdge = Numerics::bitScanForward(edges)) != -1);
         return isThinJunction;
     }
 
@@ -701,9 +721,10 @@ namespace OpenRCT2::PathFinding
      *  rct2: 0x0069A997
      */
     static void PeepPathfindHeuristicSearch(
-        TileCoordsXYZ loc, const TileCoordsXYZ& goal, const Peep& peep, TileElement* currentTileElement,
-        const bool inPatrolArea, uint8_t numSteps, uint16_t* endScore, Direction testEdge, uint8_t* endJunctions,
-        TileCoordsXYZ junctionList[16], uint8_t directionList[16], TileCoordsXYZ* endXYZ, uint8_t* endSteps)
+        PathFindingState& state, TileCoordsXYZ loc, const TileCoordsXYZ& goal, const Peep& peep,
+        TileElement* currentTileElement, const bool inPatrolArea, uint8_t numSteps, uint16_t* endScore, Direction testEdge,
+        uint8_t* endJunctions, TileCoordsXYZ junctionList[16], uint8_t directionList[16], TileCoordsXYZ* endXYZ,
+        uint8_t* endSteps)
     {
         PathSearchResult searchResult = PathSearchResult::Failed;
 
@@ -718,12 +739,12 @@ namespace OpenRCT2::PathFinding
         loc += TileDirectionDelta[testEdge];
 
         ++numSteps;
-        _peepPathFindTilesChecked--;
+        state.countTilesChecked--;
 
         /* If this is where the search started this is a search loop and the
          * current search path ends here.
          * Return without updating the parameters (best result so far). */
-        if (_peepPathFindHistory[0].location == loc)
+        if (state.history[0].location == loc)
         {
             LogPathfinding(&peep, "Return from %d,%d,%d; Steps: %u; At start", loc.x >> 5, loc.y >> 5, loc.z, numSteps);
             return;
@@ -771,7 +792,7 @@ namespace OpenRCT2::PathFinding
                      * tile. */
                     rideIndex = tileElement->AsTrack()->GetRideIndex();
                     auto ride = GetRide(rideIndex);
-                    if (ride == nullptr || !ride->GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY))
+                    if (ride == nullptr || !ride->GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility))
                         continue;
 
                     found = true;
@@ -825,17 +846,17 @@ namespace OpenRCT2::PathFinding
                     break;
                 case TileElementType::Path:
                 {
+                    const auto* pathElement = tileElement->AsPath();
                     /* For peeps heading for a ride with a queue, the goal is the last
                      * queue path.
                      * Otherwise, peeps walk on path tiles to get to the goal. */
-
-                    if (!IsValidPathZAndDirection(tileElement, loc.z, testEdge))
+                    if (!FootpathIsZAndDirectionValid(*pathElement, loc.z, testEdge))
                         continue;
 
                     // Path may be sloped, so set z to path base height.
                     loc.z = tileElement->BaseHeight;
 
-                    if (tileElement->AsPath()->IsWide())
+                    if (pathElement->IsWide())
                     {
                         /* Check if staff can ignore this wide flag. */
                         if (staff == nullptr || !staff->CanIgnoreWideFlag(loc.ToCoordsXYZ(), tileElement))
@@ -848,7 +869,7 @@ namespace OpenRCT2::PathFinding
 
                     searchResult = PathSearchResult::Thin;
 
-                    uint8_t numEdges = BitCount(tileElement->AsPath()->GetEdges());
+                    uint8_t numEdges = std::popcount(pathElement->GetEdges());
 
                     if (numEdges < 2)
                     {
@@ -860,15 +881,14 @@ namespace OpenRCT2::PathFinding
                     }
                     else
                     { // numEdges == 2
-                        if (tileElement->AsPath()->IsQueue()
-                            && tileElement->AsPath()->GetRideIndex() != gPeepPathFindQueueRideIndex)
+                        if (pathElement->IsQueue() && pathElement->GetRideIndex() != state.queueRideIndex)
                         {
-                            if (gPeepPathFindIgnoreForeignQueues && !tileElement->AsPath()->GetRideIndex().IsNull())
+                            if (state.ignoreForeignQueues && !pathElement->GetRideIndex().IsNull())
                             {
                                 // Path is a queue we aren't interested in
                                 /* The rideIndex will be useful for
                                  * adding transport rides later. */
-                                rideIndex = tileElement->AsPath()->GetRideIndex();
+                                rideIndex = pathElement->GetRideIndex();
                                 searchResult = PathSearchResult::RideQueue;
                             }
                         }
@@ -907,14 +927,14 @@ namespace OpenRCT2::PathFinding
                     // Update the end x,y,z
                     *endXYZ = loc;
                     // Update the telemetry
-                    *endJunctions = _peepPathFindMaxJunctions - _peepPathFindNumJunctions;
+                    *endJunctions = state.maxJunctions - state.junctionCount;
                     for (uint8_t junctInd = 0; junctInd < *endJunctions; junctInd++)
                     {
-                        uint8_t histIdx = _peepPathFindMaxJunctions - junctInd;
-                        junctionList[junctInd].x = _peepPathFindHistory[histIdx].location.x;
-                        junctionList[junctInd].y = _peepPathFindHistory[histIdx].location.y;
-                        junctionList[junctInd].z = _peepPathFindHistory[histIdx].location.z;
-                        directionList[junctInd] = _peepPathFindHistory[histIdx].direction;
+                        uint8_t histIdx = state.maxJunctions - junctInd;
+                        junctionList[junctInd].x = state.history[histIdx].location.x;
+                        junctionList[junctInd].y = state.history[histIdx].location.y;
+                        junctionList[junctInd].z = state.history[histIdx].location.z;
+                        directionList[junctInd] = state.history[histIdx].direction;
                     }
                 }
                 LogPathfinding(
@@ -958,14 +978,14 @@ namespace OpenRCT2::PathFinding
                     // Update the end x,y,z
                     *endXYZ = loc;
                     // Update the telemetry
-                    *endJunctions = _peepPathFindMaxJunctions - _peepPathFindNumJunctions;
+                    *endJunctions = state.maxJunctions - state.junctionCount;
                     for (uint8_t junctInd = 0; junctInd < *endJunctions; junctInd++)
                     {
-                        uint8_t histIdx = _peepPathFindMaxJunctions - junctInd;
-                        junctionList[junctInd].x = _peepPathFindHistory[histIdx].location.x;
-                        junctionList[junctInd].y = _peepPathFindHistory[histIdx].location.y;
-                        junctionList[junctInd].z = _peepPathFindHistory[histIdx].location.z;
-                        directionList[junctInd] = _peepPathFindHistory[histIdx].direction;
+                        uint8_t histIdx = state.maxJunctions - junctInd;
+                        junctionList[junctInd].x = state.history[histIdx].location.x;
+                        junctionList[junctInd].y = state.history[histIdx].location.y;
+                        junctionList[junctInd].z = state.history[histIdx].location.z;
+                        directionList[junctInd] = state.history[histIdx].direction;
                     }
                 }
                 LogPathfinding(
@@ -978,7 +998,7 @@ namespace OpenRCT2::PathFinding
 
             /* Get all the permitted_edges of the map element. */
             Guard::Assert(tileElement->AsPath() != nullptr);
-            uint8_t edges = PathGetPermittedEdges(staff != nullptr, tileElement->AsPath());
+            uint32_t edges = PathGetPermittedEdges(staff != nullptr, tileElement->AsPath());
 
             LogPathfinding(
                 &peep, "Path element at %d,%d,%d; Steps: %u; Edges (0123):%d%d%d%d; Reverse: %d", loc.x >> 5, loc.y >> 5, loc.z,
@@ -987,7 +1007,7 @@ namespace OpenRCT2::PathFinding
             /* Remove the reverse edge (i.e. the edge back to the previous map element.) */
             edges &= ~(1 << DirectionReverse(testEdge));
 
-            int32_t nextTestEdge = UtilBitScanForward(edges);
+            int32_t nextTestEdge = Numerics::bitScanForward(edges);
 
             /* If there are no other edges the current search ends here.
              * Continue to the next map element without updating the parameters (best result so far). */
@@ -1001,7 +1021,7 @@ namespace OpenRCT2::PathFinding
 
             /* Check if either of the search limits has been reached:
              * - max number of steps or max tiles checked. */
-            if (numSteps >= 200 || _peepPathFindTilesChecked <= 0)
+            if (numSteps >= 200 || state.countTilesChecked <= 0)
             {
                 /* The current search ends here.
                  * The path continues, so the goal could still be reachable from here.
@@ -1015,14 +1035,14 @@ namespace OpenRCT2::PathFinding
                     // Update the end x,y,z
                     *endXYZ = loc;
                     // Update the telemetry
-                    *endJunctions = _peepPathFindMaxJunctions - _peepPathFindNumJunctions;
+                    *endJunctions = state.maxJunctions - state.junctionCount;
                     for (uint8_t junctInd = 0; junctInd < *endJunctions; junctInd++)
                     {
-                        uint8_t histIdx = _peepPathFindMaxJunctions - junctInd;
-                        junctionList[junctInd].x = _peepPathFindHistory[histIdx].location.x;
-                        junctionList[junctInd].y = _peepPathFindHistory[histIdx].location.y;
-                        junctionList[junctInd].z = _peepPathFindHistory[histIdx].location.z;
-                        directionList[junctInd] = _peepPathFindHistory[histIdx].direction;
+                        uint8_t histIdx = state.maxJunctions - junctInd;
+                        junctionList[junctInd].x = state.history[histIdx].location.x;
+                        junctionList[junctInd].y = state.history[histIdx].location.y;
+                        junctionList[junctInd].z = state.history[histIdx].location.z;
+                        directionList[junctInd] = state.history[histIdx].direction;
                     }
                 }
                 LogPathfinding(
@@ -1080,10 +1100,9 @@ namespace OpenRCT2::PathFinding
                         /* Check the _peepPathFindHistory to see if this junction has been
                          * previously passed through in the current search path.
                          * i.e. this is a loop in the current search path. */
-                        for (int32_t junctionNum = _peepPathFindNumJunctions + 1; junctionNum <= _peepPathFindMaxJunctions;
-                             junctionNum++)
+                        for (int32_t junctionNum = state.junctionCount + 1; junctionNum <= state.maxJunctions; junctionNum++)
                         {
-                            if (_peepPathFindHistory[junctionNum].location == loc)
+                            if (state.history[junctionNum].location == loc)
                             {
                                 pathLoop = true;
                                 break;
@@ -1104,7 +1123,7 @@ namespace OpenRCT2::PathFinding
                      * be reachable from here.
                      * If the search result is better than the best so far (in the parameters),
                      * then update the parameters with this search before continuing to the next map element. */
-                    if (_peepPathFindNumJunctions <= 0)
+                    if (state.junctionCount <= 0)
                     {
                         if (newScore < *endScore || (newScore == *endScore && numSteps < *endSteps))
                         {
@@ -1114,12 +1133,12 @@ namespace OpenRCT2::PathFinding
                             // Update the end x,y,z
                             *endXYZ = loc;
                             // Update the telemetry
-                            *endJunctions = _peepPathFindMaxJunctions; // - _peepPathFindNumJunctions;
+                            *endJunctions = state.maxJunctions; // - _peepPathFindNumJunctions;
                             for (uint8_t junctInd = 0; junctInd < *endJunctions; junctInd++)
                             {
-                                uint8_t histIdx = _peepPathFindMaxJunctions - junctInd;
-                                junctionList[junctInd] = _peepPathFindHistory[histIdx].location;
-                                directionList[junctInd] = _peepPathFindHistory[histIdx].direction;
+                                uint8_t histIdx = state.maxJunctions - junctInd;
+                                junctionList[junctInd] = state.history[histIdx].location;
+                                directionList[junctInd] = state.history[histIdx].direction;
                             }
                         }
                         LogPathfinding(
@@ -1130,10 +1149,10 @@ namespace OpenRCT2::PathFinding
 
                     /* This junction was NOT previously visited in the current
                      * search path, so add the junction to the history. */
-                    _peepPathFindHistory[_peepPathFindNumJunctions].location = loc;
+                    state.history[state.junctionCount].location = loc;
                     // .direction take is added below.
 
-                    _peepPathFindNumJunctions--;
+                    state.junctionCount--;
                 }
             }
 
@@ -1142,7 +1161,7 @@ namespace OpenRCT2::PathFinding
             do
             {
                 edges &= ~(1 << nextTestEdge);
-                uint8_t savedNumJunctions = _peepPathFindNumJunctions;
+                uint8_t savedNumJunctions = state.junctionCount;
 
                 uint8_t height = loc.z;
                 if (tileElement->AsPath()->IsSloped() && tileElement->AsPath()->GetSlopeDirection() == nextTestEdge)
@@ -1174,18 +1193,18 @@ namespace OpenRCT2::PathFinding
                 if (isThinJunction)
                 {
                     /* Add the current test_edge to the history. */
-                    _peepPathFindHistory[_peepPathFindNumJunctions + 1].direction = nextTestEdge;
+                    state.history[state.junctionCount + 1].direction = nextTestEdge;
                 }
 
                 PeepPathfindHeuristicSearch(
-                    { loc.x, loc.y, height }, goal, peep, tileElement, nextInPatrolArea, numSteps, endScore, nextTestEdge,
-                    endJunctions, junctionList, directionList, endXYZ, endSteps);
-                _peepPathFindNumJunctions = savedNumJunctions;
+                    state, { loc.x, loc.y, height }, goal, peep, tileElement, nextInPatrolArea, numSteps, endScore,
+                    nextTestEdge, endJunctions, junctionList, directionList, endXYZ, endSteps);
+                state.junctionCount = savedNumJunctions;
 
                 LogPathfinding(
                     &peep, "Returned to %d,%d,%d; Steps: %u; edge: %d; Score: %d", loc.x >> 5, loc.y >> 5, loc.z, numSteps,
                     nextTestEdge, *endScore);
-            } while ((nextTestEdge = UtilBitScanForward(edges)) != -1);
+            } while ((nextTestEdge = Numerics::bitScanForward(edges)) != -1);
 
         } while (!(tileElement++)->IsLastForTile());
 
@@ -1211,12 +1230,18 @@ namespace OpenRCT2::PathFinding
      *
      *  rct2: 0x0069A5F0
      */
-    Direction ChooseDirection(const TileCoordsXYZ& loc, const TileCoordsXYZ& goal, Peep& peep)
+    Direction ChooseDirection(
+        const TileCoordsXYZ& loc, const TileCoordsXYZ& goal, Peep& peep, bool ignoreForeignQueues, RideId queueRideIndex)
     {
         PROFILED_FUNCTION();
 
+        PathFindingState state{};
+
+        state.ignoreForeignQueues = ignoreForeignQueues;
+        state.queueRideIndex = queueRideIndex;
+
         // The max number of thin junctions searched - a per-search-path limit.
-        _peepPathFindMaxJunctions = PeepPathfindGetMaxNumberJunctions(peep);
+        state.maxJunctions = PeepPathfindGetMaxNumberJunctions(peep);
 
         /* The max number of tiles to check - a whole-search limit.
          * Mainly to limit the performance impact of the path finding. */
@@ -1276,7 +1301,7 @@ namespace OpenRCT2::PathFinding
             return INVALID_DIRECTION;
 
         permittedEdges &= 0xF;
-        uint8_t edges = permittedEdges;
+        uint32_t edges = permittedEdges;
         if (isThin && peep.PathfindGoal == goal)
         {
             /* Use of peep.PathfindHistory[]:
@@ -1351,7 +1376,7 @@ namespace OpenRCT2::PathFinding
         if (edges == 0)
             return INVALID_DIRECTION;
 
-        int32_t chosenEdge = UtilBitScanForward(edges);
+        int32_t chosenEdge = Numerics::bitScanForward(edges);
 
         // Peep has multiple edges still to try.
         if (edges & ~(1 << chosenEdge))
@@ -1371,8 +1396,8 @@ namespace OpenRCT2::PathFinding
              * edge that gives the best (i.e. smallest) value (best_score)
              * or for different edges with equal value, the edge with the
              * least steps (best_sub). */
-            int32_t numEdges = BitCount(edges);
-            for (int32_t testEdge = chosenEdge; testEdge != -1; testEdge = UtilBitScanForward(edges))
+            int32_t numEdges = std::popcount(edges);
+            for (int32_t testEdge = chosenEdge; testEdge != -1; testEdge = Numerics::bitScanForward(edges))
             {
                 edges &= ~(1 << testEdge);
                 uint8_t height = loc.z;
@@ -1385,12 +1410,12 @@ namespace OpenRCT2::PathFinding
                 /* Divide the maxTilesChecked global search limit
                  * between the remaining edges to ensure the search
                  * covers all of the remaining edges. */
-                _peepPathFindTilesChecked = maxTilesChecked / numEdges;
-                _peepPathFindNumJunctions = _peepPathFindMaxJunctions;
+                state.countTilesChecked = maxTilesChecked / numEdges;
+                state.junctionCount = state.maxJunctions;
 
                 // Initialise _peepPathFindHistory.
 
-                for (auto& entry : _peepPathFindHistory)
+                for (auto& entry : state.history)
                 {
                     entry.location.SetNull();
                     entry.direction = INVALID_DIRECTION;
@@ -1399,8 +1424,8 @@ namespace OpenRCT2::PathFinding
                 /* The pathfinding will only use elements
                  * 1.._peepPathFindMaxJunctions, so the starting point
                  * is placed in element 0 */
-                _peepPathFindHistory[0].location = loc;
-                _peepPathFindHistory[0].direction = 0xF;
+                state.history[0].location = loc;
+                state.history[0].direction = 0xF;
 
                 uint16_t score = 0xFFFF;
                 /* Variable endXYZ contains the end location of the
@@ -1437,8 +1462,8 @@ namespace OpenRCT2::PathFinding
                     &peep, "Pathfind searching in direction: %d from %d,%d,%d", testEdge, loc.x >> 5, loc.y >> 5, loc.z);
 
                 PeepPathfindHeuristicSearch(
-                    { loc.x, loc.y, height }, goal, peep, firstTileElement, inPatrolArea, 0, &score, testEdge, &endJunctions,
-                    endJunctionList, endDirectionList, &endXYZ, &endSteps);
+                    state, { loc.x, loc.y, height }, goal, peep, firstTileElement, inPatrolArea, 0, &score, testEdge,
+                    &endJunctions, endJunctionList, endDirectionList, &endXYZ, &endSteps);
 
                 if constexpr (kLogPathfinding)
                 {
@@ -1573,11 +1598,8 @@ namespace OpenRCT2::PathFinding
         if (!chosenEntrance.has_value())
             return GuestPathfindAimless(peep, edges);
 
-        gPeepPathFindIgnoreForeignQueues = true;
-        gPeepPathFindQueueRideIndex = RideId::GetNull();
-
         const auto goalPos = TileCoordsXYZ(chosenEntrance.value());
-        Direction chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep);
+        Direction chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep, true, RideId::GetNull());
 
         if (chosenDirection == INVALID_DIRECTION)
             return GuestPathfindAimless(peep, edges);
@@ -1630,11 +1652,8 @@ namespace OpenRCT2::PathFinding
             return PeepMoveOneTile(direction, peep);
         }
 
-        gPeepPathFindIgnoreForeignQueues = true;
-        gPeepPathFindQueueRideIndex = RideId::GetNull();
-
         const auto goalPos = TileCoordsXYZ(peepSpawnLoc);
-        direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep);
+        direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep, true, RideId::GetNull());
         if (direction == INVALID_DIRECTION)
             return GuestPathfindAimless(peep, edges);
 
@@ -1670,10 +1689,7 @@ namespace OpenRCT2::PathFinding
             entranceGoal = TileCoordsXYZ(*chosenEntrance);
         }
 
-        gPeepPathFindIgnoreForeignQueues = true;
-        gPeepPathFindQueueRideIndex = RideId::GetNull();
-
-        Direction chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, entranceGoal, peep);
+        Direction chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, entranceGoal, peep, true, RideId::GetNull());
         if (chosenDirection == INVALID_DIRECTION)
             return GuestPathfindAimless(peep, edges);
 
@@ -1808,7 +1824,7 @@ namespace OpenRCT2::PathFinding
             break;
         }
 
-        if (loc.z == MAX_ELEMENT_HEIGHT)
+        if (loc.z == kMaxTileElementHeight)
             return;
 
         tileElement = lastPathElement;
@@ -1836,12 +1852,12 @@ namespace OpenRCT2::PathFinding
      * appropriate.
      */
     static StationIndex GuestPathfindingSelectRandomStation(
-        const Guest& guest, int32_t numEntranceStations, BitSet<OpenRCT2::Limits::MaxStationsPerRide>& entranceStations)
+        const Guest& guest, int32_t numEntranceStations, BitSet<OpenRCT2::Limits::kMaxStationsPerRide>& entranceStations)
     {
         int32_t select = guest.GuestNumRides % numEntranceStations;
         while (select > 0)
         {
-            for (StationIndex::UnderlyingType i = 0; i < OpenRCT2::Limits::MaxStationsPerRide; i++)
+            for (StationIndex::UnderlyingType i = 0; i < OpenRCT2::Limits::kMaxStationsPerRide; i++)
             {
                 if (entranceStations[i])
                 {
@@ -1851,7 +1867,7 @@ namespace OpenRCT2::PathFinding
                 }
             }
         }
-        for (StationIndex::UnderlyingType i = 0; i < OpenRCT2::Limits::MaxStationsPerRide; i++)
+        for (StationIndex::UnderlyingType i = 0; i < OpenRCT2::Limits::kMaxStationsPerRide; i++)
         {
             if (entranceStations[i])
             {
@@ -1883,7 +1899,7 @@ namespace OpenRCT2::PathFinding
         }
 
         // Because this function is called for guests only, never ignore banners.
-        uint8_t edges = PathGetPermittedEdges(false, pathElement);
+        uint32_t edges = PathGetPermittedEdges(false, pathElement);
 
         if (edges == 0)
         {
@@ -1928,7 +1944,7 @@ namespace OpenRCT2::PathFinding
             edges &= ~(1 << direction);
         }
 
-        direction = UtilBitScanForward(edges);
+        direction = Numerics::bitScanForward(edges);
         // IF only one edge to choose from
         if ((edges & ~(1 << direction)) == 0)
         {
@@ -1994,7 +2010,7 @@ namespace OpenRCT2::PathFinding
         if (peep.HasItem(ShopItem::Map))
         {
             // If at least 2 directions consult map
-            if (BitCount(edges) >= 2)
+            if (std::popcount(edges) >= 2)
             {
                 uint16_t probability = 1638;
                 if (peep.HeadingForRideOrParkExit())
@@ -2032,9 +2048,6 @@ namespace OpenRCT2::PathFinding
             return GuestPathfindAimless(peep, edges);
         }
 
-        // The ride is open.
-        gPeepPathFindQueueRideIndex = rideIndex;
-
         /* Find the ride's closest entrance station to the peep.
          * At the same time, count how many entrance stations there are and
          * which stations are entrance stations. */
@@ -2042,7 +2055,7 @@ namespace OpenRCT2::PathFinding
         StationIndex closestStationNum = StationIndex::FromUnderlying(0);
 
         int32_t numEntranceStations = 0;
-        BitSet<OpenRCT2::Limits::MaxStationsPerRide> entranceStations = {};
+        BitSet<OpenRCT2::Limits::kMaxStationsPerRide> entranceStations = {};
 
         for (const auto& station : ride->GetStations())
         {
@@ -2093,9 +2106,7 @@ namespace OpenRCT2::PathFinding
 
         GetRideQueueEnd(loc);
 
-        gPeepPathFindIgnoreForeignQueues = true;
-
-        direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, loc, peep);
+        direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, loc, peep, true, rideIndex);
 
         if (direction == INVALID_DIRECTION)
         {
@@ -2115,33 +2126,6 @@ namespace OpenRCT2::PathFinding
         LogPathfinding(&peep, "Completed CalculateNextDestination - direction chosen: %d.", direction);
 
         return PeepMoveOneTile(direction, peep);
-    }
-
-    bool IsValidPathZAndDirection(TileElement* tileElement, int32_t currentZ, int32_t currentDirection)
-    {
-        if (tileElement->AsPath()->IsSloped())
-        {
-            int32_t slopeDirection = tileElement->AsPath()->GetSlopeDirection();
-            if (slopeDirection == currentDirection)
-            {
-                if (currentZ != tileElement->BaseHeight)
-                    return false;
-            }
-            else
-            {
-                slopeDirection = DirectionReverse(slopeDirection);
-                if (slopeDirection != currentDirection)
-                    return false;
-                if (currentZ != tileElement->BaseHeight + 2)
-                    return false;
-            }
-        }
-        else
-        {
-            if (currentZ != tileElement->BaseHeight)
-                return false;
-        }
-        return true;
     }
 
 } // namespace OpenRCT2::PathFinding

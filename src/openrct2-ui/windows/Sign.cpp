@@ -7,6 +7,8 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../UiStringIds.h"
+
 #include <openrct2-ui/interface/Dropdown.h>
 #include <openrct2-ui/interface/Viewport.h>
 #include <openrct2-ui/interface/Widget.h>
@@ -17,44 +19,44 @@
 #include <openrct2/actions/SignSetStyleAction.h>
 #include <openrct2/actions/WallRemoveAction.h>
 #include <openrct2/config/Config.h>
-#include <openrct2/localisation/Localisation.h>
-#include <openrct2/localisation/StringIds.h>
 #include <openrct2/object/LargeSceneryEntry.h>
 #include <openrct2/object/ObjectEntryManager.h>
 #include <openrct2/object/WallSceneryEntry.h>
 #include <openrct2/sprites.h>
 #include <openrct2/world/Banner.h>
 #include <openrct2/world/Scenery.h>
-#include <openrct2/world/Wall.h>
+#include <openrct2/world/tile_element/LargeSceneryElement.h>
+#include <openrct2/world/tile_element/WallElement.h>
+
 namespace OpenRCT2::Ui::Windows
 {
     static constexpr StringId WINDOW_TITLE = STR_SIGN;
     static constexpr int32_t WW = 113;
     static constexpr int32_t WH = 96;
 
+    enum WindowSignWidgetIdx
+    {
+        WIDX_BACKGROUND,
+        WIDX_TITLE,
+        WIDX_CLOSE,
+        WIDX_VIEWPORT,
+        WIDX_SIGN_TEXT,
+        WIDX_SIGN_DEMOLISH,
+        WIDX_MAIN_COLOUR,
+        WIDX_TEXT_COLOUR
+    };
+
     // clang-format off
-enum WindowSignWidgetIdx {
-    WIDX_BACKGROUND,
-    WIDX_TITLE,
-    WIDX_CLOSE,
-    WIDX_VIEWPORT,
-    WIDX_SIGN_TEXT,
-    WIDX_SIGN_DEMOLISH,
-    WIDX_MAIN_COLOUR,
-    WIDX_TEXT_COLOUR
-};
-
-// 0x9AEE00
-static Widget _signWidgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({      3,      17}, {85, 60}, WindowWidgetType::Viewport,  WindowColour::Secondary                                                        ), // Viewport
-    MakeWidget({WW - 25,      19}, {24, 24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_RENAME),   STR_CHANGE_SIGN_TEXT_TIP       ), // change sign button
-    MakeWidget({WW - 25,      67}, {24, 24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_DEMOLISH), STR_DEMOLISH_SIGN_TIP          ), // demolish button
-    MakeWidget({      5, WH - 16}, {12, 12}, WindowWidgetType::ColourBtn, WindowColour::Secondary, kWidgetContentEmpty,   STR_SELECT_MAIN_SIGN_COLOUR_TIP), // Main colour
-    MakeWidget({     17, WH - 16}, {12, 12}, WindowWidgetType::ColourBtn, WindowColour::Secondary, kWidgetContentEmpty,   STR_SELECT_TEXT_COLOUR_TIP     ), // Text colour
-    kWidgetsEnd,
-};
-
+    // 0x9AEE00
+    static Widget _signWidgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({      3,      17}, {85, 60}, WindowWidgetType::Viewport,  WindowColour::Secondary                                                        ), // Viewport
+        MakeWidget({WW - 25,      19}, {24, 24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_RENAME),   STR_CHANGE_SIGN_TEXT_TIP       ), // change sign button
+        MakeWidget({WW - 25,      67}, {24, 24}, WindowWidgetType::FlatBtn,   WindowColour::Secondary, ImageId(SPR_DEMOLISH), STR_DEMOLISH_SIGN_TIP          ), // demolish button
+        MakeWidget({      5, WH - 16}, {12, 12}, WindowWidgetType::ColourBtn, WindowColour::Secondary, kWidgetContentEmpty,   STR_SELECT_MAIN_SIGN_COLOUR_TIP), // Main colour
+        MakeWidget({     17, WH - 16}, {12, 12}, WindowWidgetType::ColourBtn, WindowColour::Secondary, kWidgetContentEmpty,   STR_SELECT_TEXT_COLOUR_TIP     ), // Text colour
+        kWidgetsEnd,
+    };
     // clang-format on
 
     class SignWindow final : public Window
@@ -195,10 +197,10 @@ static Widget _signWidgets[] = {
             switch (widgetIndex)
             {
                 case WIDX_MAIN_COLOUR:
-                    WindowDropdownShowColour(this, widget, TRANSLUCENT(colours[1]), static_cast<uint8_t>(_mainColour));
+                    WindowDropdownShowColour(this, widget, colours[1].withFlag(ColourFlag::translucent, true), _mainColour);
                     break;
                 case WIDX_TEXT_COLOUR:
-                    WindowDropdownShowColour(this, widget, TRANSLUCENT(colours[1]), static_cast<uint8_t>(_textColour));
+                    WindowDropdownShowColour(this, widget, colours[1].withFlag(ColourFlag::translucent, true), _textColour);
                     break;
             }
         }

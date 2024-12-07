@@ -10,6 +10,7 @@
 #include "MapAnimation.h"
 
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../Game.h"
 #include "../GameState.h"
 #include "../entity/EntityList.h"
@@ -23,11 +24,17 @@
 #include "../ride/Ride.h"
 #include "../ride/RideData.h"
 #include "../ride/Track.h"
-#include "../world/Wall.h"
 #include "Banner.h"
 #include "Footpath.h"
 #include "Map.h"
 #include "Scenery.h"
+#include "tile_element/EntranceElement.h"
+#include "tile_element/LargeSceneryElement.h"
+#include "tile_element/PathElement.h"
+#include "tile_element/SmallSceneryElement.h"
+#include "tile_element/TileElement.h"
+#include "tile_element/TrackElement.h"
+#include "tile_element/WallElement.h"
 
 using namespace OpenRCT2;
 
@@ -209,9 +216,9 @@ static bool MapAnimationInvalidateSmallScenery(const CoordsXYZ& loc)
                         continue;
 
                     peep->Action = PeepActionType::CheckTime;
-                    peep->ActionFrame = 0;
-                    peep->ActionSpriteImageOffset = 0;
-                    peep->UpdateCurrentActionSpriteType();
+                    peep->AnimationFrameNum = 0;
+                    peep->AnimationImageIdOffset = 0;
+                    peep->UpdateCurrentAnimationType();
                     peep->Invalidate();
                     break;
                 }
@@ -600,7 +607,7 @@ const std::vector<MapAnimation>& GetMapAnimations()
     return _mapAnimations;
 }
 
-static void ClearMapAnimations()
+void ClearMapAnimations()
 {
     _mapAnimations.clear();
 }
@@ -702,10 +709,23 @@ void MapAnimationAutoCreateAtTileElement(TileCoordsXY coords, TileElement* el)
                 case TrackElemType::SpinningTunnel:
                     MapAnimationCreate(MAP_ANIMATION_TYPE_TRACK_SPINNINGTUNNEL, loc);
                     break;
+                default:
+                    break;
             }
             break;
         }
         case TileElementType::Surface:
             break;
+    }
+}
+
+void ShiftAllMapAnimations(CoordsXY amount)
+{
+    if (amount.x == 0 && amount.y == 0)
+        return;
+
+    for (auto& a : _mapAnimations)
+    {
+        a.location += amount;
     }
 }

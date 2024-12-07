@@ -12,9 +12,10 @@
 #include <SDL.h>
 #include <cmath>
 #include <memory>
+#include <openrct2/Diagnostic.h>
 #include <openrct2/Game.h>
-#include <openrct2/common.h>
 #include <openrct2/config/Config.h>
+#include <openrct2/core/Guard.hpp>
 #include <openrct2/drawing/IDrawingEngine.h>
 #include <openrct2/drawing/LightFX.h>
 #include <openrct2/drawing/X8DrawingEngine.h>
@@ -61,6 +62,14 @@ public:
 
     ~HardwareDisplayDrawingEngine() override
     {
+        if (_screenTexture != nullptr)
+        {
+            SDL_DestroyTexture(_screenTexture);
+        }
+        if (_scaledScreenTexture != nullptr)
+        {
+            SDL_DestroyTexture(_scaledScreenTexture);
+        }
         SDL_FreeFormat(_screenTextureFormat);
         SDL_DestroyRenderer(_sdlRenderer);
     }
@@ -75,11 +84,15 @@ public:
         if (_useVsync != vsync)
         {
             _useVsync = vsync;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+            SDL_RenderSetVSync(_sdlRenderer, vsync ? 1 : 0);
+#else
             SDL_DestroyRenderer(_sdlRenderer);
             _screenTexture = nullptr;
             _scaledScreenTexture = nullptr;
             Initialise();
             Resize(_uiContext->GetWidth(), _uiContext->GetHeight());
+#endif
         }
     }
 
@@ -158,6 +171,8 @@ public:
         _screenTextureFormat = SDL_AllocFormat(format);
 
         ConfigureBits(width, height, width);
+
+        _drawingContext->Clear(_bitsDPI, PALETTE_INDEX_10);
     }
 
     void SetPalette(const GamePalette& palette) override

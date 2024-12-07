@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include "Colour.h"
+#include "ScrollArea.h"
 #include "Window.h"
 
 #include <list>
@@ -49,7 +51,7 @@ struct WindowBase
         RideId rideId;
     };
     uint16_t flags{};
-    ScrollBar scrolls[3];
+    OpenRCT2::ScrollArea scrolls[3];
     uint16_t no_list_items{};     // 0 for no items
     int16_t selected_list_item{}; // -1 for none selected
     std::optional<Focus> focus;
@@ -65,12 +67,11 @@ struct WindowBase
     EntityId viewport_target_sprite{ EntityId::GetNull() };
     ScreenCoordsXY savedViewPos{};
     WindowClass classification{};
-    colour_t colours[6]{};
+    ColourWithFlags colours[6]{};
     VisibilityCache visibility{};
     EntityId viewport_smart_follow_sprite{ EntityId::GetNull() }; // Handles setting viewport target sprite etc
 
     void SetLocation(const CoordsXYZ& coords);
-    void ScrollToViewport();
     void Invalidate();
     void RemoveViewport();
 
@@ -165,12 +166,6 @@ struct WindowBase
     virtual void OnLanguageChange()
     {
     }
-
-    void ResizeFrame();
-    void ResizeFrameWithPage();
-
-    void ResizeSpinner(WidgetIndex widgetIndex, const ScreenCoordsXY& origin, const ScreenSize& size);
-    void ResizeDropdown(WidgetIndex widgetIndex, const ScreenCoordsXY& origin, const ScreenSize& size);
 };
 
 #ifdef __WARN_SUGGEST_FINAL_METHODS__

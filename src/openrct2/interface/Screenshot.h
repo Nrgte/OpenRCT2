@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "../common.h"
 #include "../core/FileSystem.hpp"
 #include "../world/Climate.h"
 #include "../world/Location.hpp"
@@ -55,7 +54,6 @@ struct CaptureOptions
 void ScreenshotCheck();
 std::string ScreenshotDump();
 std::string ScreenshotDumpPNG(DrawPixelInfo& dpi);
-std::string ScreenshotDumpPNG32bpp(int32_t width, int32_t height, const void* pixels);
 
 void ScreenshotGiant();
 int32_t CommandLineForScreenshot(const char** argv, int32_t argc, ScreenshotOptions* options);

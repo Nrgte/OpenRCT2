@@ -8,6 +8,7 @@
  *****************************************************************************/
 
 #include <iterator>
+#include <openrct2-ui/input/MouseInput.h>
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Editor.h>
@@ -16,7 +17,6 @@
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/interface/Cursors.h>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/management/Research.h>
 #include <openrct2/object/DefaultObjects.h>
 #include <openrct2/object/ObjectList.h>
@@ -35,38 +35,39 @@ namespace OpenRCT2::Ui::Windows
     static constexpr int32_t WH = 400;
     static constexpr StringId WINDOW_TITLE = STR_INVENTION_LIST;
 
+    enum
+    {
+        WIDX_BACKGROUND,
+        WIDX_TITLE,
+        WIDX_CLOSE,
+        WIDX_RESIZE,
+        WIDX_TAB_1,
+        WIDX_PRE_RESEARCHED_SCROLL,
+        WIDX_RESEARCH_ORDER_SCROLL,
+        WIDX_PREVIEW,
+        WIDX_MOVE_ITEMS_TO_TOP,
+        WIDX_MOVE_ITEMS_TO_BOTTOM,
+        WIDX_RANDOM_SHUFFLE
+    };
+
     // clang-format off
-enum {
-    WIDX_BACKGROUND,
-    WIDX_TITLE,
-    WIDX_CLOSE,
-    WIDX_RESIZE,
-    WIDX_TAB_1,
-    WIDX_PRE_RESEARCHED_SCROLL,
-    WIDX_RESEARCH_ORDER_SCROLL,
-    WIDX_PREVIEW,
-    WIDX_MOVE_ITEMS_TO_TOP,
-    WIDX_MOVE_ITEMS_TO_BOTTOM,
-    WIDX_RANDOM_SHUFFLE
-};
+    static Widget _inventionListWidgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({  0,  43}, {600, 357}, WindowWidgetType::Resize,  WindowColour::Secondary                                             ),
+        MakeTab   ({  3,  17}                                                                                               ),
+        MakeWidget({  4,  56}, {368, 161}, WindowWidgetType::Scroll,  WindowColour::Secondary, SCROLL_VERTICAL                            ),
+        MakeWidget({  4, 231}, {368, 157}, WindowWidgetType::Scroll,  WindowColour::Secondary, SCROLL_VERTICAL                            ),
+        MakeWidget({431, 106}, {114, 114}, WindowWidgetType::FlatBtn, WindowColour::Secondary                                             ),
+        MakeWidget({375, 343}, {220,  14}, WindowWidgetType::Button,  WindowColour::Secondary, STR_MOVE_ALL_TOP                           ),
+        MakeWidget({375, 358}, {220,  14}, WindowWidgetType::Button,  WindowColour::Secondary, STR_MOVE_ALL_BOTTOM                        ),
+        MakeWidget({375, 373}, {220,  14}, WindowWidgetType::Button,  WindowColour::Secondary, STR_RANDOM_SHUFFLE,  STR_RANDOM_SHUFFLE_TIP),
+        kWidgetsEnd,
+    };
 
-static Widget _inventionListWidgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({  0,  43}, {600, 357}, WindowWidgetType::Resize,  WindowColour::Secondary                                             ),
-    MakeTab   ({  3,  17}                                                                                               ),
-    MakeWidget({  4,  56}, {368, 161}, WindowWidgetType::Scroll,  WindowColour::Secondary, SCROLL_VERTICAL                            ),
-    MakeWidget({  4, 231}, {368, 157}, WindowWidgetType::Scroll,  WindowColour::Secondary, SCROLL_VERTICAL                            ),
-    MakeWidget({431, 106}, {114, 114}, WindowWidgetType::FlatBtn, WindowColour::Secondary                                             ),
-    MakeWidget({375, 343}, {220,  14}, WindowWidgetType::Button,  WindowColour::Secondary, STR_MOVE_ALL_TOP                           ),
-    MakeWidget({375, 358}, {220,  14}, WindowWidgetType::Button,  WindowColour::Secondary, STR_MOVE_ALL_BOTTOM                        ),
-    MakeWidget({375, 373}, {220,  14}, WindowWidgetType::Button,  WindowColour::Secondary, STR_RANDOM_SHUFFLE,  STR_RANDOM_SHUFFLE_TIP),
-    kWidgetsEnd,
-};
-
-static Widget _inventionListDragWidgets[] = {
-    MakeWidget({0, 0}, {150, 14}, WindowWidgetType::ImgBtn, WindowColour::Primary),
-    kWidgetsEnd,
-};
+    static Widget _inventionListDragWidgets[] = {
+        MakeWidget({0, 0}, {150, 14}, WindowWidgetType::ImgBtn, WindowColour::Primary),
+        kWidgetsEnd,
+    };
     // clang-format on
 
 #pragma endregion
@@ -108,7 +109,7 @@ static Widget _inventionListDragWidgets[] = {
         int16_t columnSplitOffset = width / 2;
 
         if (researchItem.type == Research::EntryType::Ride
-            && !GetRideTypeDescriptor(researchItem.baseRideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+            && !GetRideTypeDescriptor(researchItem.baseRideType).HasFlag(RtdFlag::listVehiclesSeparately))
         {
             const StringId rideTypeName = GetRideNaming(
                                               researchItem.baseRideType, *GetRideEntryByIndex(researchItem.entryIndex))
@@ -275,7 +276,7 @@ static Widget _inventionListDragWidgets[] = {
             const auto& gameState = GetGameState();
 
             // Draw background
-            uint8_t paletteIndex = ColourMapA[colours[1]].mid_light;
+            uint8_t paletteIndex = ColourMapA[colours[1].colour].mid_light;
             GfxClear(dpi, paletteIndex);
 
             int16_t boxWidth = widgets[WIDX_RESEARCH_ORDER_SCROLL].width();
@@ -313,7 +314,7 @@ static Widget _inventionListDragWidgets[] = {
 
                 // TODO: this parameter by itself produces very light text.
                 // It needs a {BLACK} token in the string to work properly.
-                colour_t colour = COLOUR_BLACK;
+                ColourWithFlags colour = { COLOUR_BLACK };
                 FontStyle fontStyle = FontStyle::Medium;
                 auto darkness = TextDarkness::Regular;
 
@@ -323,7 +324,7 @@ static Widget _inventionListDragWidgets[] = {
                         darkness = TextDarkness::ExtraDark;
                     else
                         darkness = TextDarkness::Dark;
-                    colour = colours[1] | COLOUR_FLAG_INSET;
+                    colour = colours[1].withFlag(ColourFlag::inset, true);
                 }
 
                 DrawResearchItem(dpi, researchItem, boxWidth, { 1, itemY }, STR_BLACK_STRING, { colour, fontStyle, darkness });
@@ -379,7 +380,7 @@ static Widget _inventionListDragWidgets[] = {
                 dpi,
                 { windowPos + ScreenCoordsXY{ bkWidget.left + 1, bkWidget.top + 1 },
                   windowPos + ScreenCoordsXY{ bkWidget.right - 1, bkWidget.bottom - 1 } },
-                ColourMapA[colours[1]].darkest);
+                ColourMapA[colours[1].colour].darkest);
 
             auto* researchItem = WindowEditorInventionsListDragGetItem();
             if (researchItem == nullptr || researchItem->IsNull())
@@ -420,7 +421,7 @@ static Widget _inventionListDragWidgets[] = {
             auto ft = Formatter();
 
             if (researchItem->type == Research::EntryType::Ride
-                && !GetRideTypeDescriptor(researchItem->baseRideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+                && !GetRideTypeDescriptor(researchItem->baseRideType).HasFlag(RtdFlag::listVehiclesSeparately))
             {
                 drawString = STR_WINDOW_COLOUR_2_STRINGID_STRINGID;
                 StringId rideTypeName = GetRideNaming(
@@ -658,7 +659,7 @@ static Widget _inventionListDragWidgets[] = {
 
             DrawResearchItem(
                 dpi, _draggedItem, width, screenCoords, STR_WINDOW_COLOUR_2_STRINGID,
-                { COLOUR_BLACK | static_cast<uint8_t>(COLOUR_FLAG_OUTLINE) });
+                { ColourWithFlags{ COLOUR_BLACK }.withFlag(ColourFlag::withOutline, true) });
         }
 
         void Init(ResearchItem& researchItem, const ScreenCoordsXY& editorPos, int objectSelectionScrollWidth)

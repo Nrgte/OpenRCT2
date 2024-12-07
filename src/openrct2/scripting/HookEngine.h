@@ -11,7 +11,6 @@
 
 #ifdef ENABLE_SCRIPTING
 
-#    include "../common.h"
 #    include "Duktape.hpp"
 
 #    include <any>
@@ -43,6 +42,7 @@ namespace OpenRCT2::Scripting
         MAP_CHANGE,
         MAP_CHANGED,
         MAP_SAVE,
+        PARK_CALCULATE_GUEST_CAP,
         COUNT,
         UNDEFINED = -1,
     };

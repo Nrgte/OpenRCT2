@@ -11,6 +11,7 @@
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Context.h>
+#include <openrct2/Diagnostic.h>
 #include <openrct2/core/Console.hpp>
 #include <openrct2/core/Http.h>
 #include <openrct2/core/Json.hpp>
@@ -18,7 +19,7 @@
 #include <openrct2/drawing/Text.h>
 #include <openrct2/localisation/Formatter.h>
 #include <openrct2/localisation/Formatting.h>
-#include <openrct2/localisation/Localisation.h>
+#include <openrct2/localisation/StringIds.h>
 #include <openrct2/object/ObjectList.h>
 #include <openrct2/object/ObjectManager.h>
 #include <openrct2/object/ObjectRepository.h>
@@ -28,6 +29,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
 namespace OpenRCT2::Ui::Windows
 {
 #ifndef DISABLE_HTTP
@@ -254,41 +256,42 @@ namespace OpenRCT2::Ui::Windows
 
 #endif
 
+    enum WindowObjectLoadErrorWidgetIdx
+    {
+        WIDX_BACKGROUND,
+        WIDX_TITLE,
+        WIDX_CLOSE,
+        WIDX_COLUMN_OBJECT_NAME,
+        WIDX_COLUMN_OBJECT_SOURCE,
+        WIDX_COLUMN_OBJECT_TYPE,
+        WIDX_SCROLL,
+        WIDX_COPY_CURRENT,
+        WIDX_COPY_ALL,
+        WIDX_DOWNLOAD_ALL
+    };
+
+    static constexpr StringId WINDOW_TITLE = STR_OBJECT_LOAD_ERROR_TITLE;
+    static constexpr int32_t WW = 450;
+    static constexpr int32_t WH = 400;
+    static constexpr int32_t WW_LESS_PADDING = WW - 5;
+    constexpr int32_t NAME_COL_LEFT = 4;
+    constexpr int32_t SOURCE_COL_LEFT = (WW_LESS_PADDING / 4) + 1;
+    constexpr int32_t TYPE_COL_LEFT = 5 * WW_LESS_PADDING / 8 + 1;
+
     // clang-format off
-enum WindowObjectLoadErrorWidgetIdx {
-    WIDX_BACKGROUND,
-    WIDX_TITLE,
-    WIDX_CLOSE,
-    WIDX_COLUMN_OBJECT_NAME,
-    WIDX_COLUMN_OBJECT_SOURCE,
-    WIDX_COLUMN_OBJECT_TYPE,
-    WIDX_SCROLL,
-    WIDX_COPY_CURRENT,
-    WIDX_COPY_ALL,
-    WIDX_DOWNLOAD_ALL
-};
-
-static constexpr StringId WINDOW_TITLE = STR_OBJECT_LOAD_ERROR_TITLE;
-static constexpr int32_t WW = 450;
-static constexpr int32_t WH = 400;
-static constexpr int32_t WW_LESS_PADDING = WW - 5;
-constexpr int32_t NAME_COL_LEFT = 4;
-constexpr int32_t SOURCE_COL_LEFT = (WW_LESS_PADDING / 4) + 1;
-constexpr int32_t TYPE_COL_LEFT = 5 * WW_LESS_PADDING / 8 + 1;
-
-static Widget window_object_load_error_widgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({  NAME_COL_LEFT,  57}, {108,  14}, WindowWidgetType::TableHeader, WindowColour::Primary, STR_OBJECT_NAME                                   ), // 'Object name' header
-    MakeWidget({SOURCE_COL_LEFT,  57}, {166,  14}, WindowWidgetType::TableHeader, WindowColour::Primary, STR_OBJECT_SOURCE                                 ), // 'Object source' header
-    MakeWidget({  TYPE_COL_LEFT,  57}, {166,  14}, WindowWidgetType::TableHeader, WindowColour::Primary, STR_OBJECT_TYPE                                   ), // 'Object type' header
-    MakeWidget({  NAME_COL_LEFT,  70}, {442, 298}, WindowWidgetType::Scroll,       WindowColour::Primary, SCROLL_VERTICAL                                   ), // Scrollable list area
-    MakeWidget({  NAME_COL_LEFT, 377}, {145,  14}, WindowWidgetType::Button,       WindowColour::Primary, STR_COPY_SELECTED,           STR_COPY_SELECTED_TIP), // Copy selected button
-    MakeWidget({            152, 377}, {145,  14}, WindowWidgetType::Button,       WindowColour::Primary, STR_COPY_ALL,                STR_COPY_ALL_TIP     ), // Copy all button
-#ifndef DISABLE_HTTP
-    MakeWidget({            300, 377}, {146,  14}, WindowWidgetType::Button,       WindowColour::Primary, STR_DOWNLOAD_ALL,            STR_DOWNLOAD_ALL_TIP ), // Download all button
-#endif
-    kWidgetsEnd,
-};
+    static Widget window_object_load_error_widgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({  NAME_COL_LEFT,  57}, {108,  14}, WindowWidgetType::TableHeader, WindowColour::Primary, STR_OBJECT_NAME                         ), // 'Object name' header
+        MakeWidget({SOURCE_COL_LEFT,  57}, {166,  14}, WindowWidgetType::TableHeader, WindowColour::Primary, STR_OBJECT_SOURCE                       ), // 'Object source' header
+        MakeWidget({  TYPE_COL_LEFT,  57}, {166,  14}, WindowWidgetType::TableHeader, WindowColour::Primary, STR_OBJECT_TYPE                         ), // 'Object type' header
+        MakeWidget({  NAME_COL_LEFT,  70}, {442, 298}, WindowWidgetType::Scroll,      WindowColour::Primary, SCROLL_VERTICAL                         ), // Scrollable list area
+        MakeWidget({  NAME_COL_LEFT, 377}, {145,  14}, WindowWidgetType::Button,      WindowColour::Primary, STR_COPY_SELECTED, STR_COPY_SELECTED_TIP), // Copy selected button
+        MakeWidget({            152, 377}, {145,  14}, WindowWidgetType::Button,      WindowColour::Primary, STR_COPY_ALL,      STR_COPY_ALL_TIP     ), // Copy all button
+    #ifndef DISABLE_HTTP
+        MakeWidget({            300, 377}, {146,  14}, WindowWidgetType::Button,      WindowColour::Primary, STR_DOWNLOAD_ALL,  STR_DOWNLOAD_ALL_TIP ), // Download all button
+    #endif
+        kWidgetsEnd,
+    };
     // clang-format on
 
     /**
@@ -508,7 +511,7 @@ static Widget window_object_load_error_widgets[] = {
             auto dpiCoords = ScreenCoordsXY{ dpi.x, dpi.y };
             GfxFillRect(
                 dpi, { dpiCoords, dpiCoords + ScreenCoordsXY{ dpi.width - 1, dpi.height - 1 } },
-                ColourMapA[colours[1]].mid_light);
+                ColourMapA[colours[1].colour].mid_light);
             const int32_t listWidth = widgets[WIDX_SCROLL].width();
 
             for (int32_t i = 0; i < no_list_items; i++)
@@ -525,11 +528,11 @@ static Widget window_object_load_error_widgets[] = {
                                                     { listWidth, screenCoords.y + kScrollableRowHeight - 1 } };
                 // If hovering over item, change the color and fill the backdrop.
                 if (i == selected_list_item)
-                    GfxFillRect(dpi, screenRect, ColourMapA[colours[1]].darker);
+                    GfxFillRect(dpi, screenRect, ColourMapA[colours[1].colour].darker);
                 else if (i == _highlightedIndex)
-                    GfxFillRect(dpi, screenRect, ColourMapA[colours[1]].mid_dark);
+                    GfxFillRect(dpi, screenRect, ColourMapA[colours[1].colour].mid_dark);
                 else if ((i & 1) != 0) // odd / even check
-                    GfxFillRect(dpi, screenRect, ColourMapA[colours[1]].light);
+                    GfxFillRect(dpi, screenRect, ColourMapA[colours[1].colour].light);
 
                 // Draw the actual object entry's name...
                 screenCoords.x = NAME_COL_LEFT - 3;

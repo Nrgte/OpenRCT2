@@ -9,8 +9,7 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../core/String.hpp"
+#include "../core/StringTypes.h"
 #include "../drawing/ImageId.hpp"
 
 #include <array>

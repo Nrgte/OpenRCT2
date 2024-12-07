@@ -9,8 +9,7 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../core/String.hpp"
+#include "../core/StringTypes.h"
 
 struct SourceDescriptor
 {
@@ -19,14 +18,15 @@ struct SourceDescriptor
     uint8_t source;
     int32_t index;
     uint8_t category;
+    u8string_view textObjectId;
 };
 
-namespace ScenarioSources
+namespace OpenRCT2::ScenarioSources
 {
     bool TryGetByName(const utf8* name, SourceDescriptor* outDesc);
     bool TryGetById(uint8_t id, SourceDescriptor* outDesc);
-    void NormaliseName(utf8* buffer, size_t bufferSize, const utf8* name);
-} // namespace ScenarioSources
+    u8string NormaliseName(u8string_view input);
+} // namespace OpenRCT2::ScenarioSources
 
 // RCT1 scenario index map
 enum

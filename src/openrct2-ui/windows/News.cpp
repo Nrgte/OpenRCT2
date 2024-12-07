@@ -16,8 +16,8 @@
 #include <openrct2/entity/EntityRegistry.h>
 #include <openrct2/entity/Peep.h>
 #include <openrct2/entity/Staff.h>
-#include <openrct2/localisation/Date.h>
 #include <openrct2/localisation/Formatter.h>
+#include <openrct2/localisation/Localisation.Date.h>
 #include <openrct2/management/NewsItem.h>
 #include <openrct2/peep/PeepAnimationData.h>
 #include <openrct2/sprites.h>
@@ -28,23 +28,22 @@ namespace OpenRCT2::Ui::Windows
     static constexpr int32_t WH = 300;
     static constexpr int32_t WW = 400;
 
+    enum WindowNewsWidgetIdx
+    {
+        WIDX_BACKGROUND,
+        WIDX_TITLE,
+        WIDX_CLOSE,
+        WIDX_SETTINGS,
+        WIDX_SCROLL
+    };
+
     // clang-format off
-enum WindowNewsWidgetIdx {
-    WIDX_BACKGROUND,
-    WIDX_TITLE,
-    WIDX_CLOSE,
-    WIDX_SETTINGS,
-    WIDX_SCROLL
-};
-
-
-static Widget window_news_widgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({372, 18}, { 24,  24}, WindowWidgetType::FlatBtn, WindowColour::Primary, ImageId(SPR_TAB_GEARS_0)), // settings
-    MakeWidget({  4, 44}, {392, 252}, WindowWidgetType::Scroll,  WindowColour::Primary, SCROLL_VERTICAL), // scroll
-    kWidgetsEnd,
-};
-
+    static Widget window_news_widgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({372, 18}, { 24,  24}, WindowWidgetType::FlatBtn, WindowColour::Primary, ImageId(SPR_TAB_GEARS_0)), // settings
+        MakeWidget({  4, 44}, {392, 252}, WindowWidgetType::Scroll,  WindowColour::Primary, SCROLL_VERTICAL), // scroll
+        kWidgetsEnd,
+    };
     // clang-format on
 
     class NewsWindow final : public Window
@@ -65,7 +64,7 @@ static Widget window_news_widgets[] = {
 
             Widget* widget = &widgets[WIDX_SCROLL];
             ScreenSize scrollSize = OnScrollGetSize(0);
-            scrolls[0].v_top = std::max(0, scrollSize.height - (widget->height() - 1));
+            scrolls[0].contentOffsetY = std::max(0, scrollSize.height - (widget->height() - 1));
             WidgetScrollUpdateThumbs(*this, WIDX_SCROLL);
         }
 
@@ -208,7 +207,9 @@ static Widget window_news_widgets[] = {
                 {
                     auto ft = Formatter();
                     ft.Add<const char*>(newsItem.Text.c_str());
-                    DrawTextWrapped(dpi, { 2, y + lineHeight }, 325, STR_BOTTOM_TOOLBAR_NEWS_TEXT, ft, { FontStyle::Small });
+                    DrawTextWrapped(
+                        dpi, { 2, y + lineHeight }, 325, STR_BOTTOM_TOOLBAR_NEWS_TEXT, ft,
+                        { COLOUR_BRIGHT_GREEN, FontStyle::Small });
                 }
                 // Subject button
                 if ((newsItem.TypeHasSubject()) && !(newsItem.HasButton()))
@@ -250,11 +251,11 @@ static Widget window_news_widgets[] = {
 
                             // If normal peep set sprite to normal (no food)
                             // If staff set sprite to staff sprite
-                            auto spriteType = PeepSpriteType::Normal;
+                            auto spriteType = PeepAnimationGroup::Normal;
                             auto* staff = peep->As<Staff>();
                             if (staff != nullptr)
                             {
-                                spriteType = staff->SpriteType;
+                                spriteType = staff->AnimationGroup;
                                 if (staff->AssignedStaffType == StaffType::Entertainer)
                                 {
                                     clipCoords.y += 3;

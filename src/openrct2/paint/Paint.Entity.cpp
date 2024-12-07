@@ -24,11 +24,13 @@
 #include "../ride/RideData.h"
 #include "../ride/TrackDesign.h"
 #include "../ride/Vehicle.h"
-#include "../ride/VehiclePaint.h"
 #include "../world/Climate.h"
 #include "../world/MapAnimation.h"
 #include "../world/Park.h"
 #include "Paint.h"
+#include "vehicle/VehiclePaint.h"
+
+#include <cassert>
 
 /**
  * Paint Quadrant
@@ -80,15 +82,15 @@ void EntityPaintSetup(PaintSession& session, const CoordsXY& pos)
         // height of the slope element, and consequently clipped.
         if ((session.ViewFlags & VIEWPORT_FLAG_CLIP_VIEW))
         {
-            if (entityPos.z > (gClipHeight * COORDS_Z_STEP))
+            if (entityPos.z > (gClipHeight * kCoordsZStep))
             {
                 continue;
             }
-            if (entityPos.x < gClipSelectionA.x || entityPos.x > (gClipSelectionB.x + COORDS_XY_STEP - 1))
+            if (entityPos.x < gClipSelectionA.x || entityPos.x > (gClipSelectionB.x + kCoordsXYStep - 1))
             {
                 continue;
             }
-            if (entityPos.y < gClipSelectionA.y || entityPos.y > (gClipSelectionB.y + COORDS_XY_STEP - 1))
+            if (entityPos.y < gClipSelectionA.y || entityPos.y > (gClipSelectionB.y + kCoordsXYStep - 1))
             {
                 continue;
             }
@@ -99,8 +101,11 @@ void EntityPaintSetup(PaintSession& session, const CoordsXY& pos)
             screenCoords - ScreenCoordsXY{ spr->SpriteData.Width, spr->SpriteData.HeightMin },
             screenCoords + ScreenCoordsXY{ spr->SpriteData.Width, spr->SpriteData.HeightMax });
 
-        if (session.DPI.y + session.DPI.height <= spriteRect.GetTop() || spriteRect.GetBottom() <= session.DPI.y
-            || session.DPI.x + session.DPI.width <= spriteRect.GetLeft() || spriteRect.GetRight() <= session.DPI.x)
+        const ZoomLevel zoom = session.DPI.zoom_level;
+        if (session.DPI.y + session.DPI.height <= zoom.ApplyInversedTo(spriteRect.GetTop())
+            || zoom.ApplyInversedTo(spriteRect.GetBottom()) <= session.DPI.y
+            || session.DPI.x + session.DPI.width <= zoom.ApplyInversedTo(spriteRect.GetLeft())
+            || zoom.ApplyInversedTo(spriteRect.GetRight()) <= session.DPI.x)
         {
             continue;
         }

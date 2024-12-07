@@ -71,7 +71,9 @@ namespace OpenRCT2::Scripting
         dukglue_register_property(ctx, &ScVehicle::acceleration_get, &ScVehicle::acceleration_set, "acceleration");
         dukglue_register_property(ctx, &ScVehicle::velocity_get, &ScVehicle::velocity_set, "velocity");
         dukglue_register_property(ctx, &ScVehicle::bankRotation_get, &ScVehicle::bankRotation_set, "bankRotation");
-        dukglue_register_property(ctx, &ScVehicle::isReversed_get, &ScVehicle::isReversed_set, "isReversed");
+        dukglue_register_property(
+            ctx, &ScVehicle::flag_get<VehicleFlags::CarIsReversed>, &ScVehicle::flag_set<VehicleFlags::CarIsReversed>,
+            "isReversed");
         dukglue_register_property(ctx, &ScVehicle::colours_get, &ScVehicle::colours_set, "colours");
         dukglue_register_property(ctx, &ScVehicle::trackLocation_get, &ScVehicle::trackLocation_set, "trackLocation");
         dukglue_register_property(ctx, &ScVehicle::trackProgress_get, nullptr, "trackProgress");
@@ -81,6 +83,7 @@ namespace OpenRCT2::Scripting
             ctx, &ScVehicle::poweredAcceleration_get, &ScVehicle::poweredAcceleration_set, "poweredAcceleration");
         dukglue_register_property(ctx, &ScVehicle::poweredMaxSpeed_get, &ScVehicle::poweredMaxSpeed_set, "poweredMaxSpeed");
         dukglue_register_property(ctx, &ScVehicle::status_get, &ScVehicle::status_set, "status");
+        dukglue_register_property(ctx, &ScVehicle::spin_get, &ScVehicle::spin_set, "spin");
         dukglue_register_property(ctx, &ScVehicle::guests_get, nullptr, "peeps");
         dukglue_register_property(ctx, &ScVehicle::guests_get, nullptr, "guests");
         dukglue_register_property(ctx, &ScVehicle::gForces_get, nullptr, "gForces");
@@ -189,7 +192,7 @@ namespace OpenRCT2::Scripting
         {
             if (value.type() == DukValue::Type::NUMBER)
             {
-                vehicle->next_vehicle_on_train = EntityId::FromUnderlying(value.as_int());
+                vehicle->next_vehicle_on_train = EntityId::FromUnderlying(value.as_uint());
             }
             else
             {
@@ -333,12 +336,15 @@ namespace OpenRCT2::Scripting
         }
     }
 
-    bool ScVehicle::isReversed_get() const
+    template<uint32_t flag>
+    bool ScVehicle::flag_get() const
     {
         auto vehicle = GetVehicle();
-        return vehicle != nullptr ? vehicle->HasFlag(VehicleFlags::CarIsReversed) : false;
+        return vehicle != nullptr ? vehicle->HasFlag(flag) : false;
     }
-    void ScVehicle::isReversed_set(bool value)
+
+    template<uint32_t flag>
+    void ScVehicle::flag_set(bool value)
     {
         ThrowIfGameStateNotMutable();
         auto vehicle = GetVehicle();
@@ -346,11 +352,11 @@ namespace OpenRCT2::Scripting
         {
             if (value)
             {
-                vehicle->SetFlag(VehicleFlags::CarIsReversed);
+                vehicle->SetFlag(flag);
             }
             else
             {
-                vehicle->ClearFlag(VehicleFlags::CarIsReversed);
+                vehicle->ClearFlag(flag);
             }
         }
     }
@@ -381,8 +387,13 @@ namespace OpenRCT2::Scripting
         auto vehicle = GetVehicle();
         if (vehicle != nullptr)
         {
-            auto coords = CoordsXYZD(vehicle->TrackLocation, vehicle->GetTrackDirection());
-            return ToDuk<CoordsXYZD>(ctx, coords);
+            DukObject dukCoords(ctx);
+            dukCoords.Set("x", vehicle->TrackLocation.x);
+            dukCoords.Set("y", vehicle->TrackLocation.y);
+            dukCoords.Set("z", vehicle->TrackLocation.z);
+            dukCoords.Set("direction", vehicle->GetTrackDirection());
+            dukCoords.Set("trackType", EnumValue(vehicle->GetTrackType()));
+            return dukCoords.Take();
         }
         return ToDuk(ctx, nullptr);
     }
@@ -392,9 +403,12 @@ namespace OpenRCT2::Scripting
         auto vehicle = GetVehicle();
         if (vehicle != nullptr)
         {
-            auto coords = FromDuk<CoordsXYZD>(value);
-            vehicle->TrackLocation = CoordsXYZ(coords.x, coords.y, coords.z);
-            vehicle->SetTrackDirection(coords.direction);
+            auto x = AsOrDefault(value["x"], 0);
+            auto y = AsOrDefault(value["y"], 0);
+            auto z = AsOrDefault(value["z"], 0);
+            vehicle->TrackLocation = CoordsXYZ(x, y, z);
+            vehicle->SetTrackDirection(AsOrDefault(value["direction"], 0));
+            vehicle->SetTrackType(static_cast<TrackElemType>(AsOrDefault(value["trackType"], 0)));
         }
     }
 
@@ -465,6 +479,25 @@ namespace OpenRCT2::Scripting
         }
     }
 
+    uint8_t ScVehicle::spin_get() const
+    {
+        auto vehicle = GetVehicle();
+        if (vehicle != nullptr)
+        {
+            return vehicle->spin_sprite;
+        }
+        return 0;
+    }
+    void ScVehicle::spin_set(const uint8_t value)
+    {
+        ThrowIfGameStateNotMutable();
+        auto vehicle = GetVehicle();
+        if (vehicle != nullptr)
+        {
+            vehicle->spin_sprite = value;
+        }
+    }
+
     std::vector<DukValue> ScVehicle::guests_get() const
     {
         auto ctx = GetContext()->GetScriptEngine().GetContext();
@@ -512,7 +545,6 @@ namespace OpenRCT2::Scripting
             vehicle->MoveRelativeDistance(value);
         }
     }
-
 } // namespace OpenRCT2::Scripting
 
 #endif

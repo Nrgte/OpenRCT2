@@ -9,10 +9,7 @@
 
 #pragma once
 
-#include "common.h"
-#include "core/String.hpp"
-
-#include <string>
+#include "core/StringTypes.h"
 
 enum class PromptMode : uint8_t;
 
@@ -49,6 +46,7 @@ extern bool gOpenRCT2NoGraphics;
 extern bool gOpenRCT2ShowChangelog;
 extern bool gOpenRCT2SilentBreakpad;
 extern u8string gSilentRecordingName;
+extern bool gSilentReplays;
 
 #ifndef DISABLE_NETWORK
 extern int32_t gNetworkStart;
@@ -62,7 +60,6 @@ extern uint8_t gScreenFlags;
 extern uint32_t gScreenAge;
 extern PromptMode gSavePromptMode;
 
-void OpenRCT2WriteFullVersionInfo(utf8* buffer, size_t bufferSize);
 void OpenRCT2Finish();
 
 int32_t CommandLineRun(const char** argv, int32_t argc);

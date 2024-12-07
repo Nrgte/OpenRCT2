@@ -9,9 +9,7 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../drawing/Drawing.h"
-#include "../util/Util.h"
+#include <cstdint>
 
 enum class ClimateType : uint8_t
 {
@@ -79,8 +77,11 @@ void ClimateUpdateSound();
 void ClimateStopWeatherSound();
 void ClimateForceWeather(WeatherType weather);
 
+enum class FilterPaletteID : int32_t;
+
 bool ClimateIsRaining();
 bool ClimateIsSnowing();
+bool ClimateIsSnowingHeavily();
 bool WeatherIsDry(WeatherType);
 FilterPaletteID ClimateGetWeatherGloomPaletteId(const ClimateState& state);
 uint32_t ClimateGetWeatherSpriteId(const ClimateState& state);

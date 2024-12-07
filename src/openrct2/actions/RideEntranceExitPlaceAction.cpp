@@ -9,6 +9,7 @@
 
 #include "RideEntranceExitPlaceAction.h"
 
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../actions/RideEntranceExitRemoveAction.h"
 #include "../management/Finance.h"
@@ -16,6 +17,8 @@
 #include "../ride/Station.h"
 #include "../world/ConstructionClearance.h"
 #include "../world/MapAnimation.h"
+#include "../world/Wall.h"
+#include "../world/tile_element/EntranceElement.h"
 
 using namespace OpenRCT2;
 
@@ -62,7 +65,7 @@ GameActions::Result RideEntranceExitPlaceAction::Query() const
         return GameActions::Result(GameActions::Status::InvalidParameters, errorTitle, STR_ERR_RIDE_NOT_FOUND);
     }
 
-    if (_stationNum.ToUnderlying() >= Limits::MaxStationsPerRide)
+    if (_stationNum.ToUnderlying() >= Limits::kMaxStationsPerRide)
     {
         LOG_ERROR("Invalid station number for ride. stationNum: %u", _stationNum.ToUnderlying());
         return GameActions::Result(GameActions::Status::InvalidParameters, errorTitle, STR_ERR_VALUE_OUT_OF_RANGE);

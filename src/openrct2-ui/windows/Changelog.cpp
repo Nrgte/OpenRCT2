@@ -11,6 +11,7 @@
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Context.h>
+#include <openrct2/Diagnostic.h>
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/PlatformEnvironment.h>
 #include <openrct2/Version.h>
@@ -18,7 +19,6 @@
 #include <openrct2/core/String.hpp>
 #include <openrct2/drawing/Text.h>
 #include <openrct2/localisation/Formatting.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/platform/Platform.h>
 #include <openrct2/ui/UiContext.h>
 #include <openrct2/util/Util.h>
@@ -26,30 +26,30 @@
 
 namespace OpenRCT2::Ui::Windows
 {
+    enum
+    {
+        WIDX_BACKGROUND,
+        WIDX_TITLE,
+        WIDX_CLOSE,
+        WIDX_CONTENT_PANEL,
+        WIDX_SCROLL,
+        WIDX_OPEN_URL,
+    };
+
+    static constexpr int32_t WW = 500;
+    static constexpr int32_t WH = 400;
+    static constexpr StringId WINDOW_TITLE = STR_CHANGELOG_TITLE;
+    constexpr int32_t MIN_WW = 300;
+    constexpr int32_t MIN_WH = 250;
+
     // clang-format off
-enum {
-    WIDX_BACKGROUND,
-    WIDX_TITLE,
-    WIDX_CLOSE,
-    WIDX_CONTENT_PANEL,
-    WIDX_SCROLL,
-    WIDX_OPEN_URL,
-};
-
-static constexpr int32_t WW = 500;
-static constexpr int32_t WH = 400;
-static constexpr StringId WINDOW_TITLE = STR_CHANGELOG_TITLE;
-constexpr int32_t MIN_WW = 300;
-constexpr int32_t MIN_WH = 250;
-
-static Widget _windowChangelogWidgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({0,  14}, {500, 382}, WindowWidgetType::Resize,      WindowColour::Secondary                               ), // content panel
-    MakeWidget({3,  16}, {495, 366}, WindowWidgetType::Scroll,      WindowColour::Secondary, SCROLL_BOTH                  ), // scroll area
-    MakeWidget({3, 473}, {300,  14}, WindowWidgetType::Placeholder, WindowColour::Secondary, STR_NEW_RELEASE_DOWNLOAD_PAGE), // changelog button
-    kWidgetsEnd,
-};
-
+    static Widget _windowChangelogWidgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({0,  14}, {500, 382}, WindowWidgetType::Resize,      WindowColour::Secondary                               ), // content panel
+        MakeWidget({3,  16}, {495, 366}, WindowWidgetType::Scroll,      WindowColour::Secondary, SCROLL_BOTH                  ), // scroll area
+        MakeWidget({3, 473}, {300,  14}, WindowWidgetType::Placeholder, WindowColour::Secondary, STR_NEW_RELEASE_DOWNLOAD_PAGE), // changelog button
+        kWidgetsEnd,
+    };
     // clang-format on
 
     class ChangelogWindow final : public Window

@@ -11,15 +11,17 @@
 
 #include "../Cheats.h"
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../core/MemoryStream.h"
 #include "../drawing/Drawing.h"
 #include "../interface/Window.h"
-#include "../localisation/Localisation.h"
 #include "../localisation/StringIds.h"
 #include "../ride/Ride.h"
 #include "../ui/UiContext.h"
 #include "../ui/WindowManager.h"
 #include "../world/Park.h"
+
+using namespace OpenRCT2;
 
 RideSetAppearanceAction::RideSetAppearanceAction(RideId rideIndex, RideSetAppearanceType type, uint16_t value, uint32_t index)
     : _rideIndex(rideIndex)
@@ -128,9 +130,7 @@ GameActions::Result RideSetAppearanceAction::Execute() const
             RideUpdateVehicleColours(*ride);
             break;
         case RideSetAppearanceType::VehicleColourScheme:
-            ride->colour_scheme_type &= ~(
-                RIDE_COLOUR_SCHEME_MODE_DIFFERENT_PER_TRAIN | RIDE_COLOUR_SCHEME_MODE_DIFFERENT_PER_CAR);
-            ride->colour_scheme_type |= _value;
+            ride->vehicleColourSettings = static_cast<VehicleColourSettings>(_value);
             for (uint32_t i = 1; i < std::size(ride->vehicle_colours); i++)
             {
                 ride->vehicle_colours[i] = ride->vehicle_colours[0];

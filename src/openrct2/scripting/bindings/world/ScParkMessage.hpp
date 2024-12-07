@@ -12,7 +12,6 @@
 #ifdef ENABLE_SCRIPTING
 
 #    include "../../../Context.h"
-#    include "../../../common.h"
 #    include "../../../management/NewsItem.h"
 #    include "../../Duktape.hpp"
 #    include "../../ScriptEngine.h"
@@ -49,14 +48,15 @@ namespace OpenRCT2::Scripting
         return {};
     }
 
-    template<> inline News::Item FromDuk(const DukValue& value)
+    template<>
+    inline News::Item FromDuk(const DukValue& value)
     {
         News::Item result{};
         result.Type = GetParkMessageType(value["type"].as_string());
-        result.Assoc = value["subject"].as_int();
-        result.Ticks = value["tickCount"].as_int();
-        result.MonthYear = value["month"].as_int();
-        result.Day = value["day"].as_int();
+        result.Assoc = value["subject"].as_uint();
+        result.Ticks = value["tickCount"].as_uint();
+        result.MonthYear = value["month"].as_uint();
+        result.Day = value["day"].as_uint();
         result.Text = value["text"].as_string();
         return result;
     }

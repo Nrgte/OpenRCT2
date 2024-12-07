@@ -9,16 +9,18 @@
 
 #include "PathAdditionObject.h"
 
+#include "../core/Guard.hpp"
 #include "../core/IStream.hpp"
 #include "../core/Json.hpp"
 #include "../drawing/Drawing.h"
 #include "../interface/Cursors.h"
-#include "../localisation/Localisation.h"
 #include "../object/Object.h"
 #include "../object/ObjectRepository.h"
 #include "ObjectList.h"
 
 #include <unordered_map>
+
+using namespace OpenRCT2;
 
 void PathAdditionObject::ReadLegacy(IReadObjectContext* context, OpenRCT2::IStream* stream)
 {

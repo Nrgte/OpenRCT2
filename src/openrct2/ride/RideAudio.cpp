@@ -170,7 +170,7 @@ namespace OpenRCT2::RideAudio
     {
         auto& objManager = GetContext()->GetObjectManager();
         auto ride = GetRide(instance.RideId);
-        auto musicObj = static_cast<MusicObject*>(objManager.GetLoadedObject(ObjectType::Music, ride->music));
+        auto musicObj = objManager.GetLoadedObject<MusicObject>(ride->music);
         if (musicObj != nullptr)
         {
             auto shouldLoop = musicObj->GetTrackCount() == 1;
@@ -276,7 +276,7 @@ namespace OpenRCT2::RideAudio
     std::pair<size_t, size_t> RideMusicGetTrackOffsetLength_Default(const Ride& ride)
     {
         auto& objManager = GetContext()->GetObjectManager();
-        auto musicObj = static_cast<MusicObject*>(objManager.GetLoadedObject(ObjectType::Music, ride.music));
+        auto musicObj = objManager.GetLoadedObject<MusicObject>(ride.music);
         if (musicObj != nullptr)
         {
             auto numTracks = musicObj->GetTrackCount();
@@ -385,12 +385,12 @@ namespace OpenRCT2::RideAudio
         {
             auto rotatedCoords = Translate3DTo2DWithZ(GetCurrentRotation(), rideCoords);
             auto viewport = g_music_tracking_viewport;
-            auto viewWidth = viewport->view_width;
+            auto viewWidth = viewport->ViewWidth();
             auto viewWidth2 = viewWidth * 2;
             auto viewX = viewport->viewPos.x - viewWidth2;
             auto viewY = viewport->viewPos.y - viewWidth;
-            auto viewX2 = viewWidth2 + viewWidth2 + viewport->view_width + viewX;
-            auto viewY2 = viewWidth + viewWidth + viewport->view_height + viewY;
+            auto viewX2 = viewWidth2 + viewWidth2 + viewport->ViewWidth() + viewX;
+            auto viewY2 = viewWidth + viewWidth + viewport->ViewHeight() + viewY;
             if (viewX >= rotatedCoords.x || viewY >= rotatedCoords.y || viewX2 < rotatedCoords.x || viewY2 < rotatedCoords.y)
             {
                 RideUpdateMusicPosition(ride);

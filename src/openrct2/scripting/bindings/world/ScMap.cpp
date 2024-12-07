@@ -12,7 +12,6 @@
 #    include "ScMap.hpp"
 
 #    include "../../../GameState.h"
-#    include "../../../common.h"
 #    include "../../../entity/Balloon.h"
 #    include "../../../entity/Duck.h"
 #    include "../../../entity/EntityList.h"
@@ -29,6 +28,7 @@
 #    include "../entity/ScEntity.hpp"
 #    include "../entity/ScGuest.hpp"
 #    include "../entity/ScLitter.hpp"
+#    include "../entity/ScParticle.hpp"
 #    include "../entity/ScStaff.hpp"
 #    include "../entity/ScVehicle.hpp"
 #    include "../ride/ScRide.hpp"
@@ -158,7 +158,36 @@ namespace OpenRCT2::Scripting
         {
             for (auto sprite : EntityList<Staff>())
             {
-                result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScStaff>(sprite->Id)));
+                auto staff = GetEntity<Staff>(sprite->Id);
+                if (staff != nullptr)
+                {
+                    switch (staff->AssignedStaffType)
+                    {
+                        case StaffType::Handyman:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScHandyman>(sprite->Id)));
+                            break;
+                        case StaffType::Mechanic:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScMechanic>(sprite->Id)));
+                            break;
+                        case StaffType::Security:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScSecurity>(sprite->Id)));
+                            break;
+                        default:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScStaff>(sprite->Id)));
+                            break;
+                    }
+                }
+                else
+                {
+                    result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScStaff>(sprite->Id)));
+                }
+            }
+        }
+        else if (type == "crashed_vehicle_particle")
+        {
+            for (auto sprite : EntityList<VehicleCrashParticle>())
+            {
+                result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScCrashedVehicleParticle>(sprite->Id)));
             }
         }
         else
@@ -218,7 +247,36 @@ namespace OpenRCT2::Scripting
         {
             for (auto sprite : EntityTileList<Staff>(pos))
             {
-                result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScStaff>(sprite->Id)));
+                auto staff = GetEntity<Staff>(sprite->Id);
+                if (staff != nullptr)
+                {
+                    switch (staff->AssignedStaffType)
+                    {
+                        case StaffType::Handyman:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScHandyman>(sprite->Id)));
+                            break;
+                        case StaffType::Mechanic:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScMechanic>(sprite->Id)));
+                            break;
+                        case StaffType::Security:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScSecurity>(sprite->Id)));
+                            break;
+                        default:
+                            result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScStaff>(sprite->Id)));
+                            break;
+                    }
+                }
+                else
+                {
+                    result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScStaff>(sprite->Id)));
+                }
+            }
+        }
+        else if (type == "crashed_vehicle_particle")
+        {
+            for (auto sprite : EntityTileList<VehicleCrashParticle>(pos))
+            {
+                result.push_back(GetObjectAsDukValue(_context, std::make_shared<ScCrashedVehicleParticle>(sprite->Id)));
             }
         }
         else
@@ -272,7 +330,7 @@ namespace OpenRCT2::Scripting
         }
         else if (type == "crashed_vehicle_particle")
         {
-            res = createEntityType<VehicleCrashParticle, ScEntity>(_context, initializer);
+            res = createEntityType<VehicleCrashParticle, ScCrashedVehicleParticle>(_context, initializer);
         }
         else if (type == "explosion_cloud")
         {
@@ -343,11 +401,33 @@ namespace OpenRCT2::Scripting
             case EntityType::Vehicle:
                 return GetObjectAsDukValue(_context, std::make_shared<ScVehicle>(spriteId));
             case EntityType::Staff:
-                return GetObjectAsDukValue(_context, std::make_shared<ScStaff>(spriteId));
+            {
+                auto staff = GetEntity<Staff>(spriteId);
+                if (staff != nullptr)
+                {
+                    switch (staff->AssignedStaffType)
+                    {
+                        case StaffType::Handyman:
+                            return GetObjectAsDukValue(_context, std::make_shared<ScHandyman>(spriteId));
+                        case StaffType::Mechanic:
+                            return GetObjectAsDukValue(_context, std::make_shared<ScMechanic>(spriteId));
+                        case StaffType::Security:
+                            return GetObjectAsDukValue(_context, std::make_shared<ScSecurity>(spriteId));
+                        default:
+                            return GetObjectAsDukValue(_context, std::make_shared<ScStaff>(spriteId));
+                    }
+                }
+                else
+                {
+                    return GetObjectAsDukValue(_context, std::make_shared<ScStaff>(spriteId));
+                }
+            }
             case EntityType::Guest:
                 return GetObjectAsDukValue(_context, std::make_shared<ScGuest>(spriteId));
             case EntityType::Litter:
                 return GetObjectAsDukValue(_context, std::make_shared<ScLitter>(spriteId));
+            case EntityType::CrashedVehicleParticle:
+                return GetObjectAsDukValue(_context, std::make_shared<ScCrashedVehicleParticle>(spriteId));
             default:
                 return GetObjectAsDukValue(_context, std::make_shared<ScEntity>(spriteId));
         }

@@ -16,10 +16,12 @@
 #include "../object/ObjectRepository.h"
 #include "CommandLine.hpp"
 
+using namespace OpenRCT2;
+
 // clang-format off
 static constexpr CommandLineOptionDefinition NoOptions[]
 {
-    OptionTableEnd
+    kOptionTableEnd
 };
 
 static exitcode_t HandleObjectsInfo(CommandLineArgEnumerator *argEnumerator);
@@ -28,7 +30,7 @@ const CommandLineCommand CommandLine::ParkInfoCommands[]{
     // Main commands
     DefineCommand("objects", "<savefile>", NoOptions, HandleObjectsInfo),
 
-    CommandTableEnd
+    kCommandTableEnd
 };
 // clang-format on
 
@@ -88,12 +90,12 @@ static exitcode_t HandleObjectsInfo(CommandLineArgEnumerator* argEnumerator)
     Console::WriteLine("File contains the following objects: ");
     Console::WriteLine();
 
-    const std::array<std::string, 17> typeToName = {
+    constexpr std::array typeToName = {
         "Ride",          "SmallScenery", "LargeScenery", "Walls",           "Banners",          "Paths",
         "PathAdditions", "SceneryGroup", "ParkEntrance", "Water",           "ScenarioText",     "TerrainSurface",
         "TerrainEdge",   "Station",      "Music",        "FootpathSurface", "FootpathRailings",
     };
-    const std::array<std::string, 9> sourceGameToName = {
+    constexpr std::array sourceGameToName = {
         "Custom", "WackyWorlds", "TimeTwister", "OpenRCT2Official", "RCT1", "AddedAttractions", "LoopyLandscapes", "", "RCT2",
     };
 
@@ -118,7 +120,7 @@ static exitcode_t HandleObjectsInfo(CommandLineArgEnumerator* argEnumerator)
          })
     {
         auto& list = loadResult.RequiredObjects.GetList(objType);
-        Console::WriteLine("ObjectType: %s, Number of Objects: %d", typeToName[EnumValue(objType)].c_str(), list.size());
+        Console::WriteLine("ObjectType: %s, Number of Objects: %d", typeToName[EnumValue(objType)], list.size());
         for (auto& obj : list)
         {
             if (obj.Generation == ObjectGeneration::JSON && obj.Identifier.size() == 0)
@@ -127,7 +129,7 @@ static exitcode_t HandleObjectsInfo(CommandLineArgEnumerator* argEnumerator)
                 continue;
             }
             auto* ori = OpenRCT2::GetContext()->GetObjectRepository().FindObject(obj);
-            Console::WriteFormat("%s Object: ", sourceGameToName[EnumValue(ori->GetFirstSourceGame())].c_str());
+            Console::WriteFormat("%s Object: ", sourceGameToName[EnumValue(ori->GetFirstSourceGame())]);
 
             std::string name{ obj.GetName() };
             if (obj.Generation == ObjectGeneration::DAT)

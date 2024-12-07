@@ -20,7 +20,7 @@
 #    include <string>
 #    include <vector>
 
-using namespace Crypt;
+using namespace OpenRCT2::Crypt;
 
 static void OpenSSLThrowOnBadStatus(std::string_view name, int status)
 {
@@ -40,7 +40,8 @@ static void OpenSSLInitialise()
     }
 }
 
-template<typename TBase> class OpenSSLHashAlgorithm final : public TBase
+template<typename TBase>
+class OpenSSLHashAlgorithm final : public TBase
 {
 private:
     const EVP_MD* _type;
@@ -326,7 +327,7 @@ public:
     }
 };
 
-namespace Crypt
+namespace OpenRCT2::Crypt
 {
     std::unique_ptr<Sha1Algorithm> CreateSHA1()
     {
@@ -351,7 +352,7 @@ namespace Crypt
         OpenSSLInitialise();
         return std::make_unique<OpenSSLRsaKey>();
     }
-} // namespace Crypt
+} // namespace OpenRCT2::Crypt
 
 #    pragma GCC diagnostic pop
 

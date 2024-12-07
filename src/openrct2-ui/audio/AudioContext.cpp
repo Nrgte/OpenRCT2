@@ -15,9 +15,9 @@
 
 #include <SDL.h>
 #include <memory>
+#include <openrct2/Diagnostic.h>
 #include <openrct2/audio/AudioContext.h>
 #include <openrct2/audio/AudioSource.h>
-#include <openrct2/common.h>
 #include <openrct2/core/String.hpp>
 
 namespace OpenRCT2::Audio
@@ -90,6 +90,7 @@ namespace OpenRCT2::Audio
             }
             catch (const std::exception& e)
             {
+                SDL_RWclose(rw);
                 LOG_VERBOSE("Unable to create audio source: %s", e.what());
                 return nullptr;
             }
@@ -119,6 +120,7 @@ namespace OpenRCT2::Audio
             }
             catch (const std::exception& e)
             {
+                SDL_RWclose(rw);
                 LOG_VERBOSE("Unable to create audio source: %s", e.what());
                 return nullptr;
             }

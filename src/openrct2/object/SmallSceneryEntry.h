@@ -9,9 +9,11 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../interface/Cursors.h"
+#include "../core/Money.hpp"
+#include "../localisation/StringIdType.h"
 #include "ObjectTypes.h"
+
+enum class CursorID : uint8_t;
 
 enum SMALL_SCENERY_FLAGS : uint32_t
 {

@@ -15,7 +15,7 @@
 #include <functional>
 #include <memory>
 #include <openrct2/core/FileSystem.hpp>
-#include <openrct2/localisation/StringIds.h>
+#include <openrct2/localisation/StringIdType.h>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -133,7 +133,8 @@ namespace OpenRCT2::Ui
         void SaveUserBindings();
 
         void RegisterShortcut(RegisteredShortcut&& shortcut);
-        template<typename... Args> void RegisterShortcut(Args&&... args)
+        template<typename... Args>
+        void RegisterShortcut(Args&&... args)
         {
             RegisterShortcut(RegisteredShortcut(std::forward<Args>(args)...));
         }
@@ -147,7 +148,4 @@ namespace OpenRCT2::Ui
 
         static std::string_view GetLegacyShortcutId(size_t index);
     };
-
-    InputManager& GetInputManager();
-    ShortcutManager& GetShortcutManager();
 } // namespace OpenRCT2::Ui

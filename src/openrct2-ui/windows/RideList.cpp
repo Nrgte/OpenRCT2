@@ -21,8 +21,8 @@
 #include <openrct2/drawing/Drawing.h>
 #include <openrct2/interface/Colour.h>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/network/network.h>
+#include <openrct2/ride/RideRatings.h>
 #include <openrct2/sprites.h>
 #include <openrct2/util/Util.h>
 #include <openrct2/windows/Intent.h>
@@ -62,22 +62,22 @@ namespace OpenRCT2::Ui::Windows
     };
 
     // clang-format off
-static Widget _rideListWidgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({  0, 43}, {340, 197}, WindowWidgetType::Resize,   WindowColour::Secondary                                                                ), // tab page background
-    MakeWidget({315, 60}, { 24,  24}, WindowWidgetType::FlatBtn,  WindowColour::Secondary, ImageId(SPR_TOGGLE_OPEN_CLOSE),      STR_OPEN_OR_CLOSE_ALL_RIDES       ), // open / close all toggle
-    MakeWidget({150, 46}, {124,  12}, WindowWidgetType::DropdownMenu, WindowColour::Secondary                                                                ), // current information type
-    MakeWidget({262, 47}, { 11,  10}, WindowWidgetType::Button,   WindowColour::Secondary, STR_DROPDOWN_GLYPH,         STR_RIDE_LIST_INFORMATION_TYPE_TIP), // information type dropdown button
-    MakeWidget({280, 46}, { 54,  12}, WindowWidgetType::Button,   WindowColour::Secondary, STR_SORT,                   STR_RIDE_LIST_SORT_TIP            ), // sort button
-    MakeTab   ({  3, 17},                                                                                STR_LIST_RIDES_TIP                ), // tab 1
-    MakeTab   ({ 34, 17},                                                                                STR_LIST_SHOPS_AND_STALLS_TIP     ), // tab 2
-    MakeTab   ({ 65, 17},                                                                                STR_LIST_KIOSKS_AND_FACILITIES_TIP), // tab 3
-    MakeWidget({  3, 60}, {334, 177}, WindowWidgetType::Scroll,   WindowColour::Secondary, SCROLL_VERTICAL                                               ), // list
-    MakeWidget({320, 62}, { 14,  14}, WindowWidgetType::ImgBtn,   WindowColour::Secondary, ImageId(SPR_G2_RCT1_CLOSE_BUTTON_0)                                    ),
-    MakeWidget({320, 76}, { 14,  14}, WindowWidgetType::ImgBtn,   WindowColour::Secondary, ImageId(SPR_G2_RCT1_OPEN_BUTTON_0)                                     ),
-    MakeWidget({315, 90}, { 24,  24}, WindowWidgetType::FlatBtn,  WindowColour::Secondary, ImageId(SPR_DEMOLISH),               STR_QUICK_DEMOLISH_RIDE           ),
-    kWidgetsEnd,
-};
+    static Widget _rideListWidgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({  0, 43}, {340, 197}, WindowWidgetType::Resize,   WindowColour::Secondary                                                                ), // tab page background
+        MakeWidget({315, 60}, { 24,  24}, WindowWidgetType::FlatBtn,  WindowColour::Secondary, ImageId(SPR_TOGGLE_OPEN_CLOSE),      STR_OPEN_OR_CLOSE_ALL_RIDES       ), // open / close all toggle
+        MakeWidget({150, 46}, {124,  12}, WindowWidgetType::DropdownMenu, WindowColour::Secondary                                                                ), // current information type
+        MakeWidget({262, 47}, { 11,  10}, WindowWidgetType::Button,   WindowColour::Secondary, STR_DROPDOWN_GLYPH,         STR_RIDE_LIST_INFORMATION_TYPE_TIP), // information type dropdown button
+        MakeWidget({280, 46}, { 54,  12}, WindowWidgetType::Button,   WindowColour::Secondary, STR_SORT,                   STR_RIDE_LIST_SORT_TIP            ), // sort button
+        MakeTab   ({  3, 17},                                                                                STR_LIST_RIDES_TIP                ), // tab 1
+        MakeTab   ({ 34, 17},                                                                                STR_LIST_SHOPS_AND_STALLS_TIP     ), // tab 2
+        MakeTab   ({ 65, 17},                                                                                STR_LIST_KIOSKS_AND_FACILITIES_TIP), // tab 3
+        MakeWidget({  3, 60}, {334, 177}, WindowWidgetType::Scroll,   WindowColour::Secondary, SCROLL_VERTICAL                                               ), // list
+        MakeWidget({320, 62}, { 14,  14}, WindowWidgetType::ImgBtn,   WindowColour::Secondary, ImageId(SPR_G2_RCT1_CLOSE_BUTTON_0)                                    ),
+        MakeWidget({320, 76}, { 14,  14}, WindowWidgetType::ImgBtn,   WindowColour::Secondary, ImageId(SPR_G2_RCT1_OPEN_BUTTON_0)                                     ),
+        MakeWidget({315, 90}, { 24,  24}, WindowWidgetType::FlatBtn,  WindowColour::Secondary, ImageId(SPR_DEMOLISH),               STR_QUICK_DEMOLISH_RIDE           ),
+        kWidgetsEnd,
+    };
     // clang-format on
 
     enum
@@ -395,9 +395,9 @@ static Widget _rideListWidgets[] = {
             auto top = newHeight - widgets[WIDX_LIST].bottom + widgets[WIDX_LIST].top + 21;
             if (top < 0)
                 top = 0;
-            if (top < scrolls[0].v_top)
+            if (top < scrolls[0].contentOffsetY)
             {
-                scrolls[0].v_top = top;
+                scrolls[0].contentOffsetY = top;
                 Invalidate();
             }
 
@@ -542,17 +542,23 @@ static Widget _rideListWidgets[] = {
         {
             auto dpiCoords = ScreenCoordsXY{ dpi.x, dpi.y };
             GfxFillRect(
-                dpi, { dpiCoords, dpiCoords + ScreenCoordsXY{ dpi.width, dpi.height } }, ColourMapA[colours[1]].mid_light);
+                dpi, { dpiCoords, dpiCoords + ScreenCoordsXY{ dpi.width, dpi.height } },
+                ColourMapA[colours[1].colour].mid_light);
 
             auto y = 0;
             for (size_t i = 0; i < _rideList.size(); i++)
             {
-                StringId format = (_quickDemolishMode ? STR_RED_STRINGID : STR_BLACK_STRING);
+                StringId format = STR_BLACK_STRING;
+                if (_quickDemolishMode)
+                    format = STR_RED_STRINGID;
+
                 if (i == static_cast<size_t>(selected_list_item))
                 {
                     // Background highlight
                     GfxFilterRect(dpi, { 0, y, 800, y + kScrollableRowHeight - 1 }, FilterPaletteID::PaletteDarken1);
-                    format = (_quickDemolishMode ? STR_LIGHTPINK_STRINGID : STR_WINDOW_COLOUR_2_STRINGID);
+                    format = STR_WINDOW_COLOUR_2_STRINGID;
+                    if (_quickDemolishMode)
+                        format = STR_LIGHTPINK_STRINGID;
                 }
 
                 // Get ride
@@ -714,7 +720,7 @@ static Widget _rideListWidgets[] = {
                         if (RideHasRatings(*ridePtr))
                         {
                             formatSecondary = STR_EXCITEMENT_LABEL;
-                            ft.Add<uint16_t>(ridePtr->excitement);
+                            ft.Add<uint16_t>(ridePtr->ratings.excitement);
                         }
                         break;
                     case INFORMATION_TYPE_INTENSITY:
@@ -722,7 +728,7 @@ static Widget _rideListWidgets[] = {
                         if (RideHasRatings(*ridePtr))
                         {
                             formatSecondary = STR_INTENSITY_LABEL;
-                            ft.Add<uint16_t>(ridePtr->intensity);
+                            ft.Add<uint16_t>(ridePtr->ratings.intensity);
                         }
                         break;
                     case INFORMATION_TYPE_NAUSEA:
@@ -730,7 +736,7 @@ static Widget _rideListWidgets[] = {
                         if (RideHasRatings(*ridePtr))
                         {
                             formatSecondary = STR_NAUSEA_LABEL;
-                            ft.Add<uint16_t>(ridePtr->nausea);
+                            ft.Add<uint16_t>(ridePtr->ratings.nausea);
                         }
                         break;
                 }
@@ -785,7 +791,8 @@ static Widget _rideListWidgets[] = {
          * Used in RefreshList() to handle the sorting of the list.
          * Uses a lambda function (predicate) as exit criteria for the algorithm.
          */
-        template<typename TSortPred> void SortListByPredicate(const TSortPred& pred)
+        template<typename TSortPred>
+        void SortListByPredicate(const TSortPred& pred)
         {
             std::sort(_rideList.begin(), _rideList.end(), [&pred](const auto& lhs, const auto& rhs) {
                 const Ride* rideLhs = GetRide(lhs.Id);
@@ -909,17 +916,24 @@ static Widget _rideListWidgets[] = {
                     break;
                 case INFORMATION_TYPE_EXCITEMENT:
                     SortListByPredicate([](const Ride& thisRide, const Ride& otherRide) -> bool {
-                        return thisRide.excitement <= otherRide.excitement;
+                        const auto leftValue = thisRide.ratings.isNull() ? kRideRatingUndefined : thisRide.ratings.excitement;
+                        const auto rightValue = otherRide.ratings.isNull() ? kRideRatingUndefined
+                                                                           : otherRide.ratings.excitement;
+                        return leftValue <= rightValue;
                     });
                     break;
                 case INFORMATION_TYPE_INTENSITY:
                     SortListByPredicate([](const Ride& thisRide, const Ride& otherRide) -> bool {
-                        return thisRide.intensity <= otherRide.intensity;
+                        const auto leftValue = thisRide.ratings.isNull() ? kRideRatingUndefined : thisRide.ratings.intensity;
+                        const auto rightValue = otherRide.ratings.isNull() ? kRideRatingUndefined : otherRide.ratings.intensity;
+                        return leftValue <= rightValue;
                     });
                     break;
                 case INFORMATION_TYPE_NAUSEA:
                     SortListByPredicate([](const Ride& thisRide, const Ride& otherRide) -> bool {
-                        return thisRide.nausea <= otherRide.nausea;
+                        const auto leftValue = thisRide.ratings.isNull() ? kRideRatingUndefined : thisRide.ratings.nausea;
+                        const auto rightValue = otherRide.ratings.isNull() ? kRideRatingUndefined : otherRide.ratings.nausea;
+                        return leftValue <= rightValue;
                     });
                     break;
             }

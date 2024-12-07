@@ -17,6 +17,7 @@
 #include "../core/IStream.hpp"
 #include "../core/Json.hpp"
 #include "../core/Memory.hpp"
+#include "../core/Numerics.hpp"
 #include "../core/String.hpp"
 #include "../drawing/Drawing.h"
 #include "../entity/Yaw.hpp"
@@ -107,12 +108,12 @@ static LegacyAnimationParameters GetDefaultAnimationParameters(uint8_t legacyAni
     return VehicleEntryDefaultAnimation[legacyAnimationType];
 }
 
-static constexpr SpritePrecision PrecisionFromNumFrames(uint8_t numRotationFrames)
+static constexpr SpritePrecision PrecisionFromNumFrames(uint32_t numRotationFrames)
 {
     if (numRotationFrames == 0)
         return SpritePrecision::None;
     else
-        return static_cast<SpritePrecision>(UtilBitScanForward(numRotationFrames) + 1);
+        return static_cast<SpritePrecision>(Numerics::bitScanForward(numRotationFrames) + 1);
 }
 
 static void RideObjectUpdateRideType(RideObjectEntry& rideEntry)
@@ -265,8 +266,6 @@ void RideObject::ReadLegacy(IReadObjectContext* context, IStream* stream)
 
 void RideObject::Load()
 {
-    _legacyType.obj = this;
-
     GetStringTable().Sort();
     _legacyType.naming.Name = LanguageAllocateObjectString(GetName());
     _legacyType.naming.Description = LanguageAllocateObjectString(GetDescription());
@@ -639,7 +638,6 @@ void RideObject::ReadJson(IReadObjectContext* context, json_t& root)
             });
     }
 
-    RideObjectUpdateRideType(_legacyType);
     PopulateTablesFromJson(context, root);
 }
 
@@ -965,7 +963,7 @@ std::vector<VehicleColour> RideObject::ReadJsonColourConfiguration(json_t& jColo
 
 bool RideObject::IsRideTypeShopOrFacility(ride_type_t rideType)
 {
-    return GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY);
+    return GetRideTypeDescriptor(rideType).HasFlag(RtdFlag::isShopOrFacility);
 }
 
 ride_type_t RideObject::ParseRideType(const std::string& s)

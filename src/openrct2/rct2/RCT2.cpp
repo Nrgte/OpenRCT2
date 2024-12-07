@@ -19,22 +19,22 @@
 
 #include <cstdint>
 
-namespace RCT2
+namespace OpenRCT2::RCT2
 {
     ObjectEntryIndex RCT2RideTypeToOpenRCT2RideType(uint8_t rct2RideType, const RideObjectEntry& rideEntry)
     {
         switch (rct2RideType)
         {
             case RIDE_TYPE_CORKSCREW_ROLLER_COASTER:
-                if (!RideEntryGetSupportedTrackPieces(rideEntry).get(TRACK_VERTICAL_LOOP))
+                if (!RideEntryGetSupportedTrackPieces(rideEntry).get(EnumValue(TrackGroup::verticalLoop)))
                     return RIDE_TYPE_HYPERCOASTER;
                 return RIDE_TYPE_CORKSCREW_ROLLER_COASTER;
             case RIDE_TYPE_JUNIOR_ROLLER_COASTER:
-                if (RideEntryGetSupportedTrackPieces(rideEntry).get(TRACK_SLOPE_STEEP_DOWN))
+                if (RideEntryGetSupportedTrackPieces(rideEntry).get(EnumValue(TrackGroup::slopeSteepDown)))
                     return RIDE_TYPE_CLASSIC_MINI_ROLLER_COASTER;
                 return RIDE_TYPE_JUNIOR_ROLLER_COASTER;
             case RIDE_TYPE_CAR_RIDE:
-                if (RideEntryGetSupportedTrackPieces(rideEntry).get(TRACK_SLOPE_STEEP_DOWN))
+                if (RideEntryGetSupportedTrackPieces(rideEntry).get(EnumValue(TrackGroup::slopeSteepDown)))
                     return RIDE_TYPE_MONSTER_TRUCKS;
                 return RIDE_TYPE_CAR_RIDE;
             case RIDE_TYPE_TWISTER_ROLLER_COASTER:
@@ -42,7 +42,7 @@ namespace RCT2
                     return RIDE_TYPE_HYPER_TWISTER;
                 return RIDE_TYPE_TWISTER_ROLLER_COASTER;
             case RIDE_TYPE_STEEL_WILD_MOUSE:
-                if (!RideEntryGetSupportedTrackPieces(rideEntry).get(TRACK_SLOPE_STEEP_DOWN))
+                if (!RideEntryGetSupportedTrackPieces(rideEntry).get(EnumValue(TrackGroup::slopeSteepDown)))
                     return RIDE_TYPE_SPINNING_WILD_MOUSE;
                 return RIDE_TYPE_STEEL_WILD_MOUSE;
 
@@ -97,39 +97,40 @@ namespace RCT2
         return MinMaxCarsPerTrain & 0xF;
     }
 
-    void Ride::SetMinCarsPerTrain(uint8_t newValue)
+    OpenRCT2::TrackElemType RCT2TrackTypeToOpenRCT2(
+        OpenRCT2::RCT12::TrackElemType origTrackType, ride_type_t rideType, bool isFlatRide)
     {
-        MinMaxCarsPerTrain &= ~0xF0;
-        MinMaxCarsPerTrain |= (newValue << 4);
+        auto originalClass = OriginalRideClass::Regular;
+        if (rideType == RIDE_TYPE_STEEL_WILD_MOUSE || rideType == RIDE_TYPE_SPINNING_WILD_MOUSE)
+            originalClass = OriginalRideClass::WildMouse;
+        if (isFlatRide)
+            originalClass = OriginalRideClass::FlatRide;
+
+        return RCT2TrackTypeToOpenRCT2(origTrackType, originalClass);
     }
 
-    void Ride::SetMaxCarsPerTrain(uint8_t newValue)
+    OpenRCT2::TrackElemType RCT2TrackTypeToOpenRCT2(
+        OpenRCT2::RCT12::TrackElemType origTrackType, OriginalRideClass originalClass)
     {
-        MinMaxCarsPerTrain &= ~0x0F;
-        MinMaxCarsPerTrain |= newValue & 0x0F;
+        switch (originalClass)
+        {
+            case OriginalRideClass::FlatRide:
+                return RCT12FlatTrackTypeToOpenRCT2(origTrackType);
+            case OriginalRideClass::WildMouse:
+                // Boosters share their ID with the Spinning Control track.
+                if (origTrackType == OpenRCT2::RCT12::TrackElemType::RotationControlToggleAlias)
+                    return OpenRCT2::TrackElemType::RotationControlToggle;
+                return static_cast<OpenRCT2::TrackElemType>(origTrackType);
+            case OriginalRideClass::Regular:
+            default:
+                return static_cast<OpenRCT2::TrackElemType>(origTrackType);
+        }
     }
 
-    bool RCT2TrackTypeIsBooster(ride_type_t rideType, uint16_t trackType)
-    {
-        // Boosters share their ID with the Spinning Control track.
-        return rideType != RIDE_TYPE_SPINNING_WILD_MOUSE && rideType != RIDE_TYPE_STEEL_WILD_MOUSE
-            && trackType == TrackElemType::Booster;
-    }
-
-    track_type_t RCT2TrackTypeToOpenRCT2(RCT12TrackType origTrackType, ride_type_t rideType, bool convertFlat)
-    {
-        if (convertFlat && GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_FLAT_RIDE))
-            return RCT12FlatTrackTypeToOpenRCT2(origTrackType);
-        if (origTrackType == TrackElemType::RotationControlToggleAlias && !RCT2TrackTypeIsBooster(rideType, origTrackType))
-            return TrackElemType::RotationControlToggle;
-
-        return origTrackType;
-    }
-
-    RCT12TrackType OpenRCT2TrackTypeToRCT2(track_type_t origTrackType)
+    OpenRCT2::RCT12::TrackElemType OpenRCT2TrackTypeToRCT2(OpenRCT2::TrackElemType origTrackType)
     {
         if (origTrackType == TrackElemType::RotationControlToggle)
-            return TrackElemType::RotationControlToggleAlias;
+            return OpenRCT2::RCT12::TrackElemType::RotationControlToggleAlias;
 
         // This function is safe to run this way round.
         return OpenRCT2FlatTrackTypeToRCT12(origTrackType);
@@ -263,4 +264,9 @@ namespace RCT2
             return result;
         return {};
     }
-} // namespace RCT2
+
+    colour_t TD6SceneryElement::getTertiaryWallColour() const
+    {
+        return (Flags & 0xFC) >> 2;
+    }
+} // namespace OpenRCT2::RCT2

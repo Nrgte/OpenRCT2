@@ -12,13 +12,11 @@
 #ifdef ENABLE_SCRIPTING
 
 #    include "../../../Context.h"
-#    include "../../../common.h"
 #    include "../../../core/Guard.hpp"
 #    include "../../../entity/EntityRegistry.h"
 #    include "../../../ride/Track.h"
 #    include "../../../world/Footpath.h"
 #    include "../../../world/Scenery.h"
-#    include "../../../world/Surface.h"
 #    include "../../Duktape.hpp"
 #    include "../../ScriptEngine.h"
 
@@ -210,7 +208,12 @@ namespace OpenRCT2::Scripting
 
         void Invalidate();
 
+        void RemoveBannerEntryIfNeeded();
+        void CreateBannerEntryIfNeeded();
+
     public:
+        static const LargeSceneryElement* GetOtherLargeSceneryElement(
+            const CoordsXY& loc, const LargeSceneryElement* const largeScenery);
         static void Register(duk_context* ctx);
     };
 

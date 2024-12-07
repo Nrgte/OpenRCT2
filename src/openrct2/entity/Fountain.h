@@ -9,11 +9,11 @@
 
 #pragma once
 
-#include "../common.h"
 #include "../world/Map.h"
 #include "EntityBase.h"
 
 class DataSerialiser;
+struct PaintSession;
 
 enum class JumpingFountainType : uint8_t
 {
@@ -50,7 +50,7 @@ private:
     static bool IsJumpingFountain(JumpingFountainType newType, const CoordsXYZ& newLoc);
 };
 
-namespace FOUNTAIN_FLAG
+namespace OpenRCT2::FOUNTAIN_FLAG
 {
     const uint32_t FAST = 1 << 0;
     const uint32_t GOTO_EDGE = 1 << 1;
@@ -58,4 +58,4 @@ namespace FOUNTAIN_FLAG
     const uint32_t TERMINATE = 1 << 3;
     const uint32_t BOUNCE = 1 << 4;
     const uint32_t DIRECTION = 1 << 7;
-}; // namespace FOUNTAIN_FLAG
+}; // namespace OpenRCT2::FOUNTAIN_FLAG

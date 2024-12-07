@@ -14,9 +14,10 @@
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Context.h>
 #include <openrct2/core/String.hpp>
+#include <openrct2/core/UTF8.h>
 #include <openrct2/drawing/Drawing.h>
-#include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
+#include <openrct2/localisation/Formatting.h>
+#include <openrct2/localisation/StringIds.h>
 #include <openrct2/util/Util.h>
 
 namespace OpenRCT2::Ui::Windows
@@ -266,7 +267,7 @@ namespace OpenRCT2::Ui::Windows
 
                     if (_cursorBlink > 15)
                     {
-                        uint8_t colour = ColourMapA[colours[1]].mid_light;
+                        uint8_t colour = ColourMapA[colours[1].colour].mid_light;
                         // TODO: palette index addition
                         GfxFillRect(
                             dpi, { { cursorX, screenCoords.y + 9 }, { cursorX + textWidth, screenCoords.y + 9 } }, colour + 5);

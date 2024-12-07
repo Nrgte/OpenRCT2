@@ -7,6 +7,8 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "../interface/ViewportQuery.h"
+
 #include <array>
 #include <openrct2-ui/interface/Dropdown.h>
 #include <openrct2-ui/interface/Viewport.h>
@@ -24,7 +26,6 @@
 #include <openrct2/entity/Staff.h>
 #include <openrct2/localisation/Formatter.h>
 #include <openrct2/localisation/Formatting.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/management/Marketing.h>
 #include <openrct2/network/network.h>
 #include <openrct2/peep/PeepAnimationData.h>
@@ -70,7 +71,9 @@ namespace OpenRCT2::Ui::Windows
         WIDX_TAB_6,
         WIDX_TAB_7,
 
-        WIDX_MARQUEE = 11,
+        WIDX_TAB_CONTENT_START,
+
+        WIDX_MARQUEE = WIDX_TAB_CONTENT_START,
         WIDX_VIEWPORT,
         WIDX_ACTION_LBL,
         WIDX_PICKUP,
@@ -78,7 +81,14 @@ namespace OpenRCT2::Ui::Windows
         WIDX_LOCATE,
         WIDX_TRACK,
 
-        WIDX_RIDE_SCROLL = 11
+        WIDX_HAPPINESS_BAR = WIDX_TAB_CONTENT_START,
+        WIDX_ENERGY_BAR,
+        WIDX_HUNGER_BAR,
+        WIDX_THIRST_BAR,
+        WIDX_NAUSEA_BAR,
+        WIDX_TOILET_BAR,
+
+        WIDX_RIDE_SCROLL = WIDX_TAB_CONTENT_START,
     };
 
     validate_global_widx(WC_PEEP, WIDX_PICKUP);
@@ -97,21 +107,27 @@ namespace OpenRCT2::Ui::Windows
         MakeTab({ 189, 17 }, STR_DEBUG_TIP)                                                     /* Tab 7 */
 
     // clang-format off
-static Widget _guestWindowWidgetsOverview[] = {
-    MAIN_GUEST_WIDGETS,
-    MakeWidget({  3,  45}, {164, 12}, WindowWidgetType::LabelCentred, WindowColour::Secondary                                               ), // Label Thought marquee
-    MakeWidget({  3,  57}, {164, 87}, WindowWidgetType::Viewport,      WindowColour::Secondary                                               ), // Viewport
-    MakeWidget({  3, 144}, {164, 11}, WindowWidgetType::LabelCentred, WindowColour::Secondary                                               ), // Label Action
-    MakeWidget({167,  45}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_PICKUP_BTN), STR_PICKUP_TIP               ), // Pickup Button
-    MakeWidget({167,  69}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_RENAME),     STR_NAME_GUEST_TIP           ), // Rename Button
-    MakeWidget({167,  93}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_LOCATE),     STR_LOCATE_SUBJECT_TIP       ), // Locate Button
-    MakeWidget({167, 117}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_TRACK_PEEP), STR_TOGGLE_GUEST_TRACKING_TIP), // Track Button
-    kWidgetsEnd,
-};
+    static Widget _guestWindowWidgetsOverview[] = {
+        MAIN_GUEST_WIDGETS,
+        MakeWidget({  3,  45}, {164, 12}, WindowWidgetType::LabelCentred, WindowColour::Secondary                                               ), // Label Thought marquee
+        MakeWidget({  3,  57}, {164, 87}, WindowWidgetType::Viewport,      WindowColour::Secondary                                               ), // Viewport
+        MakeWidget({  3, 144}, {164, 11}, WindowWidgetType::LabelCentred, WindowColour::Secondary                                               ), // Label Action
+        MakeWidget({167,  45}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_PICKUP_BTN), STR_PICKUP_TIP               ), // Pickup Button
+        MakeWidget({167,  69}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_RENAME),     STR_NAME_GUEST_TIP           ), // Rename Button
+        MakeWidget({167,  93}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_LOCATE),     STR_LOCATE_SUBJECT_TIP       ), // Locate Button
+        MakeWidget({167, 117}, { 24, 24}, WindowWidgetType::FlatBtn,       WindowColour::Secondary, ImageId(SPR_TRACK_PEEP), STR_TOGGLE_GUEST_TRACKING_TIP), // Track Button
+        kWidgetsEnd,
+    };
     // clang-format on
 
     static Widget _guestWindowWidgetsStats[] = {
         MAIN_GUEST_WIDGETS,
+        MakeProgressBar({ 65, (kListRowHeight * 0) + 4 + 43 }, { 119, 10 }, COLOUR_BRIGHT_GREEN, 0, 19), // Happiness
+        MakeProgressBar({ 65, (kListRowHeight * 1) + 4 + 43 }, { 119, 10 }, COLOUR_BRIGHT_GREEN, 0, 19), // Energy
+        MakeProgressBar({ 65, (kListRowHeight * 2) + 4 + 43 }, { 119, 10 }, COLOUR_BRIGHT_RED, 67, 100), // Hunger
+        MakeProgressBar({ 65, (kListRowHeight * 3) + 4 + 43 }, { 119, 10 }, COLOUR_BRIGHT_RED, 67, 100), // Thirst
+        MakeProgressBar({ 65, (kListRowHeight * 4) + 4 + 43 }, { 119, 10 }, COLOUR_BRIGHT_RED, 47, 100), // Nausea
+        MakeProgressBar({ 65, (kListRowHeight * 5) + 4 + 43 }, { 119, 10 }, COLOUR_BRIGHT_RED, 62, 100), // Toilet
         kWidgetsEnd,
     };
 
@@ -142,16 +158,16 @@ static Widget _guestWindowWidgetsOverview[] = {
     };
 
     // clang-format off
-static constexpr std::array _guestWindowPageWidgets = {
-    _guestWindowWidgetsOverview,
-    _guestWindowWidgetsStats,
-    _guestWindowWidgetsRides,
-    _guestWindowWidgetsFinance,
-    _guestWindowWidgetsThoughts,
-    _guestWindowWidgetsInventory,
-    _guestWindowWidgetsDebug,
-};
-static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
+    static constexpr std::array _guestWindowPageWidgets = {
+        _guestWindowWidgetsOverview,
+        _guestWindowWidgetsStats,
+        _guestWindowWidgetsRides,
+        _guestWindowWidgetsFinance,
+        _guestWindowWidgetsThoughts,
+        _guestWindowWidgetsInventory,
+        _guestWindowWidgetsDebug,
+    };
+    static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
     // clang-format on
 
     static constexpr std::array _guestWindowPageSizes = {
@@ -171,7 +187,7 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
         uint16_t _marqueePosition = 0;
         uint16_t _beingWatchedTimer = 0;
         uint16_t _guestAnimationFrame = 0;
-        int16_t _pickedPeepX = LOCATION_NULL; // entity->x gets set to 0x8000 on pickup, this is the old value
+        int16_t _pickedPeepX = kLocationNull; // entity->x gets set to 0x8000 on pickup, this is the old value
         std::vector<RideId> _riddenRides;
 
     public:
@@ -198,11 +214,8 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
 
         void OnClose() override
         {
-            if (InputTestFlag(INPUT_FLAG_TOOL_ACTIVE))
-            {
-                if (classification == gCurrentToolWidget.window_classification && number == gCurrentToolWidget.window_number)
-                    ToolCancel();
-            }
+            if (isToolActive(classification, number))
+                ToolCancel();
         }
 
         void OnMouseUp(WidgetIndex widx) override
@@ -483,11 +496,9 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
 
         void SetPage(int32_t newPage)
         {
-            if (InputTestFlag(INPUT_FLAG_TOOL_ACTIVE))
-            {
-                if (number == gCurrentToolWidget.window_number && classification == gCurrentToolWidget.window_classification)
-                    ToolCancel();
-            }
+            if (isToolActive(classification, number))
+                ToolCancel();
+
             int32_t listen = 0;
             if (newPage == WINDOW_GUEST_OVERVIEW && page == WINDOW_GUEST_OVERVIEW && viewport != nullptr)
             {
@@ -544,7 +555,7 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
                 return;
             }
 
-            int32_t animationFrame = GetPeepAnimation(peep->SpriteType).base_image + 1;
+            int32_t animationFrame = GetPeepAnimation(peep->AnimationGroup).base_image + 1;
 
             int32_t animationFrameOffset = 0;
 
@@ -600,8 +611,6 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
                 {
                     viewport->width = reqViewportWidth;
                     viewport->height = reqViewportHeight;
-                    viewport->view_width = viewport->zoom.ApplyInversedTo(viewport->width);
-                    viewport->view_height = viewport->zoom.ApplyInversedTo(viewport->height);
                 }
             }
             OnViewportRotate();
@@ -934,7 +943,7 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
             gPickupPeepImage = ImageId();
 
             auto info = GetMapCoordinatesFromPos(screenCoords, ViewportInteractionItemAll);
-            if (info.SpriteType == ViewportInteractionItem::None)
+            if (info.interactionType == ViewportInteractionItem::None)
                 return;
 
             gPickupPeepX = screenCoords.x - 1;
@@ -946,7 +955,7 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
                 return;
             }
 
-            auto baseImageId = GetPeepAnimation(peep->SpriteType, PeepActionSpriteType::Ui).base_image;
+            auto baseImageId = GetPeepAnimation(peep->AnimationGroup, PeepAnimationType::Hanging).base_image;
             baseImageId += picked_peep_frame >> 2;
             gPickupPeepImage = ImageId(baseImageId, peep->TshirtColour, peep->TrousersColour);
         }
@@ -1036,42 +1045,46 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
             Invalidate();
         }
 
-        void StatsBarsDraw(int32_t value, const ScreenCoordsXY& origCoords, DrawPixelInfo& dpi, int32_t colour, bool blinkFlag)
-        {
-            auto coords = origCoords;
-            if (FontGetLineHeight(FontStyle::Medium) > 10)
-            {
-                coords.y += 1;
-            }
-
-            GfxFillRectInset(
-                dpi, { coords + ScreenCoordsXY{ 61, 1 }, coords + ScreenCoordsXY{ 61 + 121, 9 } }, colours[1], INSET_RECT_F_30);
-
-            if (!blinkFlag || GameIsPaused() || (gCurrentRealTimeTicks & 8) == 0)
-            {
-                value *= 118;
-                value >>= 8;
-
-                if (value <= 2)
-                    return;
-
-                GfxFillRectInset(
-                    dpi, { coords + ScreenCoordsXY{ 63, 2 }, coords + ScreenCoordsXY{ 63 + value - 1, 8 } }, colour, 0);
-            }
-        }
-
         /**
-         * Takes a guest stat value (scaled to currMax) and adjusts it to be scaled out of 255.
-         * Then clamp the value to between newMin and 255.
+         * Takes a guest stat value (scaled to currMax) and adjusts it to be scaled out of 100.
+         * Then clamp the value to between newMin and 100.
          */
         int32_t NormalizeGuestStatValue(int32_t value, int32_t currMax, int32_t newMin) const
         {
-            int32_t newValue = (value * 255) / currMax;
-            return std::clamp(newValue, newMin, 255);
+            int32_t newValue = (value * 100) / currMax;
+            return std::clamp(newValue, newMin, 100);
         }
 
         void OnDrawStats(DrawPixelInfo& dpi)
         {
+            // ebx
+            const auto peep = GetGuest();
+            if (peep == nullptr)
+            {
+                return;
+            }
+
+            int32_t happinessPercentage = NormalizeGuestStatValue(peep->Happiness, kPeepMaxHappiness, 10);
+            WidgetProgressBarSetNewPercentage(widgets[WIDX_HAPPINESS_BAR], happinessPercentage);
+
+            int32_t energyPercentage = NormalizeGuestStatValue(
+                peep->Energy - kPeepMinEnergy, kPeepMaxEnergy - kPeepMinEnergy, 10);
+            WidgetProgressBarSetNewPercentage(widgets[WIDX_ENERGY_BAR], energyPercentage);
+
+            int32_t hungerPercentage = NormalizeGuestStatValue(peep->Hunger - 32, 158, 0);
+            hungerPercentage = 100 - hungerPercentage; // the bar should be longer when peep->Hunger is low
+            WidgetProgressBarSetNewPercentage(widgets[WIDX_HUNGER_BAR], hungerPercentage);
+
+            int32_t thirstPercentage = NormalizeGuestStatValue(peep->Thirst - 32, 158, 0);
+            thirstPercentage = 100 - thirstPercentage; // the bar should be longer when peep->Thirst is low
+            WidgetProgressBarSetNewPercentage(widgets[WIDX_THIRST_BAR], thirstPercentage);
+
+            int32_t nauseaPercentage = NormalizeGuestStatValue(peep->Nausea - 32, 223, 0);
+            WidgetProgressBarSetNewPercentage(widgets[WIDX_NAUSEA_BAR], nauseaPercentage);
+
+            int32_t toiletPercentage = NormalizeGuestStatValue(peep->Toilet - 64, 178, 0);
+            WidgetProgressBarSetNewPercentage(widgets[WIDX_TOILET_BAR], toiletPercentage);
+
             DrawWidgets(dpi);
             OverviewTabDraw(dpi);
             StatsTabDraw(dpi);
@@ -1081,13 +1094,6 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
             InventoryTabDraw(dpi);
             DebugTabDraw(dpi);
 
-            // ebx
-            const auto peep = GetGuest();
-            if (peep == nullptr)
-            {
-                return;
-            }
-
             // Not sure why this is not stats widgets
             // cx dx
             auto screenCoords = windowPos
@@ -1096,57 +1102,25 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
             // Happiness
             DrawTextBasic(dpi, screenCoords, STR_GUEST_STAT_HAPPINESS_LABEL);
 
-            int32_t happiness = NormalizeGuestStatValue(peep->Happiness, kPeepMaxHappiness, 10);
-            int32_t barColour = COLOUR_BRIGHT_GREEN;
-            bool barBlink = happiness < 50;
-            StatsBarsDraw(happiness, screenCoords, dpi, barColour, barBlink);
-
             // Energy
             screenCoords.y += kListRowHeight;
             DrawTextBasic(dpi, screenCoords, STR_GUEST_STAT_ENERGY_LABEL);
-
-            int32_t energy = NormalizeGuestStatValue(peep->Energy - kPeepMinEnergy, kPeepMaxEnergy - kPeepMinEnergy, 10);
-            barColour = COLOUR_BRIGHT_GREEN;
-            barBlink = energy < 50;
-            StatsBarsDraw(energy, screenCoords, dpi, barColour, barBlink);
 
             // Hunger
             screenCoords.y += kListRowHeight;
             DrawTextBasic(dpi, screenCoords, STR_GUEST_STAT_HUNGER_LABEL);
 
-            int32_t hunger = NormalizeGuestStatValue(peep->Hunger - 32, 158, 0);
-            hunger = 255 - hunger; // the bar should be longer when peep->Hunger is low
-            barColour = COLOUR_BRIGHT_RED;
-            barBlink = hunger > 170;
-            StatsBarsDraw(hunger, screenCoords, dpi, barColour, barBlink);
-
             // Thirst
             screenCoords.y += kListRowHeight;
             DrawTextBasic(dpi, screenCoords, STR_GUEST_STAT_THIRST_LABEL);
-
-            int32_t thirst = NormalizeGuestStatValue(peep->Thirst - 32, 158, 0);
-            thirst = 255 - thirst; // the bar should be longer when peep->Thirst is low
-            barColour = COLOUR_BRIGHT_RED;
-            barBlink = thirst > 170;
-            StatsBarsDraw(thirst, screenCoords, dpi, barColour, barBlink);
 
             // Nausea
             screenCoords.y += kListRowHeight;
             DrawTextBasic(dpi, screenCoords, STR_GUEST_STAT_NAUSEA_LABEL);
 
-            int32_t nausea = NormalizeGuestStatValue(peep->Nausea - 32, 223, 0);
-            barColour = COLOUR_BRIGHT_RED;
-            barBlink = nausea > 120;
-            StatsBarsDraw(nausea, screenCoords, dpi, barColour, barBlink);
-
             // Toilet
             screenCoords.y += kListRowHeight;
             DrawTextBasic(dpi, screenCoords, STR_GUEST_STAT_TOILET_LABEL);
-
-            int32_t toilet = NormalizeGuestStatValue(peep->Toilet - 64, 178, 0);
-            barColour = COLOUR_BRIGHT_RED;
-            barBlink = toilet > 160;
-            StatsBarsDraw(toilet, screenCoords, dpi, barColour, barBlink);
 
             // Time in park
             screenCoords.y += kListRowHeight + 1;
@@ -1277,9 +1251,9 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
             if (visableHeight < 0)
                 visableHeight = 0;
 
-            if (visableHeight < scrolls[0].v_top)
+            if (visableHeight < scrolls[0].contentOffsetY)
             {
-                scrolls[0].v_top = visableHeight;
+                scrolls[0].contentOffsetY = visableHeight;
                 Invalidate();
             }
             return newSize;
@@ -1356,7 +1330,7 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
 
         void OnScrollDrawRides(int32_t scrollIndex, DrawPixelInfo& dpi)
         {
-            auto colour = ColourMapA[colours[1]].mid_light;
+            auto colour = ColourMapA[colours[1].colour].mid_light;
             GfxFillRect(dpi, { { dpi.x, dpi.y }, { dpi.x + dpi.width - 1, dpi.y + dpi.height - 1 } }, colour);
 
             for (int32_t listIndex = 0; listIndex < static_cast<int32_t>(_riddenRides.size()); listIndex++)
@@ -1642,7 +1616,7 @@ static_assert(_guestWindowPageWidgets.size() == WINDOW_GUEST_PAGE_COUNT);
 
         std::pair<StringId, Formatter> InventoryFormatItem(Guest& guest, ShopItem item) const
         {
-            auto parkName = OpenRCT2::GetGameState().Park.Name.c_str();
+            auto parkName = GetGameState().Park.Name.c_str();
 
             // Default arguments
             auto ft = Formatter();

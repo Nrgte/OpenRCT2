@@ -11,6 +11,7 @@
 
 #include "Cheats.h"
 #include "Context.h"
+#include "Diagnostic.h"
 #include "Editor.h"
 #include "FileClassifier.h"
 #include "GameState.h"
@@ -27,7 +28,9 @@
 #include "core/Console.hpp"
 #include "core/File.h"
 #include "core/FileScanner.h"
+#include "core/Money.hpp"
 #include "core/Path.hpp"
+#include "core/SawyerCoding.h"
 #include "entity/EntityRegistry.h"
 #include "entity/PatrolArea.h"
 #include "entity/Peep.h"
@@ -36,7 +39,6 @@
 #include "interface/Screenshot.h"
 #include "interface/Viewport.h"
 #include "interface/Window.h"
-#include "localisation/Localisation.h"
 #include "management/Finance.h"
 #include "management/Marketing.h"
 #include "management/Research.h"
@@ -46,6 +48,7 @@
 #include "object/ObjectList.h"
 #include "object/WaterEntry.h"
 #include "platform/Platform.h"
+#include "rct12/CSStringConverter.h"
 #include "ride/Ride.h"
 #include "ride/RideRatings.h"
 #include "ride/Station.h"
@@ -57,7 +60,6 @@
 #include "scripting/ScriptEngine.h"
 #include "ui/UiContext.h"
 #include "ui/WindowManager.h"
-#include "util/SawyerCoding.h"
 #include "util/Util.h"
 #include "windows/Intent.h"
 #include "world/Banner.h"
@@ -68,7 +70,7 @@
 #include "world/MapAnimation.h"
 #include "world/Park.h"
 #include "world/Scenery.h"
-#include "world/Surface.h"
+#include "world/tile_element/SurfaceElement.h"
 
 #include <cstdio>
 #include <iterator>
@@ -228,7 +230,7 @@ static void FixPeepsWithInvalidRideReference()
     // Fix possibly invalid field values
     for (auto peep : EntityList<Guest>())
     {
-        if (peep->CurrentRideStation.ToUnderlying() >= OpenRCT2::Limits::MaxStationsPerRide)
+        if (peep->CurrentRideStation.ToUnderlying() >= OpenRCT2::Limits::kMaxStationsPerRide)
         {
             const auto srcStation = peep->CurrentRideStation;
             const auto rideIdx = peep->CurrentRide;
@@ -367,10 +369,6 @@ void GameLoadInit()
     }
     ResetEntitySpatialIndices();
     ResetAllSpriteQuadrantPlacements();
-    ScenerySetDefaultPlacementConfiguration();
-
-    auto intent = Intent(INTENT_ACTION_REFRESH_NEW_RIDES);
-    ContextBroadcastIntent(&intent);
 
     gWindowUpdateTicks = 0;
     gCurrentRealTimeTicks = 0;
@@ -379,8 +377,9 @@ void GameLoadInit()
 
     if (!gOpenRCT2Headless)
     {
-        intent = Intent(INTENT_ACTION_CLEAR_TILE_INSPECTOR_CLIPBOARD);
-        ContextBroadcastIntent(&intent);
+        windowManager->BroadcastIntent(Intent(INTENT_ACTION_SET_DEFAULT_SCENERY_CONFIG));
+        windowManager->BroadcastIntent(Intent(INTENT_ACTION_REFRESH_NEW_RIDES));
+        windowManager->BroadcastIntent(Intent(INTENT_ACTION_CLEAR_TILE_INSPECTOR_CLIPBOARD));
     }
 
     gGameSpeed = 1;
@@ -614,7 +613,6 @@ static void GameLoadOrQuitNoSavePromptCallback(int32_t result, const utf8* path)
         GameNotifyMapChange();
         GameUnloadScripts();
         WindowCloseByClass(WindowClass::EditorObjectSelection);
-        GetContext()->LoadParkFromFile(path);
         GameLoadScripts();
         GameNotifyMapChanged();
         gIsAutosaveLoaded = gIsAutosave;
@@ -624,7 +622,11 @@ static void GameLoadOrQuitNoSavePromptCallback(int32_t result, const utf8* path)
 
 static void NewGameWindowCallback(const utf8* path)
 {
-    WindowCloseByClass(WindowClass::EditorObjectSelection);
+    // Closing this will cause a Ride window to pop up, so we have to do this to ensure that
+    // no windows are open (besides the toolbars and LoadSave window).
+    WindowCloseByClass(WindowClass::RideConstruction);
+    WindowCloseAllExceptClass(WindowClass::Loadsave);
+
     GameNotifyMapChange();
     GetContext()->LoadParkFromFile(path, false, true);
     GameLoadScripts();
@@ -687,6 +689,7 @@ void GameLoadOrQuitNoSavePrompt()
         }
         default:
             GameUnloadScripts();
+            ResetAllEntities();
             OpenRCT2Finish();
             break;
     }

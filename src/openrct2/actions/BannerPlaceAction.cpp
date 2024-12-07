@@ -9,13 +9,17 @@
 
 #include "BannerPlaceAction.h"
 
+#include "../Diagnostic.h"
 #include "../management/Finance.h"
 #include "../object/BannerSceneryEntry.h"
 #include "../object/ObjectEntryManager.h"
 #include "../world/Banner.h"
+#include "../world/Footpath.h"
 #include "../world/MapAnimation.h"
 #include "../world/Scenery.h"
 #include "../world/TileElementsView.h"
+#include "../world/tile_element/BannerElement.h"
+#include "../world/tile_element/PathElement.h"
 #include "GameAction.h"
 
 using namespace OpenRCT2;
@@ -80,7 +84,7 @@ GameActions::Result BannerPlaceAction::Query() const
         return GameActions::Result(GameActions::Status::NotOwned, STR_CANT_POSITION_THIS_HERE, STR_LAND_NOT_OWNED_BY_PARK);
     }
 
-    auto baseHeight = _loc.z + PATH_HEIGHT_STEP;
+    auto baseHeight = _loc.z + kPathHeightStep;
     BannerElement* existingBannerElement = MapGetBannerElementAt({ _loc.x, _loc.y, baseHeight }, _loc.direction);
     if (existingBannerElement != nullptr)
     {
@@ -103,6 +107,7 @@ GameActions::Result BannerPlaceAction::Query() const
             GameActions::Status::InvalidParameters, STR_CANT_POSITION_THIS_HERE, STR_ERR_BANNER_ELEMENT_NOT_FOUND);
     }
     res.Cost = bannerEntry->price;
+    res.SetData(BannerPlaceActionResult{});
 
     return res;
 }
@@ -146,10 +151,10 @@ GameActions::Result BannerPlaceAction::Execute() const
     banner->position = TileCoordsXY(_loc);
 
     res.SetData(BannerPlaceActionResult{ banner->id });
-    auto* bannerElement = TileElementInsert<BannerElement>({ _loc, _loc.z + (2 * COORDS_Z_STEP) }, 0b0000);
+    auto* bannerElement = TileElementInsert<BannerElement>({ _loc, _loc.z + (2 * kCoordsZStep) }, 0b0000);
     Guard::Assert(bannerElement != nullptr);
 
-    bannerElement->SetClearanceZ(_loc.z + PATH_CLEARANCE);
+    bannerElement->SetClearanceZ(_loc.z + kPathClearance);
     bannerElement->SetPosition(_loc.direction);
     bannerElement->ResetAllowedEdges();
     bannerElement->SetIndex(banner->id);
@@ -166,7 +171,7 @@ PathElement* BannerPlaceAction::GetValidPathElement() const
 {
     for (auto* pathElement : TileElementsView<PathElement>(_loc))
     {
-        if (pathElement->GetBaseZ() != _loc.z && pathElement->GetBaseZ() != _loc.z - PATH_HEIGHT_STEP)
+        if (pathElement->GetBaseZ() != _loc.z && pathElement->GetBaseZ() != _loc.z - kPathHeightStep)
             continue;
 
         if (!(pathElement->GetEdges() & (1 << _loc.direction)))

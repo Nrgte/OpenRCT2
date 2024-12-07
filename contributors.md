@@ -12,6 +12,7 @@ Includes all git commit authors. Aliases are GitHub usernames or community nickn
 * Karst van Galen Last (AuraSpecs) - Lead OpenSoundEffects & OpenMusic
 * Michael Bernardi (mrmbernardi) - Programming
 * Michael Steenbeek (Gymnasiast) - Lead Localisation - Programming
+* Aaron van Geffen (AaronVanGeffen) - Programming
 
 ## Support team
 * Kenton Boadway (Krutonium) - Lead OpenScenarios
@@ -21,7 +22,6 @@ Includes all git commit authors. Aliases are GitHub usernames or community nickn
 * Marijn van der Werf (marijnvdwerf)
 * (zsilencer)
 * Richard Jenkins (rwjuk)
-* Aaron van Geffen (AaronVanGeffen)
 * Rik Smeets (rik-smeets)
 
 ## Long term contributors
@@ -119,6 +119,10 @@ Appreciation for contributors who have provided substantial work, but are no lon
 * Tiago Reul (reul) - Misc.
 * Fredrik Tegnell (fredriktegnell) - Misc.
 * Alex Parisi (alex-parisi) - Added API for returning metadata from all registered plugins.
+* Arnold Zhou (mrmagic2020) - Various plugin additions, new game option, misc.
+* John Dolph (johnwdolph) - Ride music UI, misc.
+* Harry Hopkinson (Harry-Hopkinson) - Added Cheat for guests ignoring price of rides and stalls.
+* Kendall Frey (kendfrey) - Add plugin API for spawning guests
 
 ## Bug fixes & Refactors
 * Claudio Tiecher (janclod)
@@ -240,6 +244,8 @@ Appreciation for contributors who have provided substantial work, but are no lon
 * Karsten Van Fossan (karstenvanf)
 * Kaavya Ramachandhran (ayvaak)
 * Mike Harvey (harvito)
+* Robert Yan (lewyche)
+* Tom Matalenas (tmatale)
 
 ## Toolchain
 * (Balletie) - macOS
@@ -271,7 +277,7 @@ Appreciation for contributors who have provided substantial work, but are no lon
 * English (UK) - Ted John (IntelOrca), (Tinytimrob)
 * English (US) - Ted John (IntelOrca), Michael Steenbeek (Gymnasiast); small fixes: (LRFLEW), (mike-koch), Harry Lam (daihakken)
 * Catalan - Joan Josep (J0anJosep)
-* Chinese (Simplified) - Naiji Ma (naijim), (izhangfei), Eric Zhao (sczyh30), (Muhhan)
+* Chinese (Simplified) - Naiji Ma (naijim), (izhangfei), Eric Zhao (sczyh30), (Muhhan), Arnold Zhou (mrmagic2020)
 * Chinese (Traditional) - Harry Lam (daihakken)
 * Czech - Martin Černáč (octaroot), (Clonewayx), Tomáš Pazdiora (Aroidzap)
 * Danish - Lars P. Sørensen (LPSGizmo)
@@ -301,6 +307,7 @@ Appreciation for contributors who have provided substantial work, but are no lon
 * Martijn Kroese (MK98) - Diagonal brakes project
 * Peter van den Berg (Recurious) - Diagonal brakes project
 * Joshua Jacobs - OpenGraphics Spooky Theme
+* (mixiate) - Wooden and Mine Train Rollercoaster flat-to-steep track pieces
 
 ## Music
 * Karst "Jalmaan" van Galen Last (AuraSpecs)
@@ -310,6 +317,7 @@ Appreciation for contributors who have provided substantial work, but are no lon
 * Herman Riddering - Owner of the 35er Voigt, which provided new recordings for the Fairground organ styles.
 * (Skyshard)
 * (Blackend Blue)
+* Andrew Sinclair (Approaching Nirvana) - Progressive style
 
 ## Sound Effects
 * Karst van Galen Last (AuraSpecs)

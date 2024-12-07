@@ -9,13 +9,11 @@
 
 #pragma once
 
-#include "common.h"
-#include "core/String.hpp"
+#include "core/StringTypes.h"
 #include "object/Object.h"
 #include "object/ObjectList.h"
 
 #include <memory>
-#include <string>
 #include <vector>
 
 struct IObjectManager;
@@ -51,17 +49,18 @@ struct IParkImporter
 public:
     virtual ~IParkImporter() = default;
 
-    virtual ParkLoadResult Load(const u8string& path) abstract;
-    virtual ParkLoadResult LoadSavedGame(const u8string& path, bool skipObjectCheck = false) abstract;
-    virtual ParkLoadResult LoadScenario(const u8string& path, bool skipObjectCheck = false) abstract;
+    virtual ParkLoadResult Load(const u8string& path) = 0;
+    virtual ParkLoadResult LoadSavedGame(const u8string& path, bool skipObjectCheck = false) = 0;
+    virtual ParkLoadResult LoadScenario(const u8string& path, bool skipObjectCheck = false) = 0;
     virtual ParkLoadResult LoadFromStream(
-        OpenRCT2::IStream* stream, bool isScenario, bool skipObjectCheck = false, const u8string& path = {}) abstract;
+        OpenRCT2::IStream* stream, bool isScenario, bool skipObjectCheck = false, const u8string& path = {})
+        = 0;
 
-    virtual void Import(OpenRCT2::GameState_t& gameState) abstract;
-    virtual bool GetDetails(ScenarioIndexEntry* dst) abstract;
+    virtual void Import(OpenRCT2::GameState_t& gameState) = 0;
+    virtual bool GetDetails(ScenarioIndexEntry* dst) = 0;
 };
 
-namespace ParkImporter
+namespace OpenRCT2::ParkImporter
 {
     [[nodiscard]] std::unique_ptr<IParkImporter> Create(const std::string& hintPath);
     [[nodiscard]] std::unique_ptr<IParkImporter> CreateS4();
@@ -71,7 +70,7 @@ namespace ParkImporter
     bool ExtensionIsOpenRCT2ParkFile(std::string_view extension);
     bool ExtensionIsRCT1(std::string_view extension);
     bool ExtensionIsScenario(std::string_view extension);
-} // namespace ParkImporter
+} // namespace OpenRCT2::ParkImporter
 
 class ObjectLoadException : public std::exception
 {
@@ -81,6 +80,11 @@ public:
     explicit ObjectLoadException(std::vector<ObjectEntryDescriptor>&& missingObjects)
         : MissingObjects(std::move(missingObjects))
     {
+    }
+
+    const char* what() const noexcept override
+    {
+        return "Missing objects";
     }
 };
 
@@ -92,6 +96,11 @@ public:
     explicit UnsupportedRideTypeException(ObjectEntryIndex type)
         : Type(type)
     {
+    }
+
+    const char* what() const noexcept override
+    {
+        return "Invalid ride type";
     }
 };
 
@@ -105,5 +114,10 @@ public:
         : MinVersion(minVersion)
         , TargetVersion(targetVersion)
     {
+    }
+
+    const char* what() const noexcept override
+    {
+        return "Unexpected version";
     }
 };

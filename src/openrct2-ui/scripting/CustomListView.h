@@ -11,6 +11,8 @@
 
 #ifdef ENABLE_SCRIPTING
 
+#    include "../interface/Window.h"
+
 #    include <cstdint>
 #    include <memory>
 #    include <openrct2/scripting/Duktape.hpp>
@@ -136,7 +138,7 @@ namespace OpenRCT2::Ui::Windows
         void MouseOver(const ScreenCoordsXY& pos, bool isMouseDown);
         void MouseDown(const ScreenCoordsXY& pos);
         void MouseUp(const ScreenCoordsXY& pos);
-        void Paint(WindowBase* w, DrawPixelInfo& dpi, const ScrollBar* scroll) const;
+        void Paint(WindowBase* w, DrawPixelInfo& dpi, const ScrollArea* scroll) const;
 
     private:
         void PaintHeading(
@@ -157,17 +159,38 @@ namespace OpenRCT2::Scripting
 {
     using namespace OpenRCT2::Ui::Windows;
 
-    template<> ColumnSortOrder FromDuk(const DukValue& d);
-    template<> std::optional<int32_t> FromDuk(const DukValue& d);
-    template<> ListViewColumn FromDuk(const DukValue& d);
-    template<> ListViewItem FromDuk(const DukValue& d);
-    template<> std::vector<ListViewColumn> FromDuk(const DukValue& d);
-    template<> std::vector<ListViewItem> FromDuk(const DukValue& d);
-    template<> std::optional<RowColumn> FromDuk(const DukValue& d);
-    template<> DukValue ToDuk(duk_context* ctx, const RowColumn& value);
-    template<> DukValue ToDuk(duk_context* ctx, const ListViewColumn& value);
-    template<> ScrollbarType FromDuk(const DukValue& d);
-    template<> DukValue ToDuk(duk_context* ctx, const ScrollbarType& value);
+    template<>
+    ColumnSortOrder FromDuk(const DukValue& d);
+
+    template<>
+    std::optional<int32_t> FromDuk(const DukValue& d);
+
+    template<>
+    ListViewColumn FromDuk(const DukValue& d);
+
+    template<>
+    ListViewItem FromDuk(const DukValue& d);
+
+    template<>
+    std::vector<ListViewColumn> FromDuk(const DukValue& d);
+
+    template<>
+    std::vector<ListViewItem> FromDuk(const DukValue& d);
+
+    template<>
+    std::optional<RowColumn> FromDuk(const DukValue& d);
+
+    template<>
+    DukValue ToDuk(duk_context* ctx, const RowColumn& value);
+
+    template<>
+    DukValue ToDuk(duk_context* ctx, const ListViewColumn& value);
+
+    template<>
+    ScrollbarType FromDuk(const DukValue& d);
+
+    template<>
+    DukValue ToDuk(duk_context* ctx, const ScrollbarType& value);
 } // namespace OpenRCT2::Scripting
 
 #endif

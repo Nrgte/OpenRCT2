@@ -15,6 +15,7 @@
 #include <openrct2/platform/Platform.h>
 #include <openrct2/world/Footpath.h>
 #include <openrct2/world/Map.h>
+#include <openrct2/world/tile_element/SurfaceElement.h>
 #include <ostream>
 #include <string>
 
@@ -85,7 +86,7 @@ protected:
 
         // Pick the direction the peep should initially move in, given the goal position.
         // This will also store the goal position and initialize pathfinding data for the peep.
-        const Direction moveDir = PathFinding::ChooseDirection(*pos, goal, *peep);
+        const Direction moveDir = PathFinding::ChooseDirection(*pos, goal, *peep, false, RideId::GetNull());
         if (moveDir == INVALID_DIRECTION)
         {
             // Couldn't determine a direction to move off in

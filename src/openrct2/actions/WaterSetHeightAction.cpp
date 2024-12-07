@@ -9,12 +9,15 @@
 
 #include "WaterSetHeightAction.h"
 
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../OpenRCT2.h"
 #include "../management/Finance.h"
 #include "../world/ConstructionClearance.h"
+#include "../world/Footpath.h"
 #include "../world/Park.h"
-#include "../world/Surface.h"
+#include "../world/Wall.h"
+#include "../world/tile_element/SurfaceElement.h"
 
 using namespace OpenRCT2;
 
@@ -46,10 +49,11 @@ GameActions::Result WaterSetHeightAction::Query() const
 {
     auto res = GameActions::Result();
     res.Expenditure = ExpenditureType::Landscaping;
-    res.Position = { _coords, _height * COORDS_Z_STEP };
+    res.Position = { _coords, _height * kCoordsZStep };
 
-    if (!(gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && !GetGameState().Cheats.SandboxMode
-        && GetGameState().Park.Flags & PARK_FLAGS_FORBID_LANDSCAPE_CHANGES)
+    auto& gameState = GetGameState();
+    if (!(gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && !gameState.Cheats.SandboxMode
+        && gameState.Park.Flags & PARK_FLAGS_FORBID_LANDSCAPE_CHANGES)
     {
         return GameActions::Result(GameActions::Status::Disallowed, STR_NONE, STR_FORBIDDEN_BY_THE_LOCAL_AUTHORITY);
     }
@@ -65,7 +69,7 @@ GameActions::Result WaterSetHeightAction::Query() const
         return GameActions::Result(GameActions::Status::NotOwned, STR_NONE, STR_LAND_NOT_OWNED_BY_PARK);
     }
 
-    if (!(gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && !GetGameState().Cheats.SandboxMode)
+    if (!(gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && !gameState.Cheats.SandboxMode)
     {
         if (!MapIsLocationInPark(_coords))
         {
@@ -82,7 +86,7 @@ GameActions::Result WaterSetHeightAction::Query() const
     }
 
     int32_t zHigh = surfaceElement->GetBaseZ();
-    int32_t zLow = _height * COORDS_Z_STEP;
+    int32_t zLow = _height * kCoordsZStep;
     if (surfaceElement->GetWaterHeight() > 0)
     {
         zHigh = surfaceElement->GetWaterHeight();
@@ -113,7 +117,7 @@ GameActions::Result WaterSetHeightAction::Execute() const
 {
     auto res = GameActions::Result();
     res.Expenditure = ExpenditureType::Landscaping;
-    res.Position = { _coords, _height * COORDS_Z_STEP };
+    res.Position = { _coords, _height * kCoordsZStep };
 
     int32_t surfaceHeight = TileElementHeight(_coords);
     FootpathRemoveLitter({ _coords, surfaceHeight });
@@ -130,7 +134,7 @@ GameActions::Result WaterSetHeightAction::Execute() const
 
     if (_height > surfaceElement->BaseHeight)
     {
-        surfaceElement->SetWaterHeight(_height * COORDS_Z_STEP);
+        surfaceElement->SetWaterHeight(_height * kCoordsZStep);
     }
     else
     {

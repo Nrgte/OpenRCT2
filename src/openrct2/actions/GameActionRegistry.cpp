@@ -95,7 +95,9 @@
 
 #include <array>
 
-namespace GameActions
+using namespace OpenRCT2;
+
+namespace OpenRCT2::GameActions
 {
     struct GameActionEntry
     {
@@ -115,7 +117,8 @@ namespace GameActions
         registry[idx] = { factory, name };
     }
 
-    template<typename T> static constexpr void Register(GameActionRegistry& registry, const char* name)
+    template<typename T>
+    static constexpr void Register(GameActionRegistry& registry, const char* name)
     {
         GameActionFactory factory = []() -> GameAction* { return new T(); };
         Register<T::TYPE>(registry, factory, name);
@@ -255,4 +258,4 @@ namespace GameActions
         return false;
     }
 
-} // namespace GameActions
+} // namespace OpenRCT2::GameActions

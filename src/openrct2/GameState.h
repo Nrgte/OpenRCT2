@@ -16,6 +16,7 @@
 #include "interface/ZoomLevel.h"
 #include "management/Award.h"
 #include "management/Finance.h"
+#include "management/Marketing.h"
 #include "management/NewsItem.h"
 #include "ride/Ride.h"
 #include "ride/RideRatings.h"
@@ -25,11 +26,10 @@
 #include "world/Climate.h"
 #include "world/Location.hpp"
 #include "world/Park.h"
+#include "world/ScenerySelection.h"
 
 #include <array>
-#include <chrono>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 namespace OpenRCT2
@@ -46,13 +46,13 @@ namespace OpenRCT2
         money64 ConstructionRightsPrice;
         money64 CurrentExpenditure;
         money64 CurrentProfit;
-        uint32_t GuestsInParkHistory[32];
+        uint32_t GuestsInParkHistory[kGuestsInParkHistorySize];
         ClimateType Climate;
         ClimateState ClimateCurrent;
         ClimateState ClimateNext;
         uint16_t ClimateUpdateTimer;
         money64 Cash;
-        money64 CashHistory[kFinanceGraphSize];
+        money64 CashHistory[kFinanceHistorySize];
         money64 InitialCash;
         money64 GuestInitialCash;
         uint8_t GuestInitialHappiness;
@@ -68,7 +68,7 @@ namespace OpenRCT2
         money64 TotalIncomeFromAdmissions;
         money64 TotalRideValueForMoney;
         uint16_t WeeklyProfitAverageDivisor;
-        money64 WeeklyProfitHistory[kFinanceGraphSize];
+        money64 WeeklyProfitHistory[kFinanceHistorySize];
         Objective ScenarioObjective;
         uint16_t ScenarioParkRatingWarningDays;
         money64 ScenarioCompletedCompanyValue;
@@ -87,11 +87,12 @@ namespace OpenRCT2
         std::string ScenarioName;
         std::string ScenarioDetails;
         std::string ScenarioCompletedBy;
+        std::string ScenarioFileName;
 
         std::vector<Banner> Banners;
         Entity_t Entities[MAX_ENTITIES]{};
         // Ride storage for all the rides in the park, rides with RideId::Null are considered free.
-        std::array<Ride, OpenRCT2::Limits::MaxRidesInPark> Rides{};
+        std::array<Ride, OpenRCT2::Limits::kMaxRidesInPark> Rides{};
         ::RideRatingUpdateStates RideRatingUpdateStates;
         std::vector<TileElement> TileElements;
 
@@ -131,6 +132,8 @@ namespace OpenRCT2
 
         std::vector<Award> CurrentAwards;
 
+        std::vector<MarketingCampaign> MarketingCampaigns;
+
         /**
          * Probability out of 65535, of gaining a new guest per game tick.
          * new guests per second = 40 * (probability / 65535)
@@ -147,6 +150,7 @@ namespace OpenRCT2
     };
 
     GameState_t& GetGameState();
+    void SwapGameState(std::unique_ptr<GameState_t>& otherState);
 
     void gameStateInitAll(GameState_t& gameState, const TileCoordsXY& mapSize);
     void gameStateTick();

@@ -12,6 +12,7 @@
 #include "CursorRepository.h"
 #include "SDLException.h"
 #include "TextComposition.h"
+#include "UiStringIds.h"
 #include "WindowManager.h"
 #include "drawing/engines/DrawingEngineFactory.hpp"
 #include "input/ShortcutManager.h"
@@ -26,8 +27,10 @@
 #include <cstdlib>
 #include <memory>
 #include <openrct2-ui/input/InputManager.h>
+#include <openrct2-ui/input/MouseInput.h>
 #include <openrct2-ui/interface/Window.h>
 #include <openrct2/Context.h>
+#include <openrct2/Diagnostic.h>
 #include <openrct2/Input.h>
 #include <openrct2/Version.h>
 #include <openrct2/audio/AudioContext.h>
@@ -38,7 +41,6 @@
 #include <openrct2/drawing/IDrawingEngine.h>
 #include <openrct2/interface/Chat.h>
 #include <openrct2/interface/InteractiveConsole.h>
-#include <openrct2/localisation/StringIds.h>
 #include <openrct2/platform/Platform.h>
 #include <openrct2/scenes/title/TitleSequencePlayer.h>
 #include <openrct2/scripting/ScriptEngine.h>
@@ -128,7 +130,7 @@ public:
         SDL_QuitSubSystem(SDL_INIT_VIDEO);
     }
 
-    void Initialise() override
+    void InitialiseScriptExtensions() override
     {
 #ifdef ENABLE_SCRIPTING
         auto& scriptEngine = GetContext()->GetScriptEngine();
@@ -553,7 +555,7 @@ public:
                         if (abs(gesturePixels) > tolerance)
                         {
                             _gestureRadius = 0;
-                            MainWindowZoom(gesturePixels > 0, true);
+                            Windows::MainWindowZoom(gesturePixels > 0, true);
                         }
                     }
                     break;
@@ -731,6 +733,24 @@ private:
         LOG_VERBOSE("SDL2 version: %d.%d.%d", version.major, version.minor, version.patch);
     }
 
+    void InferDisplayDPI()
+    {
+        auto& config = Config::Get().general;
+        if (!config.InferDisplayDPI)
+            return;
+
+        int wWidth, wHeight;
+        SDL_GetWindowSize(_window, &wWidth, &wHeight);
+
+        auto renderer = SDL_GetRenderer(_window);
+        int rWidth, rHeight;
+        if (SDL_GetRendererOutputSize(renderer, &rWidth, &rHeight) == 0)
+            config.WindowScale = rWidth / wWidth;
+
+        config.InferDisplayDPI = false;
+        Config::Save();
+    }
+
     void CreateWindow(const ScreenCoordsXY& windowPos)
     {
         // Get saved window size
@@ -762,6 +782,7 @@ private:
 
         // Initialise the surface, palette and draw buffer
         DrawingEngineInit();
+        InferDisplayDPI();
         OnResize(width, height);
 
         UpdateFullscreenResolutions();
@@ -782,7 +803,7 @@ private:
         if ((flags & SDL_WINDOW_MINIMIZED) == 0)
         {
             WindowResizeGui(_width, _height);
-            WindowRelocateWindows(_width, _height);
+            Windows::WindowRelocateWindows(_width, _height);
         }
 
         GfxInvalidateScreen();

@@ -37,22 +37,22 @@
   <!-- 3rd party libraries / dependencies -->
   <PropertyGroup>
     <DependenciesCheckFile>$(RootDir).dependencies</DependenciesCheckFile>
-    <LibsUrl Condition="'$(Platform)'=='ARM64'">https://github.com/OpenRCT2/Dependencies/releases/download/v35/openrct2-libs-v35-arm64-windows-static.zip</LibsUrl>
-    <LibsSha1 Condition="'$(Platform)'=='ARM64'">89f119395c4347f25427990eb47ea8f57bba95d8</LibsSha1>
-    <LibsUrl Condition="'$(Platform)'=='x64'">https://github.com/OpenRCT2/Dependencies/releases/download/v35/openrct2-libs-v35-x64-windows-static.zip</LibsUrl>
-    <LibsSha1 Condition="'$(Platform)'=='x64'">1303b2423be26f40bdb75fa2c91f1bc7ef1de1ed</LibsSha1>
-    <LibsUrl Condition="'$(Platform)'=='Win32'">https://github.com/OpenRCT2/Dependencies/releases/download/v35/openrct2-libs-v35-x86-windows-static.zip</LibsUrl>
-    <LibsSha1 Condition="'$(Platform)'=='Win32'">f3636b530110c7592deab23ca0d0c1916fc7e44c</LibsSha1>
-    <TitleSequencesUrl>https://github.com/OpenRCT2/title-sequences/releases/download/v0.4.6/title-sequences.zip</TitleSequencesUrl>
-    <TitleSequencesSha1>80fefc6ebbabc42a6f4703412daa5c62f661420d</TitleSequencesSha1>
-    <ObjectsUrl>https://github.com/OpenRCT2/objects/releases/download/v1.4.4/objects.zip</ObjectsUrl>
-    <ObjectsSha1>4e9b5d7f85a07b90ec57fe37517e04b19ee0395c</ObjectsSha1>
+    <LibsUrl Condition="'$(Platform)'=='ARM64'">https://github.com/OpenRCT2/Dependencies/releases/download/v37/openrct2-libs-v37-arm64-windows-static.zip</LibsUrl>
+    <LibsSha1 Condition="'$(Platform)'=='ARM64'">508bbd39b9be3d746ed8e17b6c0e7a79f6fa13c8</LibsSha1>
+    <LibsUrl Condition="'$(Platform)'=='x64'">https://github.com/OpenRCT2/Dependencies/releases/download/v37/openrct2-libs-v37-x64-windows-static.zip</LibsUrl>
+    <LibsSha1 Condition="'$(Platform)'=='x64'">28fabdb3fe8ddb7c73cd1c5e57ec8df5bd6232e5</LibsSha1>
+    <LibsUrl Condition="'$(Platform)'=='Win32'">https://github.com/OpenRCT2/Dependencies/releases/download/v37/openrct2-libs-v37-x86-windows-static.zip</LibsUrl>
+    <LibsSha1 Condition="'$(Platform)'=='Win32'">9984c1e317dcfb3aaf8e17f1db2ebb0f771e2373</LibsSha1>
+    <TitleSequencesUrl>https://github.com/OpenRCT2/title-sequences/releases/download/v0.4.14/title-sequences.zip</TitleSequencesUrl>
+    <TitleSequencesSha1>6c04781b959b468e1f65ec2d2f21f5aaa5e5724d</TitleSequencesSha1>
+    <ObjectsUrl>https://github.com/OpenRCT2/objects/releases/download/v1.4.10/objects.zip</ObjectsUrl>
+    <ObjectsSha1>e4953075d8dbe13ef48e8c4e87621cf3503a9d23</ObjectsSha1>
     <OpenSFXUrl>https://github.com/OpenRCT2/OpenSoundEffects/releases/download/v1.0.5/opensound.zip</OpenSFXUrl>
     <OpenSFXSha1>b1b1f1b241d2cbff63a1889c4dc5a09bdf769bfb</OpenSFXSha1>
-    <OpenMSXUrl>https://github.com/OpenRCT2/OpenMusic/releases/download/v1.5/openmusic.zip</OpenMSXUrl>
-    <OpenMSXSha1>f3c707e576281758637598ce68880416891fe5f9</OpenMSXSha1>
-    <ReplaysUrl>https://github.com/OpenRCT2/replays/releases/download/v0.0.79/replays.zip</ReplaysUrl>
-    <ReplaysSha1>34457077DBA9448A08FF6AC95E5CB92D65252E0C</ReplaysSha1>
+    <OpenMSXUrl>https://github.com/OpenRCT2/OpenMusic/releases/download/v1.6/openmusic.zip</OpenMSXUrl>
+    <OpenMSXSha1>ba170fa6d777b309c15420f4b6eb3fa25082a9d1</OpenMSXSha1>
+    <ReplaysUrl>https://github.com/OpenRCT2/replays/releases/download/v0.0.83/replays.zip</ReplaysUrl>
+    <ReplaysSha1>FFC98C36AFEC68DC6A48E863413D4E2364A202B3</ReplaysSha1>
   </PropertyGroup>
 
   <ItemGroup>
@@ -73,6 +73,7 @@
       <SlnProperties>$(SlnProperties);Configuration=$(Configuration)</SlnProperties>
     </PropertyGroup>
     <Delete Files="@(CleanItems)" />
+    <Delete Files="$(DependenciesCheckFile)" />
     <RemoveDir Directories="$(TargetDir)data" />
     <MSBuild Projects="openrct2.sln" Targets="Clean" Properties="$(SlnProperties)" />
   </Target>

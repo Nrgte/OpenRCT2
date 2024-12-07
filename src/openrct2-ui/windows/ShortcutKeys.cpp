@@ -7,13 +7,15 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
-#include "../input/ShortcutManager.h"
 #include "Window.h"
 
+#include <algorithm>
+#include <openrct2-ui/UiContext.h>
+#include <openrct2-ui/input/ShortcutManager.h>
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2/drawing/Drawing.h>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
+#include <openrct2/localisation/StringIds.h>
 #include <openrct2/sprites.h>
 
 namespace OpenRCT2::Ui::Windows
@@ -39,13 +41,13 @@ namespace OpenRCT2::Ui::Windows
     };
 
     // clang-format off
-static Widget _shortcutWidgets[] = {
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({0,    43}, {350, 287}, WindowWidgetType::Resize, WindowColour::Secondary),
-    MakeWidget({4,    47}, {412, 215}, WindowWidgetType::Scroll, WindowColour::Primary, SCROLL_VERTICAL,           STR_SHORTCUT_LIST_TIP        ),
-    MakeWidget({4, WH-15}, {150,  12}, WindowWidgetType::Button, WindowColour::Primary, STR_SHORTCUT_ACTION_RESET, STR_SHORTCUT_ACTION_RESET_TIP),
-    kWidgetsEnd,
-};
+    static Widget _shortcutWidgets[] = {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({0,    43}, {350, 287}, WindowWidgetType::Resize, WindowColour::Secondary),
+        MakeWidget({4,    47}, {412, 215}, WindowWidgetType::Scroll, WindowColour::Primary, SCROLL_VERTICAL,           STR_SHORTCUT_LIST_TIP        ),
+        MakeWidget({4, WH-15}, {150,  12}, WindowWidgetType::Button, WindowColour::Primary, STR_SHORTCUT_ACTION_RESET, STR_SHORTCUT_ACTION_RESET_TIP),
+        kWidgetsEnd,
+    };
     // clang-format on
 
     static constexpr StringId CHANGE_WINDOW_TITLE = STR_SHORTCUT_CHANGE_TITLE;
@@ -58,11 +60,11 @@ static Widget _shortcutWidgets[] = {
     };
 
     // clang-format off
-static Widget window_shortcut_change_widgets[] = {
-    WINDOW_SHIM(CHANGE_WINDOW_TITLE, CHANGE_WW, CHANGE_WH),
-    MakeWidget({ 75, 56 }, { 100, 14 }, WindowWidgetType::Button, WindowColour::Primary, STR_SHORTCUT_REMOVE, STR_SHORTCUT_REMOVE_TIP),
-    kWidgetsEnd,
-};
+    static Widget window_shortcut_change_widgets[] = {
+        WINDOW_SHIM(CHANGE_WINDOW_TITLE, CHANGE_WW, CHANGE_WH),
+        MakeWidget({ 75, 56 }, { 100, 14 }, WindowWidgetType::Button, WindowColour::Primary, STR_SHORTCUT_REMOVE, STR_SHORTCUT_REMOVE_TIP),
+        kWidgetsEnd,
+    };
     // clang-format on
 
     class ChangeShortcutWindow final : public Window
@@ -265,9 +267,9 @@ static Widget window_shortcut_change_widgets[] = {
         {
             auto h = static_cast<int32_t>(_list.size() * kScrollableRowHeight);
             auto bottom = std::max(0, h - widgets[WIDX_SCROLL].bottom + widgets[WIDX_SCROLL].top + 21);
-            if (bottom < scrolls[0].v_top)
+            if (bottom < scrolls[0].contentOffsetY)
             {
-                scrolls[0].v_top = bottom;
+                scrolls[0].contentOffsetY = bottom;
                 Invalidate();
             }
             return { 0, h };
@@ -306,7 +308,7 @@ static Widget window_shortcut_change_widgets[] = {
             auto dpiCoords = ScreenCoordsXY{ dpi.x, dpi.y };
             GfxFillRect(
                 dpi, { dpiCoords, dpiCoords + ScreenCoordsXY{ dpi.width - 1, dpi.height - 1 } },
-                ColourMapA[colours[1]].mid_light);
+                ColourMapA[colours[1].colour].mid_light);
 
             // TODO: the line below is a workaround for what is presumably a bug with dpi->width
             //       see https://github.com/OpenRCT2/OpenRCT2/issues/11238 for details
@@ -505,8 +507,8 @@ static Widget window_shortcut_change_widgets[] = {
         void DrawSeparator(DrawPixelInfo& dpi, int32_t y, int32_t scrollWidth)
         {
             const int32_t top = y + (kScrollableRowHeight / 2) - 1;
-            GfxFillRect(dpi, { { 0, top }, { scrollWidth, top } }, ColourMapA[colours[0]].mid_dark);
-            GfxFillRect(dpi, { { 0, top + 1 }, { scrollWidth, top + 1 } }, ColourMapA[colours[0]].lightest);
+            GfxFillRect(dpi, { { 0, top }, { scrollWidth, top } }, ColourMapA[colours[0].colour].mid_dark);
+            GfxFillRect(dpi, { { 0, top + 1 }, { scrollWidth, top + 1 } }, ColourMapA[colours[0].colour].lightest);
         }
 
         void DrawItem(

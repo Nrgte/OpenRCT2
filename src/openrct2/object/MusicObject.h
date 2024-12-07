@@ -53,6 +53,8 @@ private:
     uint32_t _previewImageId{};
 
 public:
+    static constexpr ObjectType kObjectType = ObjectType::Music;
+
     StringId NameStringId{};
 
     void ReadJson(IReadObjectContext* context, json_t& root) override;
@@ -60,6 +62,7 @@ public:
     void Unload() override;
 
     void DrawPreview(DrawPixelInfo& dpi, int32_t width, int32_t height) const override;
+    bool HasPreview() const;
 
     std::optional<uint8_t> GetOriginalStyleId() const;
     bool SupportsRideType(ride_type_t rideType);

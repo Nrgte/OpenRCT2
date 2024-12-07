@@ -9,9 +9,11 @@
 
 #pragma once
 
-#include "../common.h"
-#include "../interface/Cursors.h"
+#include "../core/Money.hpp"
+#include "../localisation/StringIdType.h"
 #include "ObjectTypes.h"
+
+enum class CursorID : uint8_t;
 
 enum WALL_SCENERY_FLAGS
 {
@@ -28,10 +30,17 @@ enum WALL_SCENERY_FLAGS
 enum WALL_SCENERY_2_FLAGS
 {
     WALL_SCENERY_2_NO_SELECT_PRIMARY_COLOUR = (1 << 0), // 0x1
-    WALL_SCENERY_2_DOOR_SOUND_MASK = 0x6,
+    WALL_SCENERY_2_DOOR_SOUND_MASK = 0b0110,
     WALL_SCENERY_2_DOOR_SOUND_SHIFT = 1,
     WALL_SCENERY_2_IS_OPAQUE = (1 << 3), // 0x8
     WALL_SCENERY_2_ANIMATED = (1 << 4),  // 0x10
+};
+
+enum class DoorSoundType : uint8_t
+{
+    none,
+    door,
+    portcullis,
 };
 
 struct WallSceneryEntry
@@ -47,4 +56,6 @@ struct WallSceneryEntry
     money64 price;
     ObjectEntryIndex scenery_tab_id;
     uint8_t scrolling_mode;
+
+    DoorSoundType getDoorSoundType() const;
 };

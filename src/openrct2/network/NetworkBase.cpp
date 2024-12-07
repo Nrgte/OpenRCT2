@@ -10,6 +10,7 @@
 #include "NetworkBase.h"
 
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../Game.h"
 #include "../GameState.h"
 #include "../GameStateSnapshots.h"
@@ -22,21 +23,23 @@
 #include "../core/File.h"
 #include "../core/Guard.hpp"
 #include "../core/Json.hpp"
+#include "../core/SawyerCoding.h"
 #include "../entity/EntityList.h"
 #include "../entity/EntityRegistry.h"
 #include "../entity/EntityTweener.h"
 #include "../localisation/Formatter.h"
 #include "../localisation/Formatting.h"
+#include "../localisation/LocalisationService.h"
 #include "../park/ParkFile.h"
 #include "../platform/Platform.h"
 #include "../scenario/Scenario.h"
 #include "../scripting/ScriptEngine.h"
 #include "../ui/UiContext.h"
 #include "../ui/WindowManager.h"
-#include "../util/SawyerCoding.h"
 #include "../world/Location.hpp"
 #include "network.h"
 
+#include <cassert>
 #include <iterator>
 #include <stdexcept>
 
@@ -51,17 +54,17 @@ constexpr uint8_t kNetworkStreamVersion = 0;
 const std::string kNetworkStreamID = std::string(OPENRCT2_VERSION) + "-" + std::to_string(kNetworkStreamVersion);
 
 static Peep* _pickup_peep = nullptr;
-static int32_t _pickup_peep_old_x = LOCATION_NULL;
+static int32_t _pickup_peep_old_x = kLocationNull;
 
 #ifndef DISABLE_NETWORK
 
 // General chunk size is 63 KiB, this can not be any larger because the packet size is encoded
 // with uint16_t and needs some spare room for other data in the packet.
-static constexpr uint32_t CHUNK_SIZE = 1024 * 63;
+static constexpr uint32_t kChunkSize = 1024 * 63;
 
 // If data is sent fast enough it would halt the entire server, process only a maximum amount.
 // This limit is per connection, the current value was determined by tests with fuzzing.
-static constexpr uint32_t MaxPacketsPerUpdate = 100;
+static constexpr uint32_t kMaxPacketsPerUpdate = 100;
 
 #    include "../Cheats.h"
 #    include "../ParkImporter.h"
@@ -75,8 +78,7 @@ static constexpr uint32_t MaxPacketsPerUpdate = 100;
 #    include "../core/String.hpp"
 #    include "../interface/Chat.h"
 #    include "../interface/Window.h"
-#    include "../localisation/Date.h"
-#    include "../localisation/Localisation.h"
+#    include "../localisation/Localisation.Date.h"
 #    include "../object/ObjectManager.h"
 #    include "../object/ObjectRepository.h"
 #    include "../scenario/Scenario.h"
@@ -384,7 +386,6 @@ bool NetworkBase::BeginServer(uint16_t port, const std::string& address)
 
     IsServerPlayerInvisible = gOpenRCT2Headless;
 
-    CheatsReset();
     LoadGroups();
     BeginChatLog();
     BeginServerLog();
@@ -930,7 +931,7 @@ std::string NetworkBase::GetMasterServerUrl()
 {
     if (Config::Get().network.MasterServerUrl.empty())
     {
-        return OPENRCT2_MASTER_SERVER_URL;
+        return kMasterServerURL;
     }
 
     return Config::Get().network.MasterServerUrl;
@@ -1380,7 +1381,7 @@ void NetworkBase::ServerSendScripts(NetworkConnection& connection)
     uint32_t dataOffset = 0;
     while (dataOffset < pluginData.GetLength())
     {
-        const uint32_t chunkSize = std::min<uint32_t>(pluginData.GetLength() - dataOffset, CHUNK_SIZE);
+        const uint32_t chunkSize = std::min<uint32_t>(pluginData.GetLength() - dataOffset, kChunkSize);
 
         NetworkPacket packet(NetworkCommand::ScriptsData);
         packet << chunkSize;
@@ -1394,8 +1395,8 @@ void NetworkBase::ServerSendScripts(NetworkConnection& connection)
 
 #    else
     NetworkPacket packetScriptHeader(NetworkCommand::ScriptsHeader);
-    packetScriptHeader << static_cast<uint32_t>(0U);
-    packetScriptHeader << static_cast<uint32_t>(0U);
+    packetScriptHeader << static_cast<uint32_t>(0u);
+    packetScriptHeader << static_cast<uint32_t>(0u);
 #    endif
 }
 
@@ -1474,7 +1475,7 @@ void NetworkBase::ServerSendMap(NetworkConnection* connection)
         }
         return;
     }
-    size_t chunksize = CHUNK_SIZE;
+    size_t chunksize = kChunkSize;
     for (size_t i = 0; i < header.size(); i += chunksize)
     {
         size_t datasize = std::min(chunksize, header.size() - i);
@@ -1763,7 +1764,7 @@ bool NetworkBase::ProcessConnection(NetworkConnection& connection)
                 // could not read anything from socket
                 break;
         }
-    } while (packetStatus == NetworkReadPacket::Success && countProcessed < MaxPacketsPerUpdate);
+    } while (packetStatus == NetworkReadPacket::Success && countProcessed < kMaxPacketsPerUpdate);
 
     if (!connection.ReceivedPacketRecently())
     {
@@ -2273,7 +2274,7 @@ void NetworkBase::ServerHandleRequestGamestate(NetworkConnection& connection, Ne
         uint32_t length = static_cast<uint32_t>(snapshotMemory.GetLength());
         while (bytesSent < length)
         {
-            uint32_t dataSize = CHUNK_SIZE;
+            uint32_t dataSize = kChunkSize;
             if (bytesSent + dataSize > snapshotMemory.GetLength())
             {
                 dataSize = snapshotMemory.GetLength() - bytesSent;
@@ -2382,6 +2383,15 @@ void NetworkBase::ServerHandleToken(NetworkConnection& connection, [[maybe_unuse
     ServerSendToken(connection);
 }
 
+static void OpenNetworkProgress(StringId captionStringId)
+{
+    auto captionString = GetContext()->GetLocalisationService().GetString(captionStringId);
+    auto intent = Intent(INTENT_ACTION_PROGRESS_OPEN);
+    intent.PutExtra(INTENT_EXTRA_MESSAGE, captionString);
+    intent.PutExtra(INTENT_EXTRA_CALLBACK, []() -> void { ::GetContext()->GetNetwork().Close(); });
+    ContextOpenIntent(&intent);
+}
+
 void NetworkBase::Client_Handle_OBJECTS_LIST(NetworkConnection& connection, NetworkPacket& packet)
 {
     auto& repo = GetContext().GetObjectRepository();
@@ -2398,17 +2408,8 @@ void NetworkBase::Client_Handle_OBJECTS_LIST(NetworkConnection& connection, Netw
 
     if (totalObjects > 0)
     {
-        char objectListMsg[256];
-        const uint32_t args[] = {
-            index + 1,
-            totalObjects,
-        };
-        FormatStringLegacy(objectListMsg, 256, STR_MULTIPLAYER_RECEIVING_OBJECTS_LIST, &args);
-
-        auto intent = Intent(WindowClass::NetworkStatus);
-        intent.PutExtra(INTENT_EXTRA_MESSAGE, std::string{ objectListMsg });
-        intent.PutExtra(INTENT_EXTRA_CALLBACK, []() -> void { ::GetContext()->GetNetwork().Close(); });
-        ContextOpenIntent(&intent);
+        OpenNetworkProgress(STR_MULTIPLAYER_RECEIVING_OBJECTS_LIST);
+        GetContext().SetProgress(index + 1, totalObjects);
 
         uint8_t objectType{};
         packet >> objectType;
@@ -2780,17 +2781,12 @@ void NetworkBase::Client_Handle_MAP([[maybe_unused]] NetworkConnection& connecti
     {
         chunk_buffer.resize(size);
     }
-    char str_downloading_map[256];
-    uint32_t downloading_map_args[2] = {
-        (offset + chunksize) / 1024,
-        size / 1024,
-    };
-    FormatStringLegacy(str_downloading_map, 256, STR_MULTIPLAYER_DOWNLOADING_MAP, downloading_map_args);
 
-    auto intent = Intent(WindowClass::NetworkStatus);
-    intent.PutExtra(INTENT_EXTRA_MESSAGE, std::string{ str_downloading_map });
-    intent.PutExtra(INTENT_EXTRA_CALLBACK, []() -> void { ::GetContext()->GetNetwork().Close(); });
-    ContextOpenIntent(&intent);
+    const auto currentProgressKiB = (offset + chunksize) / 1024;
+    const auto totalSizeKiB = size / 1024;
+
+    OpenNetworkProgress(STR_MULTIPLAYER_DOWNLOADING_MAP);
+    GetContext().SetProgress(currentProgressKiB, totalSizeKiB, STR_STRING_M_OF_N_KIB);
 
     std::memcpy(&chunk_buffer[offset], const_cast<void*>(static_cast<const void*>(packet.Read(chunksize))), chunksize);
     if (offset + chunksize == size)
@@ -2798,7 +2794,7 @@ void NetworkBase::Client_Handle_MAP([[maybe_unused]] NetworkConnection& connecti
         // Allow queue processing of game actions again.
         GameActions::ResumeQueue();
 
-        ContextForceCloseWindowByClass(WindowClass::NetworkStatus);
+        ContextForceCloseWindowByClass(WindowClass::ProgressWindow);
         GameUnloadScripts();
         GameNotifyMapChange();
 

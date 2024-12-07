@@ -15,6 +15,8 @@
 #include "../world/Scenery.h"
 #include "GameAction.h"
 
+struct WallSceneryEntry;
+
 struct WallPlaceActionResult
 {
     int32_t BaseHeight{};
@@ -42,8 +44,8 @@ public:
     uint16_t GetActionFlags() const override final;
 
     void Serialise(DataSerialiser& stream) override;
-    GameActions::Result Query() const override;
-    GameActions::Result Execute() const override;
+    OpenRCT2::GameActions::Result Query() const override;
+    OpenRCT2::GameActions::Result Execute() const override;
 
 private:
     /**
@@ -56,11 +58,13 @@ private:
      *
      *  rct2: 0x006E5C1A
      */
-    GameActions::Result WallCheckObstruction(const WallSceneryEntry* wall, int32_t z0, int32_t z1, bool* wallAcrossTrack) const;
+    OpenRCT2::GameActions::Result WallCheckObstruction(
+        const WallSceneryEntry* wall, int32_t z0, int32_t z1, bool* wallAcrossTrack) const;
 
     /**
      * Gets whether the given track type can have a wall placed on the edge of the given direction.
      * Some thin tracks for example are allowed to have walls either side of the track, but wider tracks can not.
      */
-    static bool TrackIsAllowedWallEdges(ride_type_t rideType, track_type_t trackType, uint8_t trackSequence, uint8_t direction);
+    static bool TrackIsAllowedWallEdges(
+        ride_type_t rideType, OpenRCT2::TrackElemType trackType, uint8_t trackSequence, uint8_t direction);
 };

@@ -31,9 +31,11 @@
 #    include "../PlatformEnvironment.h"
 #    include "../Version.h"
 #    include "../config/Config.h"
+#    include "../core/Compression.h"
 #    include "../core/Console.hpp"
 #    include "../core/Guard.hpp"
 #    include "../core/Path.hpp"
+#    include "../core/SawyerCoding.h"
 #    include "../core/String.hpp"
 #    include "../drawing/IDrawingEngine.h"
 #    include "../interface/Screenshot.h"
@@ -41,8 +43,6 @@
 #    include "../object/ObjectManager.h"
 #    include "../park/ParkFile.h"
 #    include "../scenario/Scenario.h"
-#    include "../util/SawyerCoding.h"
-#    include "../util/Util.h"
 #    include "Platform.h"
 
 #    define WSZ(x) L"" x
@@ -57,7 +57,7 @@ static const wchar_t* _wszCommitSha1Short = WSZ("");
 static const wchar_t* _wszArchitecture = WSZ(OPENRCT2_ARCHITECTURE);
 static std::map<std::wstring, std::wstring> _uploadFiles;
 
-#    define BACKTRACE_TOKEN "7942c535ca634cafbe73758b63127ed98f96226ad2a4c5f15944c9a4fa8c4646"
+#    define BACKTRACE_TOKEN "1a9becc5de031b0a24ecad5222d2b42820c3710863a0f1dba6ab378b02ca659a"
 
 using namespace OpenRCT2;
 
@@ -139,7 +139,7 @@ static bool OnCrash(
         FILE* input = _wfopen(dumpFilePath, L"rb");
         FILE* dest = _wfopen(dumpFilePathGZIP, L"wb");
 
-        if (UtilGzipCompress(input, dest))
+        if (Compression::gzipCompress(input, dest))
         {
             // TODO: enable upload of gzip-compressed dumps once supported on
             // backtrace.io (uncomment the line below). For now leave compression

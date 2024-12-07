@@ -10,7 +10,9 @@
 #include "RideSetSettingAction.h"
 
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../GameState.h"
+#include "../interface/Window.h"
 #include "../object/ObjectManager.h"
 #include "../ride/Ride.h"
 #include "../ride/RideData.h"
@@ -260,15 +262,16 @@ bool RideSetSettingAction::RideIsModeValid(const Ride& ride) const
 
 bool RideSetSettingAction::RideIsValidLiftHillSpeed(const Ride& ride) const
 {
-    int32_t minSpeed = GetGameState().Cheats.UnlockOperatingLimits ? 0 : ride.GetRideTypeDescriptor().LiftData.minimum_speed;
-    int32_t maxSpeed = GetGameState().Cheats.UnlockOperatingLimits ? 255 : ride.GetRideTypeDescriptor().LiftData.maximum_speed;
+    auto& gameState = GetGameState();
+    int32_t minSpeed = gameState.Cheats.UnlockOperatingLimits ? 0 : ride.GetRideTypeDescriptor().LiftData.minimum_speed;
+    int32_t maxSpeed = gameState.Cheats.UnlockOperatingLimits ? 255 : ride.GetRideTypeDescriptor().LiftData.maximum_speed;
     return _value >= minSpeed && _value <= maxSpeed;
 }
 
 bool RideSetSettingAction::RideIsValidNumCircuits() const
 {
     int32_t minNumCircuits = 1;
-    int32_t maxNumCircuits = GetGameState().Cheats.UnlockOperatingLimits ? 255 : Limits::MaxCircuitsPerRide;
+    int32_t maxNumCircuits = GetGameState().Cheats.UnlockOperatingLimits ? 255 : Limits::kMaxCircuitsPerRide;
     return _value >= minNumCircuits && _value <= maxNumCircuits;
 }
 
@@ -303,7 +306,7 @@ StringId RideSetSettingAction::GetOperationErrorMessage(const Ride& ride) const
         case RideMode::BackwardRotation:
             return STR_CANT_CHANGE_NUMBER_OF_ROTATIONS;
         default:
-            if (ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_NO_VEHICLES))
+            if (ride.GetRideTypeDescriptor().HasFlag(RtdFlag::noVehicles))
             {
                 return STR_CANT_CHANGE_THIS;
             }

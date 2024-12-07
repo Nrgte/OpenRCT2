@@ -15,7 +15,6 @@
 #include "../../core/Numerics.hpp"
 #include "../../drawing/Drawing.h"
 #include "../../interface/Viewport.h"
-#include "../../localisation/Localisation.h"
 #include "../../profiling/Profiling.h"
 #include "../../ride/RideData.h"
 #include "../../ride/TrackData.h"
@@ -26,8 +25,9 @@
 #include "../../world/Footpath.h"
 #include "../../world/Map.h"
 #include "../../world/Scenery.h"
-#include "../../world/Surface.h"
 #include "../../world/tile_element/Slope.h"
+#include "../../world/tile_element/SurfaceElement.h"
+#include "../../world/tile_element/TileElement.h"
 #include "../Paint.SessionFlags.h"
 #include "../Paint.h"
 #include "../VirtualFloor.h"
@@ -92,11 +92,11 @@ static void BlankTilesPaint(PaintSession& session, int32_t x, int32_t y)
     dx -= 16;
     int32_t bx = dx + 32;
 
-    if (bx <= session.DPI.y)
+    if (bx <= session.DPI.WorldY())
         return;
     dx -= 20;
-    dx -= session.DPI.height;
-    if (dx >= session.DPI.y)
+    dx -= session.DPI.WorldHeight();
+    if (dx >= session.DPI.WorldY())
         return;
 
     session.SpritePosition.x = x;
@@ -127,8 +127,8 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
 
     session.LeftTunnelCount = 0;
     session.RightTunnelCount = 0;
-    session.LeftTunnels[0] = { 0xFF, 0xFF };
-    session.RightTunnels[0] = { 0xFF, 0xFF };
+    session.LeftTunnels[0] = { 0xFF, TunnelType::Null };
+    session.RightTunnels[0] = { 0xFF, TunnelType::Null };
     session.VerticalTunnelHeight = 0xFF;
     session.MapPosition.x = coords.x;
     session.MapPosition.y = coords.y;
@@ -150,14 +150,14 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
         case 0:
             break;
         case 1:
-            coords.x += COORDS_XY_STEP;
+            coords.x += kCoordsXYStep;
             break;
         case 2:
-            coords.x += COORDS_XY_STEP;
-            coords.y += COORDS_XY_STEP;
+            coords.x += kCoordsXYStep;
+            coords.y += kCoordsXYStep;
             break;
         case 3:
-            coords.y += COORDS_XY_STEP;
+            coords.y += kCoordsXYStep;
             break;
     }
 
@@ -180,7 +180,7 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
         PaintAddImageAsParent(session, imageId, { 0, 0, arrowZ }, { { 0, 0, arrowZ + 18 }, { 32, 32, -1 } });
     }
 
-    if (screenMinY + 52 <= session.DPI.y)
+    if (screenMinY + 52 <= session.DPI.WorldY())
         return;
 
     const TileElement* element = tile_element; // push tile_element
@@ -204,7 +204,7 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
         max_height = std::max(max_height, VirtualFloorGetHeight());
     }
 
-    if (screenMinY - (max_height + 32) >= session.DPI.y + session.DPI.height)
+    if (screenMinY - (max_height + 32) >= session.DPI.WorldY() + session.DPI.WorldHeight())
         return;
 
     session.SpritePosition.x = coords.x;
@@ -220,7 +220,7 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
         }
 
         // Only paint tile_elements below the clip height.
-        if ((session.ViewFlags & VIEWPORT_FLAG_CLIP_VIEW) && (tile_element->GetBaseZ() > gClipHeight * COORDS_Z_STEP))
+        if ((session.ViewFlags & VIEWPORT_FLAG_CLIP_VIEW) && (tile_element->GetBaseZ() > gClipHeight * kCoordsZStep))
             continue;
 
         Direction direction = tile_element->GetDirectionWithOffset(rotation);
@@ -332,31 +332,6 @@ static void PaintTileElementBase(PaintSession& session, const CoordsXY& origCoor
                 { { xOffset + 1, yOffset + 16, segmentHeight }, { 10, 10, 1 } });
         }
     }
-}
-
-void PaintUtilPushTunnelLeft(PaintSession& session, uint16_t height, uint8_t type)
-{
-    session.LeftTunnels[session.LeftTunnelCount] = { static_cast<uint8_t>((height / 16)), type };
-    if (session.LeftTunnelCount < kTunnelMaxCount - 1)
-    {
-        session.LeftTunnels[session.LeftTunnelCount + 1] = { 0xFF, 0xFF };
-        session.LeftTunnelCount++;
-    }
-}
-
-void PaintUtilPushTunnelRight(PaintSession& session, uint16_t height, uint8_t type)
-{
-    session.RightTunnels[session.RightTunnelCount] = { static_cast<uint8_t>((height / 16)), type };
-    if (session.RightTunnelCount < kTunnelMaxCount - 1)
-    {
-        session.RightTunnels[session.RightTunnelCount + 1] = { 0xFF, 0xFF };
-        session.RightTunnelCount++;
-    }
-}
-
-void PaintUtilSetVerticalTunnel(PaintSession& session, uint16_t height)
-{
-    session.VerticalTunnelHeight = height / 16;
 }
 
 void PaintUtilSetGeneralSupportHeight(PaintSession& session, int16_t height)

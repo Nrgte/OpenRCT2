@@ -61,12 +61,14 @@ namespace OpenRCT2::Scripting
         { OpenRCT2::Title::EndCommand::ScriptingName, TitleScript::End },
     });
 
-    template<> DukValue ToDuk(duk_context* ctx, const TitleScript& value)
+    template<>
+    DukValue ToDuk(duk_context* ctx, const TitleScript& value)
     {
         return ToDuk(ctx, TitleScriptMap[value]);
     }
 
-    template<> DukValue ToDuk(duk_context* ctx, const OpenRCT2::Title::TitleCommand& value)
+    template<>
+    DukValue ToDuk(duk_context* ctx, const OpenRCT2::Title::TitleCommand& value)
     {
         using namespace OpenRCT2::Title;
         DukObject obj(ctx);
@@ -115,14 +117,16 @@ namespace OpenRCT2::Scripting
         return obj.Take();
     }
 
-    template<> TitleScript FromDuk(const DukValue& value)
+    template<>
+    TitleScript FromDuk(const DukValue& value)
     {
         if (value.type() == DukValue::Type::STRING)
             return TitleScriptMap[value.as_string()];
         throw DukException() << "Invalid title command id";
     }
 
-    template<> OpenRCT2::Title::TitleCommand FromDuk(const DukValue& value)
+    template<>
+    OpenRCT2::Title::TitleCommand FromDuk(const DukValue& value)
     {
         using namespace OpenRCT2::Title;
         auto type = FromDuk<TitleScript>(value["type"]);
@@ -130,26 +134,26 @@ namespace OpenRCT2::Scripting
         switch (type)
         {
             case TitleScript::Load:
-                command = LoadParkCommand{ static_cast<uint8_t>(value["index"].as_int()) };
+                command = LoadParkCommand{ static_cast<uint8_t>(value["index"].as_uint()) };
                 break;
             case TitleScript::Location:
                 command = SetLocationCommand{
-                    static_cast<uint8_t>(value["x"].as_int()),
-                    static_cast<uint8_t>(value["y"].as_int()),
+                    static_cast<uint8_t>(value["x"].as_uint()),
+                    static_cast<uint8_t>(value["y"].as_uint()),
                 };
                 break;
             case TitleScript::Rotate:
-                command = RotateViewCommand{ static_cast<uint8_t>(value["rotations"].as_int()) };
+                command = RotateViewCommand{ static_cast<uint8_t>(value["rotations"].as_uint()) };
                 break;
             case TitleScript::Zoom:
-                command = SetZoomCommand{ static_cast<uint8_t>(value["zoom"].as_int()) };
+                command = SetZoomCommand{ static_cast<uint8_t>(value["zoom"].as_uint()) };
                 break;
             case TitleScript::Follow:
             {
                 auto dukId = value["id"];
                 if (dukId.type() == DukValue::Type::NUMBER)
                 {
-                    command = FollowEntityCommand{ EntityId::FromUnderlying(dukId.as_int()) };
+                    command = FollowEntityCommand{ EntityId::FromUnderlying(dukId.as_uint()) };
                 }
                 else
                 {
@@ -158,10 +162,10 @@ namespace OpenRCT2::Scripting
                 break;
             }
             case TitleScript::Speed:
-                command = SetSpeedCommand{ static_cast<uint8_t>(value["speed"].as_int()) };
+                command = SetSpeedCommand{ static_cast<uint8_t>(value["speed"].as_uint()) };
                 break;
             case TitleScript::Wait:
-                command = WaitCommand{ static_cast<uint16_t>(value["duration"].as_int()) };
+                command = WaitCommand{ static_cast<uint16_t>(value["duration"].as_uint()) };
                 break;
             case TitleScript::LoadSc:
             {
@@ -365,7 +369,7 @@ namespace OpenRCT2::Scripting
             const auto* item = GetItem();
             if (item != nullptr)
             {
-                return item->PredefinedIndex != PREDEFINED_INDEX_CUSTOM;
+                return item->PredefinedIndex != TitleSequenceManager::kPredefinedIndexCustom;
             }
             return {};
         }
@@ -545,7 +549,7 @@ namespace OpenRCT2::Scripting
             return std::nullopt;
         }
 
-        const TitleSequenceManagerItem* GetItem() const
+        const TitleSequenceManager::Item* GetItem() const
         {
             auto index = GetManagerIndex();
             if (index)

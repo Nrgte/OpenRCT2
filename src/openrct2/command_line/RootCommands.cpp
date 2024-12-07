@@ -56,6 +56,7 @@ static bool _all = false;
 static bool _about = false;
 static bool _verbose = false;
 static bool _headless = false;
+static bool _silentReplays = false;
 static u8string _password = {};
 static u8string _userDataPath = {};
 static u8string _openrct2DataPath = {};
@@ -73,6 +74,7 @@ static constexpr CommandLineOptionDefinition StandardOptions[]
     { CMDLINE_TYPE_SWITCH,  &_about,            NAC, "about",              "show information about " OPENRCT2_NAME                      },
     { CMDLINE_TYPE_SWITCH,  &_verbose,          NAC, "verbose",            "log verbose messages"                                       },
     { CMDLINE_TYPE_SWITCH,  &_headless,         NAC, "headless",           "run " OPENRCT2_NAME " headless" IMPLIES_SILENT_BREAKPAD     },
+    { CMDLINE_TYPE_SWITCH,  &_silentReplays,    NAC, "silent-replays",     "use unobtrusive replays"                                    },
 #ifndef DISABLE_NETWORK
     { CMDLINE_TYPE_INTEGER, &_port,             NAC, "port",               "port to use for hosting or joining a server"                },
     { CMDLINE_TYPE_STRING,  &_address,          NAC, "address",            "address to listen on when hosting a server"                 },
@@ -85,7 +87,7 @@ static constexpr CommandLineOptionDefinition StandardOptions[]
 #ifdef USE_BREAKPAD
     { CMDLINE_TYPE_SWITCH,  &_silentBreakpad,  NAC, "silent-breakpad",   "make breakpad crash reporting silent"                       },
 #endif // USE_BREAKPAD
-    OptionTableEnd
+    kOptionTableEnd
 };
 
 static exitcode_t HandleNoCommand(CommandLineArgEnumerator * enumerator);
@@ -144,7 +146,7 @@ const CommandLineCommand CommandLine::RootCommands[]
     DefineSubCommand("sprite",          CommandLine::SpriteCommands           ),
     DefineSubCommand("simulate",        CommandLine::SimulateCommands         ),
     DefineSubCommand("parkinfo",        CommandLine::ParkInfoCommands         ),
-    CommandTableEnd
+    kCommandTableEnd
 };
 
 const CommandLineExample CommandLine::RootExamples[]
@@ -158,7 +160,7 @@ const CommandLineExample CommandLine::RootExamples[]
 #ifndef DISABLE_NETWORK
     { "host ./my_park.sv6 --port 11753 --headless",   "run a headless server for a saved park" },
 #endif
-    ExampleTableEnd
+    kExampleTableEnd
 };
 // clang-format on
 
@@ -222,6 +224,11 @@ exitcode_t CommandLine::HandleCommandDefault()
     if (!_password.empty())
     {
         gCustomPassword = _password;
+    }
+
+    if (_silentReplays)
+    {
+        gSilentReplays = _silentReplays;
     }
 
     return result;
@@ -440,9 +447,8 @@ static void PrintAbout()
 
 static void PrintVersion()
 {
-    char buffer[256];
-    OpenRCT2WriteFullVersionInfo(buffer, sizeof(buffer));
-    Console::WriteLine(buffer);
+    u8string versionInfo = gVersionInfoFull;
+    Console::WriteLine(versionInfo.c_str());
     Console::WriteFormat("%s (%s)", OPENRCT2_PLATFORM, OPENRCT2_ARCHITECTURE);
     Console::WriteLine();
     Console::WriteFormat("Network version: %s", NetworkGetVersion().c_str());
@@ -474,9 +480,8 @@ static void PrintLaunchInformation()
     struct tm* tmInfo;
 
     // Print name and version information
-    OpenRCT2WriteFullVersionInfo(buffer, sizeof(buffer));
-    Console::WriteFormat("%s", buffer);
-    Console::WriteLine();
+    u8string versionInfo = gVersionInfoFull;
+    Console::WriteLine(versionInfo.c_str());
     Console::WriteFormat("%s (%s)", OPENRCT2_PLATFORM, OPENRCT2_ARCHITECTURE);
     Console::WriteLine();
     Console::WriteLine();

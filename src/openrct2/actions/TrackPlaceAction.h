@@ -9,7 +9,10 @@
 
 #pragma once
 
+#include "../ride/RideConstruction.h"
 #include "GameAction.h"
+
+using namespace OpenRCT2;
 
 struct TrackPlaceActionResult
 {
@@ -20,28 +23,28 @@ class TrackPlaceAction final : public GameActionBase<GameCommand::PlaceTrack>
 {
 private:
     RideId _rideIndex{ RideId::GetNull() };
-    int32_t _trackType{};
+    OpenRCT2::TrackElemType _trackType{};
     ride_type_t _rideType{};
     CoordsXYZD _origin;
     int32_t _brakeSpeed{};
     int32_t _colour{};
     int32_t _seatRotation{};
-    int32_t _trackPlaceFlags{};
+    SelectedLiftAndInverted _trackPlaceFlags{};
     bool _fromTrackDesign{};
 
 public:
     TrackPlaceAction() = default;
     TrackPlaceAction(
-        RideId rideIndex, int32_t trackType, ride_type_t rideType, const CoordsXYZD& origin, int32_t brakeSpeed, int32_t colour,
-        int32_t seatRotation, int32_t liftHillAndAlternativeState, bool fromTrackDesign);
+        RideId rideIndex, OpenRCT2::TrackElemType trackType, ride_type_t rideType, const CoordsXYZD& origin, int32_t brakeSpeed,
+        int32_t colour, int32_t seatRotation, SelectedLiftAndInverted liftHillAndAlternativeState, bool fromTrackDesign);
 
     void AcceptParameters(GameActionParameterVisitor& visitor) override;
 
     uint16_t GetActionFlags() const override final;
 
     void Serialise(DataSerialiser& stream) override;
-    GameActions::Result Query() const override;
-    GameActions::Result Execute() const override;
+    OpenRCT2::GameActions::Result Query() const override;
+    OpenRCT2::GameActions::Result Execute() const override;
 
 private:
     bool CheckMapCapacity(int16_t numTiles) const;

@@ -12,10 +12,13 @@
 #    include "ScriptEngine.h"
 
 #    include "../PlatformEnvironment.h"
+#    include "../actions/BannerPlaceAction.h"
 #    include "../actions/CustomAction.h"
 #    include "../actions/GameAction.h"
+#    include "../actions/LargeSceneryPlaceAction.h"
 #    include "../actions/RideCreateAction.h"
 #    include "../actions/StaffHireNewAction.h"
+#    include "../actions/WallPlaceAction.h"
 #    include "../config/Config.h"
 #    include "../core/EnumMap.hpp"
 #    include "../core/File.h"
@@ -27,6 +30,7 @@
 #    include "bindings/entity/ScEntity.hpp"
 #    include "bindings/entity/ScGuest.hpp"
 #    include "bindings/entity/ScLitter.hpp"
+#    include "bindings/entity/ScParticle.hpp"
 #    include "bindings/entity/ScPeep.hpp"
 #    include "bindings/entity/ScStaff.hpp"
 #    include "bindings/entity/ScVehicle.hpp"
@@ -55,6 +59,7 @@
 #    include "bindings/world/ScTile.hpp"
 #    include "bindings/world/ScTileElement.hpp"
 
+#    include <cassert>
 #    include <iostream>
 #    include <memory>
 #    include <stdexcept>
@@ -412,6 +417,7 @@ void ScriptEngine::Initialise()
     ScSceneryObject::Register(ctx);
     ScSmallSceneryObject::Register(ctx);
     ScLargeSceneryObject::Register(ctx);
+    ScLargeSceneryObjectTile::Register(ctx);
     ScWallObject::Register(ctx);
     ScFootpathAdditionObject::Register(ctx);
     ScBannerObject::Register(ctx);
@@ -433,6 +439,7 @@ void ScriptEngine::Initialise()
     ScEntity::Register(ctx);
     ScLitter::Register(ctx);
     ScVehicle::Register(ctx);
+    ScCrashedVehicleParticle::Register(ctx);
     ScPeep::Register(ctx);
     ScGuest::Register(ctx);
     ScThought::Register(ctx);
@@ -444,6 +451,9 @@ void ScriptEngine::Initialise()
     ScScenarioObjective::Register(ctx);
     ScPatrolArea::Register(ctx);
     ScStaff::Register(ctx);
+    ScHandyman::Register(ctx);
+    ScMechanic::Register(ctx);
+    ScSecurity::Register(ctx);
     ScPlugin::Register(ctx);
 
     dukglue_register_global(ctx, std::make_shared<ScCheats>(), "cheats");
@@ -908,6 +918,11 @@ bool ScriptEngine::ShouldStartPlugin(const std::shared_ptr<Plugin>& plugin)
 
 void ScriptEngine::Tick()
 {
+    if (!_initialised)
+    {
+        return;
+    }
+
     PROFILED_FUNCTION();
 
     CheckAndStartPlugins();
@@ -1219,6 +1234,26 @@ DukValue ScriptEngine::GameActionResultToDuk(const GameAction& action, const Gam
                 obj.Set("peep", actionResult.StaffEntityId.ToUnderlying());
             }
         }
+    }
+    // BannerPlaceAction, LargeSceneryPlaceAction, WallPlaceAction
+    auto bannerId = BannerIndex::GetNull();
+    switch (action.GetType())
+    {
+        case GameCommand::PlaceBanner:
+            bannerId = result.GetData<BannerPlaceActionResult>().bannerId;
+            break;
+        case GameCommand::PlaceLargeScenery:
+            bannerId = result.GetData<LargeSceneryPlaceActionResult>().bannerId;
+            break;
+        case GameCommand::PlaceWall:
+            bannerId = result.GetData<WallPlaceActionResult>().BannerId;
+            break;
+        default:
+            break;
+    }
+    if (!bannerId.IsNull())
+    {
+        obj.Set("bannerIndex", bannerId.ToUnderlying());
     }
 
     return obj.Take();
@@ -1603,7 +1638,7 @@ IntervalHandle ScriptEngine::AllocateHandle()
     const auto nextHandle = _nextIntervalHandle;
 
     // In case of overflow start from 1 again
-    _nextIntervalHandle = std::max(_nextIntervalHandle + 1U, 1U);
+    _nextIntervalHandle = std::max(_nextIntervalHandle + 1u, 1u);
 
     return nextHandle;
 }

@@ -43,7 +43,6 @@
 #include "../interface/Colour.h"
 #include "../interface/Window_internal.h"
 #include "../localisation/Formatting.h"
-#include "../localisation/Localisation.h"
 #include "../management/Finance.h"
 #include "../management/NewsItem.h"
 #include "../management/Research.h"
@@ -483,7 +482,7 @@ static int32_t ConsoleCommandStaff(InteractiveConsole& console, const arguments_
                 {
                     char costume_name[128] = { 0 };
                     StringId costume = StaffCostumeNames[i];
-                    OpenRCT2::FormatStringLegacy(costume_name, 128, STR_DROPDOWN_MENU_LABEL, &costume);
+                    OpenRCT2::FormatStringLegacy(costume_name, 128, STR_STRINGID, &costume);
                     // That's a terrible hack here. Costume names include inline sprites
                     // that don't work well with the console, so manually skip past them.
                     console.WriteFormatLine("        costume %i: %s", i, costume_name + 7);
@@ -695,7 +694,7 @@ static int32_t ConsoleCommandGet(InteractiveConsole& console, const arguments_t&
             {
                 Viewport* viewport = WindowGetViewport(w);
                 auto info = GetMapCoordinatesFromPos(
-                    { viewport->view_width / 2, viewport->view_height / 2 }, EnumsToFlags(ViewportInteractionItem::Terrain));
+                    { viewport->ViewWidth() / 2, viewport->ViewHeight() / 2 }, EnumsToFlags(ViewportInteractionItem::Terrain));
 
                 auto tileMapCoord = TileCoordsXY(info.Loc);
                 console.WriteFormatLine("location %d %d", tileMapCoord.x, tileMapCoord.y);
@@ -1274,10 +1273,12 @@ static int32_t ConsoleCommandLoadObject(InteractiveConsole& console, const argum
             ResearchResetCurrentItem();
             gSilentResearch = false;
         }
-        ScenerySetDefaultPlacementConfiguration();
 
-        auto intent = Intent(INTENT_ACTION_REFRESH_NEW_RIDES);
-        ContextBroadcastIntent(&intent);
+        auto sceneryIntent = Intent(INTENT_ACTION_SET_DEFAULT_SCENERY_CONFIG);
+        ContextBroadcastIntent(&sceneryIntent);
+
+        auto ridesIntent = Intent(INTENT_ACTION_REFRESH_NEW_RIDES);
+        ContextBroadcastIntent(&ridesIntent);
 
         gWindowUpdateTicks = 0;
         GfxInvalidateScreen();
@@ -1298,7 +1299,7 @@ constexpr std::array _objectTypeNames = {
     "Scenery groups",
     "Park entrances",
     "Water",
-    "ScenarioText",
+    "Scenario Text",
     "Terrain Surface",
     "Terrain Edges",
     "Stations",
@@ -1306,6 +1307,7 @@ constexpr std::array _objectTypeNames = {
     "Footpath Surface",
     "Footpath Railings",
     "Audio",
+    "Guest Names",
 };
 static_assert(_objectTypeNames.size() == EnumValue(ObjectType::Count));
 
@@ -1407,15 +1409,6 @@ static int32_t ConsoleCommandRemoveFloatingObjects(InteractiveConsole& console, 
     return 0;
 }
 
-static int32_t ConsoleCommandRemoveParkFences(InteractiveConsole& console, [[maybe_unused]] const arguments_t& argv)
-{
-    auto action = CheatSetAction(CheatType::RemoveParkFences);
-    GameActions::Execute(&action);
-
-    console.WriteFormatLine("Park fences have been removed.");
-    return 0;
-}
-
 static int32_t ConsoleCommandShowLimits(InteractiveConsole& console, [[maybe_unused]] const arguments_t& argv)
 {
     const auto& tileElements = GetTileElements();
@@ -1433,7 +1426,7 @@ static int32_t ConsoleCommandShowLimits(InteractiveConsole& console, [[maybe_unu
     console.WriteFormatLine("Sprites: %d/%d", spriteCount, MAX_ENTITIES);
     console.WriteFormatLine("Map Elements: %zu/%d", tileElementCount, MAX_TILE_ELEMENTS);
     console.WriteFormatLine("Banners: %d/%zu", bannerCount, MAX_BANNERS);
-    console.WriteFormatLine("Rides: %d/%d", rideCount, OpenRCT2::Limits::MaxRidesInPark);
+    console.WriteFormatLine("Rides: %d/%d", rideCount, OpenRCT2::Limits::kMaxRidesInPark);
     console.WriteFormatLine("Images: %zu/%zu", ImageListGetUsedCount(), ImageListGetMaximum());
     return 0;
 }
@@ -1934,9 +1927,9 @@ static int32_t ConsoleSpawnBalloon(InteractiveConsole& console, const arguments_
         console.WriteLineError("Need arguments: <x> <y> <z> <colour>");
         return 1;
     }
-    int32_t x = COORDS_XY_STEP * atof(argv[0].c_str());
-    int32_t y = COORDS_XY_STEP * atof(argv[1].c_str());
-    int32_t z = COORDS_Z_STEP * atof(argv[2].c_str());
+    int32_t x = kCoordsXYStep * atof(argv[0].c_str());
+    int32_t y = kCoordsXYStep * atof(argv[1].c_str());
+    int32_t z = kCoordsZStep * atof(argv[2].c_str());
     int32_t col = 28;
     if (argv.size() > 3)
         col = atoi(argv[3].c_str());
@@ -2026,7 +2019,6 @@ static constexpr ConsoleCommand console_command_table[] = {
     { "object_count", ConsoleCommandCountObjects, "Shows the number of objects of each type in the scenario.", "object_count" },
     { "open", ConsoleCommandOpen, "Opens the window with the give name.", "open <window>." },
     { "quit", ConsoleCommandClose, "Closes the console.", "quit" },
-    { "remove_park_fences", ConsoleCommandRemoveParkFences, "Removes all park fences from the surface", "remove_park_fences" },
     { "remove_unused_objects", ConsoleCommandRemoveUnusedObjects, "Removes all the unused objects from the object selection.",
       "remove_unused_objects" },
     { "remove_floating_objects", ConsoleCommandRemoveFloatingObjects, "Removes floating objects", "remove_floating_objects" },

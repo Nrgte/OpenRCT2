@@ -8,13 +8,15 @@
 #include "../paint/Paint.h"
 #include "../profiling/Profiling.h"
 #include "../sprites.h"
+#include "../world/Footpath.h"
 #include "../world/Map.h"
 #include "EntityList.h"
 #include "EntityRegistry.h"
 
 using namespace OpenRCT2;
 
-template<> bool EntityBase::Is<Litter>() const
+template<>
+bool EntityBase::Is<Litter>() const
 {
     return Type == EntityType::Litter;
 }
@@ -35,7 +37,7 @@ static bool IsLocationLitterable(const CoordsXYZ& mapPos)
             continue;
 
         int32_t pathZ = tileElement->GetBaseZ();
-        if (pathZ < mapPos.z || pathZ >= mapPos.z + PATH_CLEARANCE)
+        if (pathZ < mapPos.z || pathZ >= mapPos.z + kPathClearance)
             continue;
 
         return !TileElementIsUnderground(tileElement);
@@ -49,7 +51,8 @@ static bool IsLocationLitterable(const CoordsXYZ& mapPos)
  */
 void Litter::Create(const CoordsXYZD& litterPos, Type type)
 {
-    if (GetGameState().Cheats.DisableLittering)
+    auto& gameState = GetGameState();
+    if (gameState.Cheats.DisableLittering)
         return;
 
     auto offsetLitterPos = litterPos
@@ -89,7 +92,7 @@ void Litter::Create(const CoordsXYZD& litterPos, Type type)
     litter->SpriteData.HeightMax = 3;
     litter->SubType = type;
     litter->MoveTo(offsetLitterPos);
-    litter->creationTick = GetGameState().CurrentTicks;
+    litter->creationTick = gameState.CurrentTicks;
 }
 
 /**

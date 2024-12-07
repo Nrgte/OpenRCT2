@@ -21,7 +21,6 @@
 #    include <memory>
 #    include <openrct2/Context.h>
 #    include <openrct2/Input.h>
-#    include <openrct2/common.h>
 #    include <openrct2/scenario/ScenarioRepository.h>
 #    include <openrct2/scripting/Duktape.hpp>
 #    include <openrct2/scripting/ScriptEngine.h>
@@ -62,7 +61,8 @@ namespace OpenRCT2::Scripting
         { "other", ScenarioSource::Other },
     });
 
-    template<> inline DukValue ToDuk(duk_context* ctx, const SCENARIO_CATEGORY& value)
+    template<>
+    inline DukValue ToDuk(duk_context* ctx, const SCENARIO_CATEGORY& value)
     {
         const auto& entry = ScenarioCategoryMap.find(value);
         if (entry != ScenarioCategoryMap.end())
@@ -70,7 +70,8 @@ namespace OpenRCT2::Scripting
         return ToDuk(ctx, ScenarioCategoryMap[SCENARIO_CATEGORY_OTHER]);
     }
 
-    template<> inline DukValue ToDuk(duk_context* ctx, const ScenarioSource& value)
+    template<>
+    inline DukValue ToDuk(duk_context* ctx, const ScenarioSource& value)
     {
         const auto& entry = ScenarioSourceMap.find(value);
         if (entry != ScenarioSourceMap.end())
@@ -187,7 +188,7 @@ namespace OpenRCT2::Scripting
             {
                 if (id.type() == DukValue::Type::NUMBER)
                 {
-                    WindowCloseByNumber(cls, id.as_int());
+                    WindowCloseByNumber(cls, id.as_uint());
                 }
                 else
                 {
@@ -205,8 +206,8 @@ namespace OpenRCT2::Scripting
         {
             if (a.type() == DukValue::Type::NUMBER)
             {
-                auto index = a.as_int();
-                auto i = 0;
+                auto index = a.as_uint();
+                size_t i = 0;
                 for (const auto& w : g_window_list)
                 {
                     if (i == index)

@@ -11,8 +11,8 @@
 
 #    include "NetworkPlayer.h"
 
+#    include "../core/Money.hpp"
 #    include "../interface/Window.h"
-#    include "../localisation/Localisation.h"
 #    include "NetworkPacket.h"
 
 void NetworkPlayer::SetName(std::string_view name)

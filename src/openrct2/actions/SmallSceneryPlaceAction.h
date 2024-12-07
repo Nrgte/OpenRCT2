@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include "../world/TileElement.h"
 #include "GameAction.h"
 
 struct SmallSceneryPlaceActionResult
@@ -41,6 +40,6 @@ public:
     uint16_t GetActionFlags() const override;
 
     void Serialise(DataSerialiser& stream) override;
-    GameActions::Result Query() const override;
-    GameActions::Result Execute() const override;
+    OpenRCT2::GameActions::Result Query() const override;
+    OpenRCT2::GameActions::Result Execute() const override;
 };

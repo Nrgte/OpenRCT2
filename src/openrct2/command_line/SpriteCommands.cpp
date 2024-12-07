@@ -12,6 +12,8 @@
 #include "../core/String.hpp"
 #include "CommandLine.hpp"
 
+using namespace OpenRCT2;
+
 #define SZ_DEFAULT "default"
 #define SZ_CLOSEST "closest"
 #define SZ_DITHERING "dithering"
@@ -26,7 +28,7 @@ static const char* _mode;
 static constexpr CommandLineOptionDefinition SpriteOptions[]
 {
     { CMDLINE_TYPE_STRING, &_mode, 'm', "mode", "the type of sprite conversion <" SZ_DEFAULT "|" SZ_CLOSEST "|" SZ_DITHERING ">" },
-    OptionTableEnd
+    kOptionTableEnd
 };
 
 static exitcode_t HandleSprite(CommandLineArgEnumerator *argEnumerator);
@@ -43,7 +45,7 @@ const CommandLineCommand CommandLine::SpriteCommands[]
     DefineCommand("exportall",    "<spritefile> <output directory>",          SpriteOptions, HandleSprite),
     DefineCommand("exportalldat", "<DAT identifier> <output directory>",      SpriteOptions, HandleSprite),
 
-    CommandTableEnd
+    kCommandTableEnd
 };
 // clang-format on
 

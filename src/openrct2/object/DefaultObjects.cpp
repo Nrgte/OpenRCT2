@@ -123,6 +123,7 @@ const std::string_view DefaultSelectedObjects[] = {
     "openrct2.music.prehistoric",
     "openrct2.music.mystic",
     "openrct2.music.rock4",
+    "openrct2.music.progressive",
 
     // Footpath surfaces
     "rct2.footpath_surface.tarmac",
@@ -143,6 +144,9 @@ const std::string_view DefaultSelectedObjects[] = {
     "rct2.footpath_railings.concrete_green",
     "rct2.footpath_railings.space",
     "rct2.footpath_railings.wood",
+
+    // Peep name objects
+    "rct2.peep_names.original",
 };
 
 const std::string_view DesignerSelectedObjects[] = {

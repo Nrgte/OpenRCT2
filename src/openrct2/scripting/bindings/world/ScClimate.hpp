@@ -13,8 +13,7 @@
 
 #    include "../../../Context.h"
 #    include "../../../GameState.h"
-#    include "../../../common.h"
-#    include "../../../core/String.hpp"
+#    include "../../../core/StringTypes.h"
 #    include "../../../world/Climate.h"
 #    include "../../Duktape.hpp"
 #    include "../../ScriptEngine.h"
@@ -102,20 +101,20 @@ namespace OpenRCT2::Scripting
 
         std::string type_get() const
         {
-            auto& gameState = OpenRCT2::GetGameState();
+            auto& gameState = GetGameState();
             return ClimateTypeToString(gameState.Climate);
         }
 
         std::shared_ptr<ScClimateState> current_get() const
         {
-            auto& gameState = OpenRCT2::GetGameState();
+            auto& gameState = GetGameState();
             std::string weatherType = WeatherTypeToString(gameState.ClimateCurrent.Weather);
             return std::make_shared<ScClimateState>(weatherType, gameState.ClimateCurrent.Temperature);
         }
 
         std::shared_ptr<ScClimateState> future_get() const
         {
-            auto& gameState = OpenRCT2::GetGameState();
+            auto& gameState = GetGameState();
             std::string weatherType = WeatherTypeToString(gameState.ClimateNext.Weather);
             return std::make_shared<ScClimateState>(weatherType, gameState.ClimateNext.Temperature);
         }

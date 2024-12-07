@@ -12,9 +12,10 @@
 #ifdef ENABLE_SCRIPTING
 
 #    include "../../../entity/Guest.h"
+#    include "../../../management/Marketing.h"
 #    include "ScPeep.hpp"
 
-enum class PeepActionSpriteType : uint8_t;
+enum class PeepAnimationType : uint8_t;
 
 namespace OpenRCT2::Scripting
 {
@@ -166,6 +167,9 @@ namespace OpenRCT2::Scripting
 
         uint8_t lostCountdown_get() const;
         void lostCountdown_set(uint8_t value);
+
+        DukValue favouriteRide_get() const;
+        void favouriteRide_set(const DukValue& value);
 
         DukValue thoughts_get() const;
 

@@ -10,8 +10,8 @@
 #pragma once
 
 #include "../../../Identifiers.h"
-#include "../../../core/String.hpp"
-#include "../../../localisation/Localisation.h"
+#include "../../../core/StringTypes.h"
+#include "../../../localisation/Formatting.h"
 
 #include <cstdint>
 

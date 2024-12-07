@@ -17,10 +17,15 @@
 #include "../management/Finance.h"
 #include "../world/Location.hpp"
 #include "../world/Map.h"
+#include "../world/tile_element/LargeSceneryElement.h"
+#include "../world/tile_element/PathElement.h"
+#include "../world/tile_element/SmallSceneryElement.h"
 #include "FootpathRemoveAction.h"
 #include "LargeSceneryRemoveAction.h"
 #include "SmallSceneryRemoveAction.h"
 #include "WallRemoveAction.h"
+
+using namespace OpenRCT2;
 
 ClearAction::ClearAction(MapRange range, ClearableItems itemsToClear)
     : _range(range)
@@ -80,9 +85,9 @@ GameActions::Result ClearAction::QueryExecute(bool executing) const
     money64 totalCost = 0;
 
     auto validRange = ClampRangeWithinMap(_range);
-    for (int32_t y = validRange.GetTop(); y <= validRange.GetBottom(); y += COORDS_XY_STEP)
+    for (int32_t y = validRange.GetTop(); y <= validRange.GetBottom(); y += kCoordsXYStep)
     {
-        for (int32_t x = validRange.GetLeft(); x <= validRange.GetRight(); x += COORDS_XY_STEP)
+        for (int32_t x = validRange.GetLeft(); x <= validRange.GetRight(); x += kCoordsXYStep)
         {
             if (LocationValid({ x, y }) && MapCanClearAt({ x, y }))
             {
@@ -215,7 +220,7 @@ money64 ClearAction::ClearSceneryFromTile(const CoordsXY& tilePos, bool executin
 
 void ClearAction::ResetClearLargeSceneryFlag()
 {
-    auto& gameState = OpenRCT2::GetGameState();
+    auto& gameState = GetGameState();
     // TODO: Improve efficiency of this
     for (int32_t y = 0; y < gameState.MapSize.y; y++)
     {

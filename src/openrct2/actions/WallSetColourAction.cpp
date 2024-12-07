@@ -9,6 +9,7 @@
 
 #include "WallSetColourAction.h"
 
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../OpenRCT2.h"
 #include "../management/Finance.h"
@@ -18,7 +19,7 @@
 #include "../world/Banner.h"
 #include "../world/MapAnimation.h"
 #include "../world/Scenery.h"
-#include "../world/Surface.h"
+#include "../world/tile_element/WallElement.h"
 
 using namespace OpenRCT2;
 

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "../core/String.hpp"
+#include "../core/StringTypes.h"
 #include "../localisation/CurrencyTypes.h"
 #include "ConfigTypes.h"
 
@@ -36,6 +36,7 @@ namespace OpenRCT2::Config
         int32_t FullscreenWidth;
         int32_t FullscreenHeight;
         float WindowScale;
+        bool InferDisplayDPI;
         ::DrawingEngine DrawingEngine;
         bool UncapFPS;
         bool UseVSync;
@@ -101,6 +102,7 @@ namespace OpenRCT2::Config
         bool ScenarioHideMegaPark;
         bool SteamOverlayPause;
         bool ShowRealNamesOfGuests;
+        bool ShowRealNamesOfStaff;
         bool AllowEarlyCompletion;
         u8string AssetPackOrder;
         u8string EnabledAssetPacks;
@@ -135,6 +137,8 @@ namespace OpenRCT2::Config
         int32_t ScenarioselectLastTab;
         bool ListRideVehiclesSeparately;
         bool WindowButtonsOnTheLeft;
+        bool EnlargedUi;
+        bool TouchEnhancements;
     };
 
     struct Sound

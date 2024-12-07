@@ -12,7 +12,6 @@
 #ifdef ENABLE_SCRIPTING
 
 #    include "../../../Context.h"
-#    include "../../../common.h"
 #    include "../../../ride/Ride.h"
 #    include "../../Duktape.hpp"
 #    include "../../ScriptEngine.h"
@@ -21,7 +20,8 @@
 
 namespace OpenRCT2::Scripting
 {
-    template<> inline DukValue ToDuk(duk_context* ctx, const TrackColour& value)
+    template<>
+    inline DukValue ToDuk(duk_context* ctx, const TrackColour& value)
     {
         DukObject obj(ctx);
         obj.Set("main", value.main);
@@ -30,7 +30,8 @@ namespace OpenRCT2::Scripting
         return obj.Take();
     }
 
-    template<> inline TrackColour FromDuk(const DukValue& s)
+    template<>
+    inline TrackColour FromDuk(const DukValue& s)
     {
         TrackColour result{};
         result.main = AsOrDefault(s["main"], 0);
@@ -39,7 +40,8 @@ namespace OpenRCT2::Scripting
         return result;
     }
 
-    template<> inline DukValue ToDuk(duk_context* ctx, const VehicleColour& value)
+    template<>
+    inline DukValue ToDuk(duk_context* ctx, const VehicleColour& value)
     {
         DukObject obj(ctx);
         obj.Set("body", value.Body);
@@ -49,7 +51,8 @@ namespace OpenRCT2::Scripting
         return obj.Take();
     }
 
-    template<> inline VehicleColour FromDuk(const DukValue& s)
+    template<>
+    inline VehicleColour FromDuk(const DukValue& s)
     {
         VehicleColour result{};
         result.Body = AsOrDefault(s["body"], 0);
@@ -162,6 +165,30 @@ namespace OpenRCT2::Scripting
 
         uint8_t maxLiftHillSpeed_get() const;
         uint8_t minLiftHillSpeed_get() const;
+
+        uint8_t satisfaction_get() const;
+
+        double maxSpeed_get() const;
+
+        double averageSpeed_get() const;
+
+        int32_t rideTime_get() const;
+
+        double rideLength_get() const;
+
+        double maxPositiveVerticalGs_get() const;
+
+        double maxNegativeVerticalGs_get() const;
+
+        double maxLateralGs_get() const;
+
+        double totalAirTime_get() const;
+
+        uint8_t numDrops_get() const;
+
+        uint8_t numLiftHills_get() const;
+
+        double highestDropHeight_get() const;
 
         Ride* GetRide() const;
 

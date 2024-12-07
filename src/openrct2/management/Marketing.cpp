@@ -16,7 +16,6 @@
 #include "../entity/Guest.h"
 #include "../interface/Window.h"
 #include "../localisation/Formatter.h"
-#include "../localisation/Localisation.h"
 #include "../profiling/Profiling.h"
 #include "../ride/Ride.h"
 #include "../ride/RideData.h"
@@ -36,11 +35,20 @@ const money64 AdvertisingCampaignPricePerWeek[] = {
     200.00_GBP, // RIDE
 };
 
+// clang-format off
+const StringId kMarketingCampaignNames[ADVERTISING_CAMPAIGN_COUNT][3] = {
+    { STR_MARKETING_VOUCHERS_FOR_FREE_ENTRY_TO_THE_PARK,            STR_VOUCHERS_FOR_FREE_ENTRY_TO,         STR_MARKETING_FINISHED_FREE_ENTRY },        // ADVERTISING_CAMPAIGN_PARK_ENTRY_FREE,
+    { STR_MARKETING_VOUCHERS_FOR_FREE_RIDES_ON_A_PARTICULAR_RIDE,   STR_VOUCHERS_FOR_FREE_RIDE_ON,          STR_MARKETING_FINISHED_FREE_RIDES },        // ADVERTISING_CAMPAIGN_RIDE_FREE,
+    { STR_MARKETING_VOUCHERS_FOR_HALF_PRICE_ENTRY_TO_THE_PARK,      STR_VOUCHERS_FOR_HALF_PRICE_ENTRY_TO,   STR_MARKETING_FINISHED_HALF_PRICE_ENTRY },  // ADVERTISING_CAMPAIGN_PARK_ENTRY_HALF_PRICE,
+    { STR_MARKETING_VOUCHERS_FOR_FREE_FOOD_OR_DRINK,                STR_VOUCHERS_FOR_FREE,                  STR_MARKETING_FINISHED_FREE_RIDE },         // ADVERTISING_CAMPAIGN_FOOD_OR_DRINK_FREE,
+    { STR_MARKETING_ADVERTISING_CAMPAIGN_FOR_THE_PARK,              STR_ADVERTISING_CAMPAIGN_FOR_1,         STR_MARKETING_FINISHED_PARK_ADS },          // ADVERTISING_CAMPAIGN_PARK,
+    { STR_MARKETING_ADVERTISING_CAMPAIGN_FOR_A_PARTICULAR_RIDE,     STR_ADVERTISING_CAMPAIGN_FOR_2,         STR_MARKETING_FINISHED_RIDE_ADS },          // ADVERTISING_CAMPAIGN_RIDE,
+};
+// clang-format on
+
 static constexpr uint16_t AdvertisingCampaignGuestGenerationProbabilities[] = {
     400, 300, 200, 200, 250, 200,
 };
-
-std::vector<MarketingCampaign> gMarketingCampaigns;
 
 uint16_t MarketingGetCampaignGuestGenerationProbability(int32_t campaignType)
 {
@@ -91,7 +99,7 @@ static void MarketingRaiseFinishedNotification(const MarketingCampaign& campaign
             ft.Add<StringId>(GetShopItemDescriptor(campaign.ShopItemType).Naming.Plural);
         }
 
-        News::AddItemToQueue(News::ItemType::Campaign, MarketingCampaignNames[campaign.Type][2], 0, ft);
+        News::AddItemToQueue(News::ItemType::Campaign, kMarketingCampaignNames[campaign.Type][2], 0, ft);
     }
 }
 
@@ -103,10 +111,12 @@ void MarketingUpdate()
 {
     PROFILED_FUNCTION();
 
-    if (GetGameState().Cheats.NeverendingMarketing)
+    auto& gameState = GetGameState();
+
+    if (gameState.Cheats.NeverendingMarketing)
         return;
 
-    for (auto it = gMarketingCampaigns.begin(); it != gMarketingCampaigns.end();)
+    for (auto it = gameState.MarketingCampaigns.begin(); it != gameState.MarketingCampaigns.end();)
     {
         auto& campaign = *it;
         if (campaign.Flags & MarketingCampaignFlags::FIRST_WEEK)
@@ -123,7 +133,7 @@ void MarketingUpdate()
         if (campaign.WeeksLeft == 0)
         {
             MarketingRaiseFinishedNotification(campaign);
-            it = gMarketingCampaigns.erase(it);
+            it = gameState.MarketingCampaigns.erase(it);
         }
         else
         {
@@ -222,7 +232,7 @@ bool MarketingIsCampaignTypeApplicable(int32_t campaignType)
 
 MarketingCampaign* MarketingGetCampaign(int32_t campaignType)
 {
-    for (auto& campaign : gMarketingCampaigns)
+    for (auto& campaign : GetGameState().MarketingCampaigns)
     {
         if (campaign.Type == campaignType)
         {
@@ -242,7 +252,7 @@ void MarketingNewCampaign(const MarketingCampaign& campaign)
     }
     else
     {
-        gMarketingCampaigns.push_back(campaign);
+        GetGameState().MarketingCampaigns.push_back(campaign);
     }
 }
 
@@ -256,7 +266,7 @@ void MarketingCancelCampaignsForRide(const RideId rideId)
         return false;
     };
 
-    auto& v = gMarketingCampaigns;
+    auto& v = GetGameState().MarketingCampaigns;
     auto removedIt = std::remove_if(v.begin(), v.end(), isCampaignForRideFn);
     v.erase(removedIt, v.end());
 }

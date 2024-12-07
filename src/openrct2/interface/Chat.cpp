@@ -12,11 +12,11 @@
 #include "../Context.h"
 #include "../audio/AudioMixer.h"
 #include "../audio/audio.h"
+#include "../core/UTF8.h"
 #include "../drawing/Drawing.h"
 #include "../drawing/Text.h"
 #include "../localisation/Formatter.h"
 #include "../localisation/Formatting.h"
-#include "../localisation/Localisation.h"
 #include "../network/network.h"
 #include "../platform/Platform.h"
 #include "../util/Util.h"
@@ -85,7 +85,7 @@ void ChatUpdate()
     _chatCaretTicks = (_chatCaretTicks + 1) % 30;
 }
 
-void ChatDraw(DrawPixelInfo& dpi, uint8_t chatBackgroundColor)
+void ChatDraw(DrawPixelInfo& dpi, ColourWithFlags chatBackgroundColor)
 {
     thread_local std::string lineBuffer;
 
@@ -192,7 +192,7 @@ void ChatDraw(DrawPixelInfo& dpi, uint8_t chatBackgroundColor)
         auto ft = Formatter();
         ft.Add<const char*>(lineCh);
         inputLineHeight = DrawTextWrapped(
-            dpi, screenCoords + ScreenCoordsXY{ 0, 3 }, _chatWidth - 10, STR_STRING, ft, { TEXT_COLOUR_255 });
+            dpi, screenCoords + ScreenCoordsXY{ 0, 3 }, _chatWidth - 10, STR_STRING, ft, { kTextColour255 });
         GfxSetDirtyBlocks({ screenCoords, { screenCoords + ScreenCoordsXY{ _chatWidth, inputLineHeight + 15 } } });
 
         // TODO: Show caret if the input text has multiple lines
@@ -288,7 +288,7 @@ static int32_t ChatHistoryDrawString(DrawPixelInfo& dpi, const char* text, const
     int32_t lineY = screenCoords.y;
     for (int32_t line = 0; line <= numLines; ++line)
     {
-        DrawText(dpi, { screenCoords.x, lineY - (numLines * lineHeight) }, { TEXT_COLOUR_254 }, bufferPtr);
+        DrawText(dpi, { screenCoords.x, lineY - (numLines * lineHeight) }, { kTextColour254 }, bufferPtr);
         bufferPtr = GetStringEnd(bufferPtr) + 1;
         lineY += lineHeight;
     }

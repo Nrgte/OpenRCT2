@@ -9,6 +9,7 @@
 
 #include "Fonts.h"
 
+#include "../Diagnostic.h"
 #include "../config/Config.h"
 #include "../core/String.hpp"
 #include "../drawing/TTF.h"
@@ -156,7 +157,7 @@ void TryLoadFonts(LocalisationService& localisationService)
     auto currentLanguage = localisationService.GetCurrentLanguage();
     TTFontFamily const* fontFamily = LanguagesDescriptors[currentLanguage].font_family;
 
-    if (fontFamily != FAMILY_OPENRCT2_SPRITE)
+    if (fontFamily != kFamilyOpenRCT2Sprite)
     {
         if (!Config::Get().fonts.FileName.empty())
         {

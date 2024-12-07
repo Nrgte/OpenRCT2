@@ -9,12 +9,16 @@
 
 #pragma once
 
-#include "../common.h"
+#include "../util/Util.h"
 #include "../world/Map.h"
 #include "Peep.h"
 
+#include <cstdint>
+
 class DataSerialiser;
 class PatrolArea;
+
+using colour_t = uint8_t;
 
 struct Staff : Peep
 {
@@ -143,11 +147,11 @@ enum class EntertainerCostume : uint8_t
 extern const StringId StaffCostumeNames[EnumValue(EntertainerCostume::Count)];
 
 colour_t StaffGetColour(StaffType staffType);
-GameActions::Result StaffSetColour(StaffType staffType, colour_t value);
+OpenRCT2::GameActions::Result StaffSetColour(StaffType staffType, colour_t value);
 uint32_t StaffGetAvailableEntertainerCostumes();
 int32_t StaffGetAvailableEntertainerCostumeList(EntertainerCostume* costumeList);
 
 money64 GetStaffWage(StaffType type);
-PeepSpriteType EntertainerCostumeToSprite(EntertainerCostume entertainerType);
+PeepAnimationGroup EntertainerCostumeToSprite(EntertainerCostume entertainerType);
 
 const PatrolArea& GetMergedPatrolArea(const StaffType type);

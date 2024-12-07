@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <openrct2/Context.h>
+#include <openrct2/Diagnostic.h>
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/PlatformEnvironment.h>
 #include <openrct2/audio/AudioContext.h>
@@ -27,7 +28,8 @@ using namespace OpenRCT2;
 using namespace OpenRCT2::Audio;
 using namespace OpenRCT2::Ui;
 
-template<typename T> static std::shared_ptr<T> ToShared(std::unique_ptr<T>&& src)
+template<typename T>
+static std::shared_ptr<T> ToShared(std::unique_ptr<T>&& src)
 {
     return std::shared_ptr<T>(std::move(src));
 }

@@ -13,11 +13,11 @@
 #include "OpenGLAPI.h"
 #include "TextureCache.h"
 
-#include <openrct2/common.h>
 #include <vector>
 namespace OpenRCT2::Ui
 {
-    template<typename T> class CommandBatch
+    template<typename T>
+    class CommandBatch
     {
     private:
         std::vector<T> _instances;
@@ -94,7 +94,6 @@ namespace OpenRCT2::Ui
 
     struct DrawLineCommand
     {
-        ivec4 clip;
         ivec4 bounds;
         GLuint colour;
         GLint depth;

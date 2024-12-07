@@ -10,9 +10,9 @@
 #include "ObjectRepository.h"
 
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../OpenRCT2.h"
 #include "../PlatformEnvironment.h"
-#include "../common.h"
 #include "../core/Console.hpp"
 #include "../core/DataSerialiser.h"
 #include "../core/FileIndex.hpp"
@@ -23,8 +23,8 @@
 #include "../core/MemoryStream.h"
 #include "../core/Numerics.hpp"
 #include "../core/Path.hpp"
+#include "../core/SawyerCoding.h"
 #include "../core/String.hpp"
-#include "../localisation/Localisation.h"
 #include "../localisation/LocalisationService.h"
 #include "../object/Object.h"
 #include "../park/Legacy.h"
@@ -32,7 +32,6 @@
 #include "../rct12/SawyerChunkReader.h"
 #include "../rct12/SawyerChunkWriter.h"
 #include "../scenario/ScenarioRepository.h"
-#include "../util/SawyerCoding.h"
 #include "../util/Util.h"
 #include "Object.h"
 #include "ObjectFactory.h"
@@ -85,11 +84,11 @@ private:
 public:
     explicit ObjectFileIndex(IObjectRepository& objectRepository, const IPlatformEnvironment& env)
         : FileIndex(
-            "object index", MAGIC_NUMBER, VERSION, env.GetFilePath(PATHID::CACHE_OBJECTS), std::string(PATTERN),
-            std::vector<std::string>{
-                env.GetDirectoryPath(DIRBASE::OPENRCT2, DIRID::OBJECT),
-                env.GetDirectoryPath(DIRBASE::USER, DIRID::OBJECT),
-            })
+              "object index", MAGIC_NUMBER, VERSION, env.GetFilePath(PATHID::CACHE_OBJECTS), std::string(PATTERN),
+              std::vector<std::string>{
+                  env.GetDirectoryPath(DIRBASE::OPENRCT2, DIRID::OBJECT),
+                  env.GetDirectoryPath(DIRBASE::USER, DIRID::OBJECT),
+              })
         , _objectRepository(objectRepository)
     {
     }
@@ -529,11 +528,11 @@ private:
 
         // Encode data
         ObjectType objectType = entry->GetType();
-        SawyerCodingChunkHeader chunkHeader;
+        SawyerCoding::ChunkHeader chunkHeader;
         chunkHeader.encoding = kLegacyObjectEntryGroupEncoding[EnumValue(objectType)];
         chunkHeader.length = static_cast<uint32_t>(dataSize);
         uint8_t* encodedDataBuffer = Memory::Allocate<uint8_t>(0x600000);
-        size_t encodedDataSize = SawyerCodingWriteChunkBuffer(
+        size_t encodedDataSize = SawyerCoding::WriteChunkBuffer(
             encodedDataBuffer, reinterpret_cast<const uint8_t*>(data), chunkHeader);
 
         // Save to file

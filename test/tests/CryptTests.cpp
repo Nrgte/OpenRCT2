@@ -14,31 +14,20 @@
 #include <openrct2/core/Crypt.h>
 #include <openrct2/core/File.h>
 #include <openrct2/core/Path.hpp>
+#include <openrct2/core/String.hpp>
 #include <openrct2/network/NetworkKey.h>
 #include <string>
+
+using namespace OpenRCT2;
 
 class CryptTests : public testing::Test
 {
 public:
-    template<typename T> void AssertHash(std::string expected, T hash)
+    template<typename T>
+    void AssertHash(std::string expected, T hash)
     {
-        auto actual = StringToHex(hash);
+        auto actual = String::StringFromHex(hash);
         ASSERT_EQ(expected, actual);
-    }
-
-    template<typename T> std::string StringToHex(T input)
-    {
-        std::string result;
-        result.reserve(input.size() * 2);
-        for (auto b : input)
-        {
-            static_assert(sizeof(b) == 1);
-
-            char buf[3];
-            snprintf(buf, 3, "%02x", b);
-            result.append(buf);
-        }
-        return result;
     }
 
     std::string GetTestPrivateKeyPath()

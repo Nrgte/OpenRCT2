@@ -9,11 +9,11 @@
 
 #pragma once
 
-#include "../common.h"
+#include "../core/Money.hpp"
 #include "../entity/Litter.h"
-#include "../util/Util.h"
 
 struct Ride;
+
 enum class PeepThoughtType : uint8_t;
 
 enum class ShopItem : uint8_t

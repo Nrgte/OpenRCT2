@@ -19,7 +19,6 @@
 #include <openrct2/Input.h>
 #include <openrct2/OpenRCT2.h>
 #include <openrct2/audio/audio.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/management/Research.h>
 #include <openrct2/scenario/Scenario.h>
 #include <openrct2/sprites.h>
@@ -30,21 +29,22 @@
 
 namespace OpenRCT2::Ui::Windows
 {
-    // clang-format off
-enum {
-    WIDX_PREVIOUS_IMAGE,        // 1
-    WIDX_PREVIOUS_STEP_BUTTON,  // 2
-    WIDX_NEXT_IMAGE,            // 4
-    WIDX_NEXT_STEP_BUTTON,      // 8
-};
+    enum
+    {
+        WIDX_PREVIOUS_IMAGE,       // 1
+        WIDX_PREVIOUS_STEP_BUTTON, // 2
+        WIDX_NEXT_IMAGE,           // 4
+        WIDX_NEXT_STEP_BUTTON,     // 8
+    };
 
-static Widget _editorBottomToolbarWidgets[] = {
-    MakeWidget({  0, 0}, {200, 34}, WindowWidgetType::ImgBtn,  WindowColour::Primary),
-    MakeWidget({  2, 2}, {196, 30}, WindowWidgetType::FlatBtn, WindowColour::Primary),
-    MakeWidget({440, 0}, {200, 34}, WindowWidgetType::ImgBtn,  WindowColour::Primary),
-    MakeWidget({442, 2}, {196, 30}, WindowWidgetType::FlatBtn, WindowColour::Primary),
-    kWidgetsEnd,
-};
+    // clang-format off
+    static Widget _editorBottomToolbarWidgets[] = {
+        MakeWidget({  0, 0}, {200, 34}, WindowWidgetType::ImgBtn,  WindowColour::Primary),
+        MakeWidget({  2, 2}, {196, 30}, WindowWidgetType::FlatBtn, WindowColour::Primary),
+        MakeWidget({440, 0}, {200, 34}, WindowWidgetType::ImgBtn,  WindowColour::Primary),
+        MakeWidget({442, 2}, {196, 30}, WindowWidgetType::FlatBtn, WindowColour::Primary),
+        kWidgetsEnd,
+    };
     // clang-format on
 
     class EditorBottomToolbarWindow final : public Window
@@ -141,7 +141,7 @@ static Widget _editorBottomToolbarWidgets[] = {
             if (widgetIndex == WIDX_PREVIOUS_STEP_BUTTON)
             {
                 if ((gScreenFlags & SCREEN_FLAGS_TRACK_DESIGNER)
-                    || (GetNumFreeEntities() == MAX_ENTITIES && !(GetGameState().Park.Flags & PARK_FLAGS_SPRITES_INITIALISED)))
+                    || (GetNumFreeEntities() == MAX_ENTITIES && !(gameState.Park.Flags & PARK_FLAGS_SPRITES_INITIALISED)))
                 {
                     ((this)->*(_previousButtonMouseUp[EnumValue(gameState.EditorStep)]))();
                 }
@@ -164,7 +164,7 @@ static Widget _editorBottomToolbarWidgets[] = {
         {
             WindowCloseAll();
             SetAllSceneryItemsInvented();
-            ScenerySetDefaultPlacementConfiguration();
+            WindowScenerySetDefaultPlacementConfiguration();
             GetGameState().EditorStep = EditorStep::LandscapeEditor;
             ContextOpenWindow(WindowClass::Map);
             GfxInvalidateScreen();
@@ -199,6 +199,7 @@ static Widget _editorBottomToolbarWidgets[] = {
             else
             {
                 ContextOpenWindow(WindowClass::Map);
+                ContextOpenWindow(WindowClass::Mapgen);
             }
         }
 
@@ -285,7 +286,7 @@ static Widget _editorBottomToolbarWidgets[] = {
                 dpi, ImageId(SPR_PREVIOUS),
                 windowPos + ScreenCoordsXY{ widgets[WIDX_PREVIOUS_IMAGE].left + 6, widgets[WIDX_PREVIOUS_IMAGE].top + 6 });
 
-            colour_t textColour = NOT_TRANSLUCENT(colours[1]);
+            colour_t textColour = colours[1].colour;
             if (gHoverWidget.window_classification == WindowClass::BottomToolbar
                 && gHoverWidget.widget_index == WIDX_PREVIOUS_STEP_BUTTON)
             {
@@ -323,7 +324,7 @@ static Widget _editorBottomToolbarWidgets[] = {
                 dpi, ImageId(SPR_NEXT),
                 windowPos + ScreenCoordsXY{ widgets[WIDX_NEXT_IMAGE].right - 29, widgets[WIDX_NEXT_IMAGE].top + 6 });
 
-            colour_t textColour = NOT_TRANSLUCENT(colours[1]);
+            colour_t textColour = colours[1].colour;
 
             if (gHoverWidget.window_classification == WindowClass::BottomToolbar
                 && gHoverWidget.widget_index == WIDX_NEXT_STEP_BUTTON)
@@ -346,9 +347,10 @@ static Widget _editorBottomToolbarWidgets[] = {
         {
             int16_t stateX = (widgets[WIDX_PREVIOUS_IMAGE].right + widgets[WIDX_NEXT_IMAGE].left) / 2 + windowPos.x;
             int16_t stateY = height - 0x0C + windowPos.y;
+            auto colour = colours[2].withFlag(ColourFlag::translucent, false).withFlag(ColourFlag::withOutline, true);
             DrawTextBasic(
                 dpi, { stateX, stateY }, _editorStepNames[EnumValue(GetGameState().EditorStep)], {},
-                { static_cast<colour_t>(NOT_TRANSLUCENT(colours[2]) | COLOUR_FLAG_OUTLINE), TextAlignment::CENTRE });
+                { colour, TextAlignment::CENTRE });
         }
 
         static constexpr FuncPtr _previousButtonMouseUp[] = {

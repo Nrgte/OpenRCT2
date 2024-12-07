@@ -13,7 +13,10 @@
 #include "ride/VehicleSounds.h"
 #include "windows/Window.h"
 
+#include <openrct2-ui/ProvisionalElements.h>
+#include <openrct2-ui/UiContext.h>
 #include <openrct2-ui/input/InputManager.h>
+#include <openrct2-ui/input/MouseInput.h>
 #include <openrct2-ui/input/ShortcutManager.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Input.h>
@@ -24,6 +27,7 @@
 #include <openrct2/interface/Viewport.h>
 #include <openrct2/localisation/Formatter.h>
 #include <openrct2/rct2/T6Exporter.h>
+#include <openrct2/ride/Ride.h>
 #include <openrct2/ride/RideConstruction.h>
 #include <openrct2/ride/Vehicle.h>
 #include <openrct2/ui/WindowManager.h>
@@ -129,6 +133,8 @@ public:
                 return TitleMenuOpen();
             case WindowClass::TitleOptions:
                 return TitleOptionsOpen();
+            case WindowClass::TitleVersion:
+                return TitleVersionOpen();
             case WindowClass::TopToolbar:
                 return TopToolbarOpen();
             case WindowClass::ViewClipping:
@@ -141,6 +147,8 @@ public:
                 return TransparencyOpen();
             case WindowClass::AssetPacks:
                 return AssetPacksOpen();
+            case WindowClass::EditorParkEntrance:
+                return EditorParkEntranceOpen();
             default:
                 Console::Error::WriteLine("Unhandled window class (%d)", wc);
                 return nullptr;
@@ -317,22 +325,33 @@ public:
                 // Check if window is already open
                 auto* window = WindowBringToFrontByClass(WindowClass::Scenery);
                 if (window == nullptr)
-                {
-                    auto* tlbrWindow = WindowFindByClass(WindowClass::TopToolbar);
-                    if (tlbrWindow != nullptr)
-                    {
-                        tlbrWindow->Invalidate();
-                        if (!ToolSet(*tlbrWindow, WC_TOP_TOOLBAR__WIDX_SCENERY, Tool::Arrow))
-                        {
-                            InputSetFlag(INPUT_FLAG_6, true);
-                            window = SceneryOpen();
-                        }
-                    }
-                }
+                    ToggleSceneryWindow();
 
                 // Switch to new scenery tab
                 WindowScenerySetSelectedTab(intent->GetUIntExtra(INTENT_EXTRA_SCENERY_GROUP_ENTRY_INDEX));
                 return window;
+            }
+
+            case INTENT_ACTION_PROGRESS_OPEN:
+            {
+                std::string message = intent->GetStringExtra(INTENT_EXTRA_MESSAGE);
+                close_callback callback = intent->GetCloseCallbackExtra(INTENT_EXTRA_CALLBACK);
+                return ProgressWindowOpen(message, callback);
+            }
+
+            case INTENT_ACTION_PROGRESS_SET:
+            {
+                uint32_t currentProgress = intent->GetUIntExtra(INTENT_EXTRA_PROGRESS_OFFSET);
+                uint32_t totalCount = intent->GetUIntExtra(INTENT_EXTRA_PROGRESS_TOTAL);
+                StringId format = intent->GetUIntExtra(INTENT_EXTRA_STRING_ID);
+                ProgressWindowSet(currentProgress, totalCount, format);
+                return nullptr;
+            }
+
+            case INTENT_ACTION_PROGRESS_CLOSE:
+            {
+                ProgressWindowClose();
+                return nullptr;
             }
 
             case INTENT_ACTION_NULL:
@@ -516,14 +535,6 @@ public:
                 OpenRCT2::Audio::UpdateVehicleSounds();
                 break;
 
-            case INTENT_ACTION_TRACK_DESIGN_REMOVE_PROVISIONAL:
-                TrackPlaceClearProvisionalTemporarily();
-                break;
-
-            case INTENT_ACTION_TRACK_DESIGN_RESTORE_PROVISIONAL:
-                TrackPlaceRestoreProvisional();
-                break;
-
             case INTENT_ACTION_SET_MAP_TOOLTIP:
             {
                 auto ft = static_cast<Formatter*>(intent.GetPointerExtra(INTENT_EXTRA_FORMATTER));
@@ -540,6 +551,18 @@ public:
                 break;
             }
 
+            case INTENT_ACTION_REMOVE_PROVISIONAL_ELEMENTS:
+                ProvisionalElementsRemove();
+                break;
+            case INTENT_ACTION_RESTORE_PROVISIONAL_ELEMENTS:
+                ProvisionalElementsRestore();
+                break;
+            case INTENT_ACTION_REMOVE_PROVISIONAL_FOOTPATH:
+                FootpathRemoveProvisional();
+                break;
+            case INTENT_ACTION_REMOVE_PROVISIONAL_TRACK_PIECE:
+                RideRemoveProvisionalTrackPiece();
+                break;
             default:
                 break;
         }
@@ -551,6 +574,10 @@ public:
         {
             case WindowClass::NetworkStatus:
                 WindowNetworkStatusClose();
+                break;
+
+            case WindowClass::ProgressWindow:
+                ProgressWindowClose();
                 break;
 
             default:
@@ -587,20 +614,14 @@ public:
         if (mainWindow != nullptr)
         {
             auto viewport = WindowGetViewport(mainWindow);
-            auto zoomDifference = zoom - viewport->zoom;
 
             mainWindow->viewport_target_sprite = EntityId::GetNull();
             mainWindow->savedViewPos = viewPos;
             viewport->zoom = zoom;
             viewport->rotation = rotation;
 
-            if (zoomDifference != ZoomLevel{ 0 })
-            {
-                viewport->view_width = zoomDifference.ApplyTo(viewport->view_width);
-                viewport->view_height = zoomDifference.ApplyTo(viewport->view_height);
-            }
-            mainWindow->savedViewPos.x -= viewport->view_width >> 1;
-            mainWindow->savedViewPos.y -= viewport->view_height >> 1;
+            mainWindow->savedViewPos.x -= viewport->ViewWidth() / 2;
+            mainWindow->savedViewPos.y -= viewport->ViewHeight() / 2;
 
             // Make sure the viewport has correct coordinates set.
             ViewportUpdatePosition(mainWindow);

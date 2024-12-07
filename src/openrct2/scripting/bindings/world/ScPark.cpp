@@ -12,8 +12,8 @@
 #    include "ScPark.hpp"
 
 #    include "../../../Context.h"
+#    include "../../../Date.h"
 #    include "../../../GameState.h"
-#    include "../../../common.h"
 #    include "../../../core/String.hpp"
 #    include "../../../entity/Guest.h"
 #    include "../../../management/Finance.h"
@@ -22,6 +22,7 @@
 #    include "../../../world/Park.h"
 #    include "../../Duktape.hpp"
 #    include "../../ScriptEngine.h"
+#    include "../entity/ScGuest.hpp"
 #    include "ScParkMessage.hpp"
 
 namespace OpenRCT2::Scripting
@@ -146,6 +147,13 @@ namespace OpenRCT2::Scripting
     int32_t ScPark::guestGenerationProbability_get() const
     {
         return GetGameState().GuestGenerationProbability;
+    }
+
+    DukValue ScPark::generateGuest()
+    {
+        ThrowIfGameStateNotMutable();
+        auto guest = Park::GenerateGuest();
+        return GetObjectAsDukValue(_context, std::make_shared<ScGuest>(guest->Id));
     }
 
     money64 ScPark::guestInitialCash_get() const
@@ -384,13 +392,13 @@ namespace OpenRCT2::Scripting
                 text = message["text"].as_string();
                 if (type == News::ItemType::Blank)
                 {
-                    assoc = static_cast<uint32_t>(((COORDS_NULL & 0xFFFF) << 16) | (COORDS_NULL & 0xFFFF));
+                    assoc = static_cast<uint32_t>(((kCoordsNull & 0xFFFF) << 16) | (kCoordsNull & 0xFFFF));
                 }
 
                 auto dukSubject = message["subject"];
                 if (dukSubject.type() == DukValue::Type::NUMBER)
                 {
-                    assoc = static_cast<uint32_t>(dukSubject.as_int());
+                    assoc = static_cast<uint32_t>(dukSubject.as_uint());
                 }
             }
             News::AddItemToQueue(type, text.c_str(), assoc);
@@ -399,6 +407,23 @@ namespace OpenRCT2::Scripting
         {
             duk_error(message.context(), DUK_ERR_ERROR, "Invalid message argument.");
         }
+    }
+
+    std::vector<int32_t> ScPark::getMonthlyExpenditure(const std::string& expenditureType) const
+    {
+        auto recordedMonths = std::clamp(
+            GetDate().GetMonthsElapsed() + 1, static_cast<uint32_t>(0), static_cast<uint32_t>(kExpenditureTableMonthCount));
+        std::vector<int32_t> result(recordedMonths, 0);
+        auto type = ScriptEngine::StringToExpenditureType(expenditureType);
+        if (type != ExpenditureType::Count)
+        {
+            auto& gameState = GetGameState();
+            for (size_t i = 0; i < recordedMonths; ++i)
+            {
+                result[i] = gameState.ExpenditureTable[i][EnumValue(type)];
+            }
+        }
+        return result;
     }
 
     void ScPark::Register(duk_context* ctx)
@@ -411,6 +436,7 @@ namespace OpenRCT2::Scripting
         dukglue_register_property(ctx, &ScPark::guests_get, nullptr, "guests");
         dukglue_register_property(ctx, &ScPark::suggestedGuestMaximum_get, nullptr, "suggestedGuestMaximum");
         dukglue_register_property(ctx, &ScPark::guestGenerationProbability_get, nullptr, "guestGenerationProbability");
+        dukglue_register_method(ctx, &ScPark::generateGuest, "generateGuest");
         dukglue_register_property(ctx, &ScPark::guestInitialCash_get, nullptr, "guestInitialCash");
         dukglue_register_property(ctx, &ScPark::guestInitialHappiness_get, nullptr, "guestInitialHappiness");
         dukglue_register_property(ctx, &ScPark::guestInitialHunger_get, nullptr, "guestInitialHunger");
@@ -432,6 +458,7 @@ namespace OpenRCT2::Scripting
         dukglue_register_method(ctx, &ScPark::getFlag, "getFlag");
         dukglue_register_method(ctx, &ScPark::setFlag, "setFlag");
         dukglue_register_method(ctx, &ScPark::postMessage, "postMessage");
+        dukglue_register_method(ctx, &ScPark::getMonthlyExpenditure, "getMonthlyExpenditure");
     }
 
 } // namespace OpenRCT2::Scripting

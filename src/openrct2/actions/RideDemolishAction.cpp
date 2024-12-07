@@ -11,12 +11,12 @@
 
 #include "../Cheats.h"
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../core/MemoryStream.h"
 #include "../drawing/Drawing.h"
 #include "../entity/EntityList.h"
 #include "../interface/Window.h"
-#include "../localisation/Localisation.h"
 #include "../management/NewsItem.h"
 #include "../peep/RideUseSystem.h"
 #include "../ride/Ride.h"
@@ -26,6 +26,7 @@
 #include "../world/Banner.h"
 #include "../world/Park.h"
 #include "../world/TileElementsView.h"
+#include "../world/tile_element/TrackElement.h"
 #include "MazeSetTrackAction.h"
 #include "TrackRemoveAction.h"
 

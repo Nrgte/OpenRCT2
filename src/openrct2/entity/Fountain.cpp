@@ -20,6 +20,7 @@
 #include "../world/Location.hpp"
 #include "../world/Map.h"
 #include "../world/Scenery.h"
+#include "../world/tile_element/PathElement.h"
 #include "EntityRegistry.h"
 
 using namespace OpenRCT2;
@@ -37,25 +38,25 @@ enum class PATTERN
 };
 
 static constexpr std::array _fountainDirectionsNegative = {
-    CoordsXY{ -COORDS_XY_STEP, 0 },
-    CoordsXY{ -COORDS_XY_STEP, -COORDS_XY_STEP },
+    CoordsXY{ -kCoordsXYStep, 0 },
+    CoordsXY{ -kCoordsXYStep, -kCoordsXYStep },
     CoordsXY{ 0, 0 },
-    CoordsXY{ -COORDS_XY_STEP, 0 },
+    CoordsXY{ -kCoordsXYStep, 0 },
     CoordsXY{ 0, 0 },
-    CoordsXY{ 0, -COORDS_XY_STEP },
-    CoordsXY{ 0, -COORDS_XY_STEP },
-    CoordsXY{ -COORDS_XY_STEP, -COORDS_XY_STEP },
+    CoordsXY{ 0, -kCoordsXYStep },
+    CoordsXY{ 0, -kCoordsXYStep },
+    CoordsXY{ -kCoordsXYStep, -kCoordsXYStep },
 };
 
 static constexpr std::array _fountainDirectionsPositive = {
-    CoordsXY{ COORDS_XY_STEP, 0 },
+    CoordsXY{ kCoordsXYStep, 0 },
     CoordsXY{ 0, 0 },
-    CoordsXY{ 0, COORDS_XY_STEP },
-    CoordsXY{ COORDS_XY_STEP, COORDS_XY_STEP },
-    CoordsXY{ COORDS_XY_STEP, COORDS_XY_STEP },
-    CoordsXY{ COORDS_XY_STEP, 0 },
+    CoordsXY{ 0, kCoordsXYStep },
+    CoordsXY{ kCoordsXYStep, kCoordsXYStep },
+    CoordsXY{ kCoordsXYStep, kCoordsXYStep },
+    CoordsXY{ kCoordsXYStep, 0 },
     CoordsXY{ 0, 0 },
-    CoordsXY{ 0, COORDS_XY_STEP },
+    CoordsXY{ 0, kCoordsXYStep },
 };
 constexpr auto _FountainChanceOfStoppingEdgeMode = 0x3333;   // 0.200
 constexpr auto _FountainChanceOfStoppingRandomMode = 0x2000; // 0.125
@@ -82,7 +83,8 @@ const uint8_t _fountainPatternFlags[] = {
     FOUNTAIN_FLAG::FAST,                                                   // FAST_RANDOM_CHASERS
 };
 
-template<> bool EntityBase::Is<JumpingFountain>() const
+template<>
+bool EntityBase::Is<JumpingFountain>() const
 {
     return Type == EntityType::JumpingFountain;
 }
@@ -100,7 +102,7 @@ void JumpingFountain::StartAnimation(const JumpingFountainType newType, const Co
     {
         case PATTERN::CYCLIC_SQUARES:
             // 0, 1, 2, 3
-            for (int32_t i = 0; i < NumOrthogonalDirections; i++)
+            for (int32_t i = 0; i < kNumOrthogonalDirections; i++)
             {
                 JumpingFountain::Create(
                     newType, { newLoc + _fountainDirectionsPositive[i], newZ }, _fountainDirections[i],
@@ -110,7 +112,7 @@ void JumpingFountain::StartAnimation(const JumpingFountainType newType, const Co
         case PATTERN::BOUNCING_PAIRS:
             // random [0, 2 or 1, 3]
             randomIndex = ScenarioRand() & 1;
-            for (int32_t i = randomIndex; i < NumOrthogonalDirections; i += 2)
+            for (int32_t i = randomIndex; i < kNumOrthogonalDirections; i += 2)
             {
                 JumpingFountain::Create(
                     newType, { newLoc + _fountainDirectionsPositive[i], newZ }, _fountainDirections[i],
@@ -435,11 +437,11 @@ void JumpingFountain::Paint(PaintSession& session, int32_t imageDirection) const
                                                                        : JumpingFountainWaterBaseImage;
     auto imageId = ImageId(baseImageId + imageDirection * 16 + frame);
     constexpr std::array antiClockWiseBoundingBoxes = {
-        CoordsXY{ -COORDS_XY_STEP, -3 },
+        CoordsXY{ -kCoordsXYStep, -3 },
         CoordsXY{ 0, -3 },
     };
     constexpr std::array clockWiseBoundingBoxes = {
-        CoordsXY{ -COORDS_XY_STEP, 3 },
+        CoordsXY{ -kCoordsXYStep, 3 },
         CoordsXY{ 0, 3 },
     };
 

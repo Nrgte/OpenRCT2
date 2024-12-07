@@ -10,21 +10,19 @@
 #include <openrct2-ui/interface/Widget.h>
 #include <openrct2-ui/windows/Window.h>
 #include <openrct2/Context.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/sprites.h>
 
 namespace OpenRCT2::Ui::Windows
 {
-    // clang-format off
-enum WindowTitleExitWidgetIdx {
-    WIDX_EXIT,
-};
+    enum WindowTitleExitWidgetIdx
+    {
+        WIDX_EXIT,
+    };
 
-static Widget _titleExitWidgets[] = {
-    MakeWidget({0, 0}, {40, 64}, WindowWidgetType::ImgBtn, WindowColour::Tertiary, ImageId(SPR_MENU_EXIT), STR_EXIT),
-    kWidgetsEnd,
-};
-    // clang-format on
+    static Widget _titleExitWidgets[] = {
+        MakeWidget({ 0, 0 }, { 40, 64 }, WindowWidgetType::ImgBtn, WindowColour::Tertiary, ImageId(SPR_MENU_EXIT), STR_EXIT),
+        kWidgetsEnd,
+    };
 
     class TitleExitWindow final : public Window
     {

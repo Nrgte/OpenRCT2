@@ -9,6 +9,11 @@
 
 #include "RideFreezeRatingAction.h"
 
+#include "../Diagnostic.h"
+#include "../interface/Window.h"
+
+using namespace OpenRCT2;
+
 RideFreezeRatingAction::RideFreezeRatingAction(RideId rideIndex, RideRatingType type, ride_rating value)
     : _rideIndex(rideIndex)
     , _type(type)
@@ -55,13 +60,13 @@ GameActions::Result RideFreezeRatingAction::Execute() const
     switch (_type)
     {
         case RideRatingType::Excitement:
-            ride->excitement = _value;
+            ride->ratings.excitement = _value;
             break;
         case RideRatingType::Intensity:
-            ride->intensity = _value;
+            ride->ratings.intensity = _value;
             break;
         case RideRatingType::Nausea:
-            ride->nausea = _value;
+            ride->ratings.nausea = _value;
             break;
     }
 

@@ -15,15 +15,15 @@
 #include "../../interface/Viewport.h"
 #include "../../localisation/Formatter.h"
 #include "../../localisation/Formatting.h"
-#include "../../localisation/Localisation.h"
+#include "../../localisation/StringIds.h"
 #include "../../object/BannerObject.h"
 #include "../../object/ObjectEntryManager.h"
 #include "../../profiling/Profiling.h"
 #include "../../ride/TrackDesign.h"
-#include "../../sprites.h"
 #include "../../world/Banner.h"
 #include "../../world/Scenery.h"
 #include "../../world/TileInspector.h"
+#include "../../world/tile_element/BannerElement.h"
 #include "Paint.TileElement.h"
 
 using namespace OpenRCT2;
@@ -49,7 +49,7 @@ static void PaintBannerScrollingText(
         return;
 
     auto scrollingMode = bannerEntry.scrolling_mode + (direction & 3);
-    if (scrollingMode >= MAX_SCROLLING_TEXT_MODES)
+    if (scrollingMode >= kMaxScrollingTextModes)
     {
         return;
     }

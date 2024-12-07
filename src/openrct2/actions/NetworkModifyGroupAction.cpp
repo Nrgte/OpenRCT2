@@ -10,7 +10,8 @@
 #include "NetworkModifyGroupAction.h"
 
 #include "../network/network.h"
-#include "../util/Util.h"
+
+using namespace OpenRCT2;
 
 NetworkModifyGroupAction::NetworkModifyGroupAction(
     ModifyGroupType type, uint8_t groupId, const std::string name, uint32_t permissionIndex, PermissionState permissionState)

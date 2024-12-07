@@ -10,6 +10,7 @@
 #include "ReplayManager.h"
 
 #include "Context.h"
+#include "Diagnostic.h"
 #include "Game.h"
 #include "GameState.h"
 #include "GameStateSnapshots.h"
@@ -28,6 +29,7 @@
 #include "core/Path.hpp"
 #include "entity/EntityRegistry.h"
 #include "entity/EntityTweener.h"
+#include "interface/Window.h"
 #include "management/NewsItem.h"
 #include "object/ObjectManager.h"
 #include "object/ObjectRepository.h"
@@ -100,11 +102,11 @@ namespace OpenRCT2
 
     class ReplayManager final : public IReplayManager
     {
-        static constexpr uint16_t ReplayVersion = 10;
-        static constexpr uint32_t ReplayMagic = 0x5243524F; // ORCR.
-        static constexpr int ReplayCompressionLevel = 9;
-        static constexpr int NormalRecordingChecksumTicks = 1;
-        static constexpr int SilentRecordingChecksumTicks = 40; // Same as network server
+        static constexpr uint16_t kReplayVersion = 10;
+        static constexpr uint32_t kReplayMagic = 0x5243524F; // ORCR.
+        static constexpr int kReplayCompressionLevel = 9;
+        static constexpr int kNormalRecordingChecksumTicks = 1;
+        static constexpr int kSilentRecordingChecksumTicks = 40; // Same as network server
 
         enum class ReplayMode
         {
@@ -183,7 +185,10 @@ namespace OpenRCT2
 #ifndef DISABLE_NETWORK
                 // If the network is disabled we will only get a dummy hash which will cause
                 // false positives during replay.
-                CheckState();
+                if (!gSilentReplays)
+                {
+                    CheckState();
+                }
 #endif
                 ReplayCommands();
 
@@ -233,11 +238,12 @@ namespace OpenRCT2
             if (_mode != ReplayMode::NONE && _mode != ReplayMode::NORMALISATION)
                 return false;
 
-            const auto currentTicks = GetGameState().CurrentTicks;
+            auto& gameState = GetGameState();
+            const auto currentTicks = gameState.CurrentTicks;
 
             auto replayData = std::make_unique<ReplayRecordData>();
-            replayData->magic = ReplayMagic;
-            replayData->version = ReplayVersion;
+            replayData->magic = kReplayMagic;
+            replayData->version = kReplayVersion;
             replayData->networkId = NetworkGetVersion();
             replayData->name = name;
             replayData->tickStart = currentTicks;
@@ -252,7 +258,6 @@ namespace OpenRCT2
             auto& objManager = context->GetObjectManager();
             auto objects = objManager.GetPackableObjects();
 
-            auto& gameState = GetGameState();
             auto exporter = std::make_unique<ParkFileExporter>();
             exporter->ExportObjectsList = objects;
             exporter->Export(gameState, replayData->parkData);
@@ -315,7 +320,7 @@ namespace OpenRCT2
             auto compressBuf = std::make_unique<unsigned char[]>(compressLength);
             compress2(
                 compressBuf.get(), &compressLength, static_cast<const unsigned char*>(stream.GetData()), stream.GetLength(),
-                ReplayCompressionLevel);
+                kReplayCompressionLevel);
             file.data.Write(compressBuf.get(), compressLength);
 
             DataSerialiser fileSerialiser(true);
@@ -517,9 +522,9 @@ namespace OpenRCT2
             {
                 default:
                 case RecordType::NORMAL:
-                    return NormalRecordingChecksumTicks;
+                    return kNormalRecordingChecksumTicks;
                 case RecordType::SILENT:
-                    return SilentRecordingChecksumTicks;
+                    return kSilentRecordingChecksumTicks;
             }
         }
 
@@ -718,21 +723,21 @@ namespace OpenRCT2
 
         bool Compatible(ReplayRecordData& data)
         {
-            return data.version == ReplayVersion;
+            return data.version == kReplayVersion;
         }
 
         bool Serialise(DataSerialiser& serialiser, ReplayRecordData& data)
         {
             serialiser << data.magic;
-            if (data.magic != ReplayMagic)
+            if (data.magic != kReplayMagic)
             {
-                LOG_ERROR("Magic does not match %08X, expected: %08X", data.magic, ReplayMagic);
+                LOG_ERROR("Magic does not match %08X, expected: %08X", data.magic, kReplayMagic);
                 return false;
             }
             serialiser << data.version;
-            if (data.version != ReplayVersion && !Compatible(data))
+            if (data.version != kReplayVersion && !Compatible(data))
             {
-                LOG_ERROR("Invalid version detected %04X, expected: %04X", data.version, ReplayVersion);
+                LOG_ERROR("Invalid version detected %04X, expected: %04X", data.version, kReplayVersion);
                 return false;
             }
 
@@ -869,7 +874,7 @@ namespace OpenRCT2
                 }
 
                 // Focus camera on event.
-                if (isPositionValid && !result.Position.IsNull())
+                if (!gSilentReplays && isPositionValid && !result.Position.IsNull())
                 {
                     auto* mainWindow = WindowGetMain();
                     if (mainWindow != nullptr)

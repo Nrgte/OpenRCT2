@@ -15,7 +15,6 @@
 
 #    include <memory>
 #    include <openrct2/Context.h>
-#    include <openrct2/common.h>
 #    include <openrct2/interface/Viewport.h>
 #    include <openrct2/scripting/Duktape.hpp>
 #    include <openrct2/scripting/ScriptEngine.h>
@@ -78,7 +77,7 @@ namespace OpenRCT2::Scripting
             auto viewport = GetViewport();
             if (viewport != nullptr)
             {
-                return viewport->viewPos.x + viewport->view_width;
+                return viewport->viewPos.x + viewport->ViewWidth();
             }
             return 0;
         }
@@ -87,7 +86,7 @@ namespace OpenRCT2::Scripting
             auto viewport = GetViewport();
             if (viewport != nullptr)
             {
-                SetViewLeftTop(value - viewport->view_width, viewport->viewPos.y);
+                SetViewLeftTop(value - viewport->ViewWidth(), viewport->viewPos.y);
             }
         }
 
@@ -96,7 +95,7 @@ namespace OpenRCT2::Scripting
             auto viewport = GetViewport();
             if (viewport != nullptr)
             {
-                return viewport->viewPos.y + viewport->view_height;
+                return viewport->viewPos.y + viewport->ViewHeight();
             }
             return 0;
         }
@@ -105,7 +104,7 @@ namespace OpenRCT2::Scripting
             auto viewport = GetViewport();
             if (viewport != nullptr)
             {
-                SetViewLeftTop(viewport->viewPos.x, value - viewport->view_height);
+                SetViewLeftTop(viewport->viewPos.x, value - viewport->ViewHeight());
             }
         }
 
@@ -183,7 +182,7 @@ namespace OpenRCT2::Scripting
             auto viewport = GetViewport();
             if (viewport != nullptr)
             {
-                auto centre = viewport->viewPos + ScreenCoordsXY{ viewport->view_width / 2, viewport->view_height / 2 };
+                auto centre = viewport->viewPos + ScreenCoordsXY{ viewport->ViewWidth() / 2, viewport->ViewHeight() / 2 };
                 auto coords = ViewportPosToMapPos(centre, 24, viewport->rotation);
 
                 auto ctx = GetContext()->GetScriptEngine().GetContext();
@@ -209,8 +208,8 @@ namespace OpenRCT2::Scripting
                     if (coords)
                     {
                         auto screenCoords = Translate3DTo2DWithZ(viewport->rotation, *coords);
-                        auto left = screenCoords.x - (viewport->view_width / 2);
-                        auto top = screenCoords.y - (viewport->view_height / 2);
+                        auto left = screenCoords.x - (viewport->ViewWidth() / 2);
+                        auto top = screenCoords.y - (viewport->ViewHeight() / 2);
                         SetViewLeftTop(left, top);
                     }
                 }

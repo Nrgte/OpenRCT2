@@ -17,7 +17,9 @@
 #include <openrct2/FileClassifier.h>
 #include <openrct2/Game.h>
 #include <openrct2/GameState.h>
+#include <openrct2/OpenRCT2.h>
 #include <openrct2/PlatformEnvironment.h>
+#include <openrct2/audio/audio.h>
 #include <openrct2/config/Config.h>
 #include <openrct2/core/File.h>
 #include <openrct2/core/FileScanner.h>
@@ -25,7 +27,7 @@
 #include <openrct2/core/Path.hpp>
 #include <openrct2/core/String.hpp>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
+#include <openrct2/network/network.h>
 #include <openrct2/platform/Platform.h>
 #include <openrct2/rct2/T6Exporter.h>
 #include <openrct2/ride/TrackDesign.h>
@@ -65,20 +67,20 @@ namespace OpenRCT2::Ui::Windows
     };
 
     // clang-format off
-static Widget window_loadsave_widgets[] =
-{
-    WINDOW_SHIM(WINDOW_TITLE, WW, WH),
-    MakeWidget({               0,  WH - 1}, { WW,   1}, WindowWidgetType::Resize,      WindowColour::Secondary                                                             ), // WIDX_RESIZE
-    MakeWidget({               4,      36}, { 84,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_LOADSAVE_DEFAULT,              STR_LOADSAVE_DEFAULT_TIP), // WIDX_DEFAULT
-    MakeWidget({              88,      36}, { 84,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_ACTION_UP                                  ), // WIDX_UP
-    MakeWidget({             172,      36}, { 87,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_ACTION_NEW_FOLDER                          ), // WIDX_NEW_FOLDER
-    MakeWidget({             259,      36}, { 87,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_ACTION_NEW_FILE                            ), // WIDX_NEW_FILE
-    MakeWidget({               4,      55}, {170,  14}, WindowWidgetType::TableHeader, WindowColour::Primary                                                               ), // WIDX_SORT_NAME
-    MakeWidget({(WW - 5) / 2 + 1,      55}, {170,  14}, WindowWidgetType::TableHeader, WindowColour::Primary                                                               ), // WIDX_SORT_DATE
-    MakeWidget({               4,      68}, {342, 303}, WindowWidgetType::Scroll,      WindowColour::Primary,   SCROLL_VERTICAL                                            ), // WIDX_SCROLL
-    MakeWidget({               4, WH - 24}, {197,  19}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_USE_SYSTEM_WINDOW                          ), // WIDX_BROWSE
-    kWidgetsEnd,
-};
+    static Widget window_loadsave_widgets[] =
+    {
+        WINDOW_SHIM(WINDOW_TITLE, WW, WH),
+        MakeWidget({               0,  WH - 1}, { WW,   1}, WindowWidgetType::Resize,      WindowColour::Secondary                                                             ), // WIDX_RESIZE
+        MakeWidget({               4,      36}, { 84,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_LOADSAVE_DEFAULT,              STR_LOADSAVE_DEFAULT_TIP), // WIDX_DEFAULT
+        MakeWidget({              88,      36}, { 84,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_ACTION_UP                                  ), // WIDX_UP
+        MakeWidget({             172,      36}, { 87,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_ACTION_NEW_FOLDER                          ), // WIDX_NEW_FOLDER
+        MakeWidget({             259,      36}, { 87,  14}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_ACTION_NEW_FILE                            ), // WIDX_NEW_FILE
+        MakeWidget({               4,      55}, {170,  14}, WindowWidgetType::TableHeader, WindowColour::Primary                                                               ), // WIDX_SORT_NAME
+        MakeWidget({(WW - 5) / 2 + 1,      55}, {170,  14}, WindowWidgetType::TableHeader, WindowColour::Primary                                                               ), // WIDX_SORT_DATE
+        MakeWidget({               4,      68}, {342, 303}, WindowWidgetType::Scroll,      WindowColour::Primary,   SCROLL_VERTICAL                                            ), // WIDX_SCROLL
+        MakeWidget({               4, WH - 24}, {197,  19}, WindowWidgetType::Button,      WindowColour::Primary,   STR_FILEBROWSER_USE_SYSTEM_WINDOW                          ), // WIDX_BROWSE
+        kWidgetsEnd,
+    };
     // clang-format on
 
 #pragma endregion
@@ -265,6 +267,11 @@ static Widget window_loadsave_widgets[] =
         char pathBuffer[MAX_PATH];
         SafeStrCpy(pathBuffer, path, sizeof(pathBuffer));
 
+        // Closing this will cause a Ride window to pop up, so we have to do this to ensure that
+        // no windows are open (besides the toolbars and LoadSave window).
+        WindowCloseByClass(WindowClass::RideConstruction);
+        WindowCloseAllExceptClass(WindowClass::Loadsave);
+
         auto& gameState = GetGameState();
 
         switch (_type & 0x0F)
@@ -324,7 +331,7 @@ static Widget window_loadsave_widgets[] =
 
             case (LOADSAVETYPE_SAVE | LOADSAVETYPE_LANDSCAPE):
                 SetAndSaveConfigPath(Config::Get().general.LastSaveLandscapeDirectory, pathBuffer);
-                gScenarioFileName = std::string(String::ToStringView(pathBuffer, std::size(pathBuffer)));
+                gameState.ScenarioFileName = std::string(String::ToStringView(pathBuffer, std::size(pathBuffer)));
                 if (ScenarioSave(gameState, pathBuffer, Config::Get().general.SavePluginData ? 3 : 2))
                 {
                     gCurrentLoadedPath = pathBuffer;
@@ -345,7 +352,7 @@ static Widget window_loadsave_widgets[] =
                 int32_t parkFlagsBackup = gameState.Park.Flags;
                 gameState.Park.Flags &= ~PARK_FLAGS_SPRITES_INITIALISED;
                 gameState.EditorStep = EditorStep::Invalid;
-                gScenarioFileName = std::string(String::ToStringView(pathBuffer, std::size(pathBuffer)));
+                gameState.ScenarioFileName = std::string(String::ToStringView(pathBuffer, std::size(pathBuffer)));
                 int32_t success = ScenarioSave(gameState, pathBuffer, Config::Get().general.SavePluginData ? 3 : 2);
                 gameState.Park.Flags = parkFlagsBackup;
 
@@ -384,7 +391,7 @@ static Widget window_loadsave_widgets[] =
                 const auto withExtension = Path::WithExtension(pathBuffer, ".td6");
                 String::Set(pathBuffer, sizeof(pathBuffer), withExtension.c_str());
 
-                RCT2::T6Exporter t6Export{ _trackDesign };
+                RCT2::T6Exporter t6Export{ *_trackDesign };
 
                 auto success = t6Export.SaveTrack(pathBuffer);
 
@@ -459,7 +466,7 @@ static Widget window_loadsave_widgets[] =
             }
             else
             {
-                auto buffer = OpenRCT2::GetGameState().Park.Name;
+                auto buffer = GetGameState().Park.Name;
                 if (buffer.empty())
                 {
                     buffer = LanguageGetString(STR_UNNAMED_PARK);
@@ -676,6 +683,13 @@ static Widget window_loadsave_widgets[] =
             const bool isSave = (type & 0x01) == LOADSAVETYPE_SAVE;
             const auto path = GetDir(type);
 
+            // Pause the game if not on title scene, nor in network play.
+            if (!(gScreenFlags & SCREEN_FLAGS_TITLE_DEMO) && NetworkGetMode() == NETWORK_MODE_NONE)
+            {
+                gGamePaused |= GAME_PAUSED_MODAL;
+                Audio::StopAll();
+            }
+
             const char* pattern = GetFilterPatternByType(type, isSave);
             PopulateList(isSave, path, pattern);
             no_list_items = static_cast<uint16_t>(_listItems.size());
@@ -693,6 +707,13 @@ static Widget window_loadsave_widgets[] =
         {
             _listItems.clear();
             WindowCloseByClass(WindowClass::LoadsaveOverwritePrompt);
+
+            // Unpause the game if not on title scene, nor in network play.
+            if (!(gScreenFlags & SCREEN_FLAGS_TITLE_DEMO) && NetworkGetMode() == NETWORK_MODE_NONE)
+            {
+                gGamePaused &= ~GAME_PAUSED_MODAL;
+                Audio::Resume();
+            }
         }
 
         void OnResize() override
@@ -915,9 +936,11 @@ static Widget window_loadsave_widgets[] =
             if (selectedItem >= no_list_items)
                 return;
 
-            selected_list_item = selectedItem;
-
-            Invalidate();
+            if (selected_list_item != selectedItem)
+            {
+                selected_list_item = selectedItem;
+                Invalidate();
+            }
         }
 
         void OnScrollMouseDown(int32_t scrollIndex, const ScreenCoordsXY& screenCoords) override
@@ -959,7 +982,8 @@ static Widget window_loadsave_widgets[] =
         void OnScrollDraw(int32_t scrollIndex, DrawPixelInfo& dpi) override
         {
             GfxFillRect(
-                dpi, { { dpi.x, dpi.y }, { dpi.x + dpi.width - 1, dpi.y + dpi.height - 1 } }, ColourMapA[colours[1]].mid_light);
+                dpi, { { dpi.x, dpi.y }, { dpi.x + dpi.width - 1, dpi.y + dpi.height - 1 } },
+                ColourMapA[colours[1].colour].mid_light);
             const int32_t listWidth = widgets[WIDX_SCROLL].width();
             const int32_t dateAnchor = widgets[WIDX_SORT_DATE].left + maxDateWidth + DATE_TIME_GAP;
 

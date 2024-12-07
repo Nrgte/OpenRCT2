@@ -11,6 +11,7 @@
 
 #include "AssetPack.h"
 #include "Context.h"
+#include "Diagnostic.h"
 #include "PlatformEnvironment.h"
 #include "config/Config.h"
 #include "core/Console.hpp"
@@ -142,7 +143,8 @@ void AssetPackManager::AddAssetPack(const fs::path& path)
     }
 }
 
-template<typename TFunc> static void EnumerateCommaSeparatedList(std::string_view csl, TFunc func)
+template<typename TFunc>
+static void EnumerateCommaSeparatedList(std::string_view csl, TFunc func)
 {
     size_t elStart = 0;
     for (size_t i = 0; i <= csl.size(); i++)

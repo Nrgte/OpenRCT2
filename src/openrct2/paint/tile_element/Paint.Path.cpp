@@ -18,7 +18,7 @@
 #include "../../interface/Viewport.h"
 #include "../../localisation/Formatter.h"
 #include "../../localisation/Formatting.h"
-#include "../../localisation/Localisation.h"
+#include "../../localisation/StringIds.h"
 #include "../../object/FootpathObject.h"
 #include "../../object/FootpathRailingsObject.h"
 #include "../../object/FootpathSurfaceObject.h"
@@ -31,9 +31,12 @@
 #include "../../world/Footpath.h"
 #include "../../world/Map.h"
 #include "../../world/Scenery.h"
-#include "../../world/Surface.h"
 #include "../../world/TileInspector.h"
+#include "../../world/tile_element/PathElement.h"
 #include "../../world/tile_element/Slope.h"
+#include "../../world/tile_element/SurfaceElement.h"
+#include "../../world/tile_element/TileElement.h"
+#include "../../world/tile_element/TrackElement.h"
 #include "../Boundbox.h"
 #include "../Paint.SessionFlags.h"
 #include "../support/MetalSupports.h"
@@ -124,7 +127,7 @@ static void PathPaintQueueBanner(
     if (pathElement.IsSloped())
     {
         if (pathElement.GetSlopeDirection() == direction)
-            height += COORDS_Z_STEP * 2;
+            height += kCoordsZStep * 2;
     }
     direction += session.CurrentRotation;
     direction &= 3;
@@ -161,17 +164,18 @@ static void PathPaintQueueBanner(
         {
             ft.Add<StringId>(STR_RIDE_ENTRANCE_CLOSED);
         }
+
+        utf8 bannerBuffer[512]{};
         if (Config::Get().general.UpperCaseBanners)
         {
-            FormatStringToUpper(
-                gCommonStringFormatBuffer, sizeof(gCommonStringFormatBuffer), STR_BANNER_TEXT_FORMAT, ft.Data());
+            FormatStringToUpper(bannerBuffer, sizeof(bannerBuffer), STR_BANNER_TEXT_FORMAT, ft.Data());
         }
         else
         {
-            FormatStringLegacy(gCommonStringFormatBuffer, sizeof(gCommonStringFormatBuffer), STR_BANNER_TEXT_FORMAT, ft.Data());
+            FormatStringLegacy(bannerBuffer, sizeof(bannerBuffer), STR_BANNER_TEXT_FORMAT, ft.Data());
         }
 
-        uint16_t stringWidth = GfxGetStringWidth(gCommonStringFormatBuffer, FontStyle::Tiny);
+        uint16_t stringWidth = GfxGetStringWidth(bannerBuffer, FontStyle::Tiny);
         uint16_t scroll = stringWidth > 0 ? (GetGameState().CurrentTicks / 2) % stringWidth : 0;
 
         PaintAddImageAsChild(
@@ -639,17 +643,17 @@ static void Sub6A3F61(
         if (sloped && direction == EDGE_NE)
         {
             // Path going down into the tunnel
-            PaintUtilPushTunnelRight(session, height + 16, TUNNEL_PATH_AND_MINI_GOLF);
+            PaintUtilPushTunnelRight(session, height + 16, TunnelType::PathAndMiniGolf);
         }
         else if (connectedEdges & EDGE_NE)
         {
             // Flat path with edge to the right (north-east)
-            PaintUtilPushTunnelRight(session, height, TUNNEL_PATH_11);
+            PaintUtilPushTunnelRight(session, height, TunnelType::Path11);
         }
         else
         {
             // Path going up, or flat and not connected to the right
-            PaintUtilPushTunnelRight(session, height, TUNNEL_PATH_AND_MINI_GOLF);
+            PaintUtilPushTunnelRight(session, height, TunnelType::PathAndMiniGolf);
         }
     }
 
@@ -662,17 +666,17 @@ static void Sub6A3F61(
     if (sloped && direction == EDGE_SE)
     {
         // Path going down into the tunnel
-        PaintUtilPushTunnelLeft(session, height + 16, TUNNEL_PATH_AND_MINI_GOLF);
+        PaintUtilPushTunnelLeft(session, height + 16, TunnelType::PathAndMiniGolf);
     }
     else if (connectedEdges & EDGE_NW)
     {
         // Flat path with edge to the left (north-west)
-        PaintUtilPushTunnelLeft(session, height, TUNNEL_PATH_11);
+        PaintUtilPushTunnelLeft(session, height, TunnelType::Path11);
     }
     else
     {
         // Path going up, or flat and not connected to the left
-        PaintUtilPushTunnelLeft(session, height, TUNNEL_PATH_AND_MINI_GOLF);
+        PaintUtilPushTunnelLeft(session, height, TunnelType::PathAndMiniGolf);
     }
 }
 

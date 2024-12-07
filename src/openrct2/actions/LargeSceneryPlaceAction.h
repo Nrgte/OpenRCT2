@@ -42,12 +42,11 @@ public:
     uint16_t GetActionFlags() const override;
 
     void Serialise(DataSerialiser& stream) override;
-    GameActions::Result Query() const override;
-    GameActions::Result Execute() const override;
+    OpenRCT2::GameActions::Result Query() const override;
+    OpenRCT2::GameActions::Result Execute() const override;
 
 private:
-    int16_t GetTotalNumTiles(LargeSceneryTile* tiles) const;
-    bool CheckMapCapacity(LargeSceneryTile* tiles, int16_t numTiles) const;
-    int16_t GetMaxSurfaceHeight(LargeSceneryTile* tiles) const;
+    bool CheckMapCapacity(std::span<const LargeSceneryTile> tiles, size_t numTiles) const;
+    int16_t GetMaxSurfaceHeight(std::span<const LargeSceneryTile> tiles) const;
     void SetNewLargeSceneryElement(LargeSceneryElement& sceneryElement, uint8_t tileNum) const;
 };

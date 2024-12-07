@@ -7,6 +7,7 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include <cassert>
 #include <iterator>
 #include <limits>
 #include <openrct2-ui/interface/Widget.h>
@@ -20,7 +21,6 @@
 #include <openrct2/config/Config.h>
 #include <openrct2/core/String.hpp>
 #include <openrct2/localisation/Formatter.h>
-#include <openrct2/localisation/Localisation.h>
 #include <openrct2/localisation/LocalisationService.h>
 #include <openrct2/management/NewsItem.h>
 #include <openrct2/management/Research.h>
@@ -39,6 +39,7 @@
 #include <openrct2/world/Park.h>
 
 using namespace OpenRCT2::TrackMetaData;
+
 namespace OpenRCT2::Ui::Windows
 {
     static constexpr StringId WindowTitle = STR_NONE;
@@ -104,6 +105,7 @@ namespace OpenRCT2::Ui::Windows
         RIDE_TYPE_HYBRID_COASTER,
         RIDE_TYPE_SINGLE_RAIL_ROLLER_COASTER,
         RIDE_TYPE_ALPINE_COASTER,
+        RIDE_TYPE_LSM_LAUNCHED_ROLLER_COASTER,
 
         // Gentle rides
         RIDE_TYPE_MONORAIL_CYCLES,
@@ -205,26 +207,26 @@ namespace OpenRCT2::Ui::Windows
     static constexpr ScreenSize GroupTrackTypeSize{ GroupByTrackTypeWidth, 14 };
 
     // clang-format off
-static Widget window_new_ride_widgets[] = {
-    WINDOW_SHIM(WindowTitle, WindowWidth, WindowHeight),
-    MakeWidget({  0,  43},             {601, 339},         WindowWidgetType::Resize,   WindowColour::Secondary                                                                ),
-    MakeTab   ({  3,  17},                                                                                      STR_TRANSPORT_RIDES_TIP                                       ),
-    MakeTab   ({ 34,  17},                                                                                      STR_GENTLE_RIDES_TIP                                          ),
-    MakeTab   ({ 65,  17},                                                                                      STR_ROLLER_COASTERS_TIP                                       ),
-    MakeTab   ({ 96,  17},                                                                                      STR_THRILL_RIDES_TIP                                          ),
-    MakeTab   ({127,  17},                                                                                      STR_WATER_RIDES_TIP                                           ),
-    MakeTab   ({158,  17},                                                                                      STR_SHOPS_STALLS_TIP                                          ),
-    MakeTab   ({189,  17},                                                                                      STR_RESEARCH_AND_DEVELOPMENT_TIP                              ),
-    MakeWidget({  3,  62},             {595, 256},         WindowWidgetType::Scroll,   WindowColour::Secondary, SCROLL_VERTICAL                                               ),
-    MakeWidget({  3,  47},             {290,  70},         WindowWidgetType::Groupbox, WindowColour::Tertiary,  STR_CURRENTLY_IN_DEVELOPMENT                                  ),
-    MakeWidget({  3, 124},             {290,  65},         WindowWidgetType::Groupbox, WindowColour::Tertiary,  STR_LAST_DEVELOPMENT                                          ),
-    MakeWidget({265, 161},             { 24,  24},         WindowWidgetType::FlatBtn,  WindowColour::Tertiary,  0xFFFFFFFF,                      STR_RESEARCH_SHOW_DETAILS_TIP),
-    MakeWidget({265,  68},             { 24,  24},         WindowWidgetType::FlatBtn,  WindowColour::Tertiary,  ImageId(SPR_FINANCE),                     STR_FINANCES_RESEARCH_TIP    ),
-    MakeWidget({  4,  46},             {211, 14},          WindowWidgetType::TextBox,  WindowColour::Secondary                          ),
-    MakeWidget({218,  46},             { 70, 14},          WindowWidgetType::Button,   WindowColour::Secondary, STR_OBJECT_SEARCH_CLEAR ),
-    MakeWidget(GroupByTrackTypeOrigin, GroupTrackTypeSize, WindowWidgetType::Checkbox, WindowColour::Secondary, STR_GROUP_BY_TRACK_TYPE,         STR_GROUP_BY_TRACK_TYPE_TIP  ),
-    kWidgetsEnd,
-};
+    static Widget window_new_ride_widgets[] = {
+        WINDOW_SHIM(WindowTitle, WindowWidth, WindowHeight),
+        MakeWidget({  0,  43},             {601, 339},         WindowWidgetType::Resize,   WindowColour::Secondary                                                                ),
+        MakeTab   ({  3,  17},                                                                                      STR_TRANSPORT_RIDES_TIP                                       ),
+        MakeTab   ({ 34,  17},                                                                                      STR_GENTLE_RIDES_TIP                                          ),
+        MakeTab   ({ 65,  17},                                                                                      STR_ROLLER_COASTERS_TIP                                       ),
+        MakeTab   ({ 96,  17},                                                                                      STR_THRILL_RIDES_TIP                                          ),
+        MakeTab   ({127,  17},                                                                                      STR_WATER_RIDES_TIP                                           ),
+        MakeTab   ({158,  17},                                                                                      STR_SHOPS_STALLS_TIP                                          ),
+        MakeTab   ({189,  17},                                                                                      STR_RESEARCH_AND_DEVELOPMENT_TIP                              ),
+        MakeWidget({  3,  62},             {595, 256},         WindowWidgetType::Scroll,   WindowColour::Secondary, SCROLL_VERTICAL                                               ),
+        MakeWidget({  3,  47},             {290,  70},         WindowWidgetType::Groupbox, WindowColour::Tertiary,  STR_CURRENTLY_IN_DEVELOPMENT                                  ),
+        MakeWidget({  3, 124},             {290,  65},         WindowWidgetType::Groupbox, WindowColour::Tertiary,  STR_LAST_DEVELOPMENT                                          ),
+        MakeWidget({265, 161},             { 24,  24},         WindowWidgetType::FlatBtn,  WindowColour::Tertiary,  0xFFFFFFFF,                      STR_RESEARCH_SHOW_DETAILS_TIP),
+        MakeWidget({265,  68},             { 24,  24},         WindowWidgetType::FlatBtn,  WindowColour::Tertiary,  ImageId(SPR_FINANCE),                     STR_FINANCES_RESEARCH_TIP    ),
+        MakeWidget({  4,  46},             {211, 14},          WindowWidgetType::TextBox,  WindowColour::Secondary                          ),
+        MakeWidget({218,  46},             { 70, 14},          WindowWidgetType::Button,   WindowColour::Secondary, STR_OBJECT_SEARCH_CLEAR ),
+        MakeWidget(GroupByTrackTypeOrigin, GroupTrackTypeSize, WindowWidgetType::Checkbox, WindowColour::Secondary, STR_GROUP_BY_TRACK_TYPE,         STR_GROUP_BY_TRACK_TYPE_TIP  ),
+        kWidgetsEnd,
+    };
     // clang-format on
 
 #pragma endregion
@@ -339,7 +341,7 @@ static Widget window_new_ride_widgets[] = {
 
             if (_currentTab < RESEARCH_TAB)
             {
-                _windowNewRideTabScroll[_currentTab] = scrolls[0].v_top;
+                _windowNewRideTabScroll[_currentTab] = scrolls[0].contentOffsetY;
 
                 // Remove highlight when mouse leaves rides list
                 if (!WidgetIsHighlighted(*this, WIDX_RIDE_LIST))
@@ -373,7 +375,7 @@ static Widget window_new_ride_widgets[] = {
                     break;
                 case WIDX_FILTER_CLEAR_BUTTON:
                     _filter.clear();
-                    scrolls->v_top = 0;
+                    scrolls->contentOffsetY = 0;
                     Invalidate();
                     break;
             }
@@ -479,7 +481,7 @@ static Widget window_new_ride_widgets[] = {
                 return;
             }
 
-            GfxClear(dpi, ColourMapA[colours[1]].mid_light);
+            GfxClear(dpi, ColourMapA[colours[1].colour].mid_light);
 
             ScreenCoordsXY coords{ 1, 1 };
             RideSelection* listItem = _windowNewRideListItems;
@@ -522,7 +524,7 @@ static Widget window_new_ride_widgets[] = {
 
             _filter.assign(text);
 
-            scrolls->v_top = 0;
+            scrolls->contentOffsetY = 0;
             Invalidate();
         }
 
@@ -587,7 +589,7 @@ static Widget window_new_ride_widgets[] = {
 
             if (item.Type < 0x80)
             {
-                if (GetRideTypeDescriptor(item.Type).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+                if (GetRideTypeDescriptor(item.Type).HasFlag(RtdFlag::listVehiclesSeparately))
                 {
                     entryName = GetRideEntryName(item.EntryIndex);
                 }
@@ -602,7 +604,7 @@ static Widget window_new_ride_widgets[] = {
         void UpdateVehicleAvailability(ObjectEntryIndex rideType)
         {
             _vehicleAvailability.clear();
-            if (GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+            if (GetRideTypeDescriptor(rideType).HasFlag(RtdFlag::listVehiclesSeparately))
             {
                 return;
             }
@@ -637,7 +639,7 @@ static Widget window_new_ride_widgets[] = {
         ImageIndex GetRideImage(RideSelection rideSelection)
         {
             auto& objMgr = OpenRCT2::GetContext()->GetObjectManager();
-            auto obj = static_cast<RideObject*>(objMgr.GetLoadedObject(ObjectType::Ride, rideSelection.EntryIndex));
+            auto obj = objMgr.GetLoadedObject<RideObject>(rideSelection.EntryIndex);
             return obj == nullptr ? ImageIndexUndefined : obj->GetPreviewImage(rideSelection.Type);
         }
 
@@ -681,26 +683,27 @@ static Widget window_new_ride_widgets[] = {
                     continue;
 
                 // Ride entries
-                const auto* rideEntry = GetRideEntryByIndex(rideEntryIndex);
+                auto& objMgr = OpenRCT2::GetContext()->GetObjectManager();
+                auto* rideObj = objMgr.GetLoadedObject<RideObject>(rideEntryIndex);
 
                 // Skip if the vehicle isn't the preferred vehicle for this generic track type
                 if (!Config::Get().interface.ListRideVehiclesSeparately
-                    && !GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY)
-                    && highestVehiclePriority > rideEntry->BuildMenuPriority)
+                    && !GetRideTypeDescriptor(rideType).HasFlag(RtdFlag::listVehiclesSeparately)
+                    && highestVehiclePriority > rideObj->GetEntry().BuildMenuPriority)
                 {
                     continue;
                 }
 
-                if (!IsFiltered(*rideEntry))
+                if (!IsFiltered(*rideObj))
                 {
                     continue;
                 }
 
-                highestVehiclePriority = rideEntry->BuildMenuPriority;
+                highestVehiclePriority = rideObj->GetEntry().BuildMenuPriority;
 
                 // Determines how and where to draw a button for this ride type/vehicle.
                 if (Config::Get().interface.ListRideVehiclesSeparately
-                    || GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+                    || GetRideTypeDescriptor(rideType).HasFlag(RtdFlag::listVehiclesSeparately))
                 {
                     // Separate, draw apart
                     allowDrawingOverLastButton = false;
@@ -728,7 +731,7 @@ static Widget window_new_ride_widgets[] = {
                 else if (allowDrawingOverLastButton)
                 {
                     // Non-separate, draw over previous
-                    if (rideType == rideEntry->ride_type[0])
+                    if (rideType == rideObj->GetEntry().ride_type[0])
                     {
                         nextListItem--;
                         nextListItem->Type = rideType;
@@ -741,13 +744,13 @@ static Widget window_new_ride_widgets[] = {
             return nextListItem;
         }
 
-        bool IsFiltered(const RideObjectEntry& rideEntry)
+        bool IsFiltered(const RideObject& rideObject)
         {
             if (_filter.empty())
                 return true;
 
-            return IsFilterInRideType(rideEntry) || IsFilterInRideName(rideEntry) || IsFilterInIdentifier(rideEntry)
-                || IsFilterInAuthors(rideEntry) || IsFilterInFilename(rideEntry);
+            return IsFilterInRideType(rideObject.GetEntry()) || IsFilterInRideName(rideObject.GetEntry())
+                || IsFilterInIdentifier(rideObject) || IsFilterInAuthors(rideObject) || IsFilterInFilename(rideObject);
         }
 
         bool IsFilterInRideType(const RideObjectEntry& rideEntry)
@@ -762,30 +765,27 @@ static Widget window_new_ride_widgets[] = {
             return String::Contains(u8string_view(LanguageGetString(rideName)), _filter, true);
         }
 
-        bool IsFilterInAuthors(const RideObjectEntry& rideEntry)
+        bool IsFilterInAuthors(const RideObject& rideObject)
         {
-            auto rideObject = static_cast<RideObject*>(rideEntry.obj);
-            auto authors = rideObject->GetAuthors();
+            auto& authors = rideObject.GetAuthors();
 
-            for (auto author : authors)
+            for (auto& author : authors)
                 if (String::Contains(author, _filter, true))
                     return true;
 
             return false;
         }
 
-        bool IsFilterInIdentifier(const RideObjectEntry& rideEntry)
+        bool IsFilterInIdentifier(const RideObject& rideObject)
         {
-            auto rideObject = static_cast<RideObject*>(rideEntry.obj);
-            auto objectName = rideObject->GetObjectEntry().GetName();
+            auto objectName = rideObject.GetObjectEntry().GetName();
 
             return String::Contains(objectName, _filter, true);
         }
 
-        bool IsFilterInFilename(const RideObjectEntry& rideEntry)
+        bool IsFilterInFilename(const RideObject& rideObject)
         {
-            auto rideObject = static_cast<RideObject*>(rideEntry.obj);
-            auto repoItem = ObjectRepositoryFindObjectByEntry(&(rideObject->GetObjectEntry()));
+            auto repoItem = ObjectRepositoryFindObjectByEntry(&(rideObject.GetObjectEntry()));
 
             return String::Contains(repoItem->Path, _filter, true);
         }
@@ -912,14 +912,16 @@ static Widget window_new_ride_widgets[] = {
             // Ensure the current tab scroll is within range
             currentTabScroll = std::min<uint16_t>(currentTabScroll, std::max(0, scrollSize.height - listWidgetHeight));
 
-            scrolls[0].v_top = currentTabScroll;
+            scrolls[0].contentOffsetY = currentTabScroll;
             WidgetScrollUpdateThumbs(*this, WIDX_RIDE_LIST);
         }
 
         void DrawRideInformation(DrawPixelInfo& dpi, RideSelection item, const ScreenCoordsXY& screenPos, int32_t textWidth)
         {
-            const auto* rideEntry = GetRideEntryByIndex(item.EntryIndex);
-            RideNaming rideNaming = GetRideNaming(item.Type, *rideEntry);
+            auto& objMgr = OpenRCT2::GetContext()->GetObjectManager();
+            const auto* rideObj = objMgr.GetLoadedObject<RideObject>(item.EntryIndex);
+            const auto& rideEntry = rideObj->GetEntry();
+            RideNaming rideNaming = GetRideNaming(item.Type, rideEntry);
             auto ft = Formatter();
 
             UpdateVehicleAvailability(item.Type);
@@ -934,7 +936,7 @@ static Widget window_new_ride_widgets[] = {
                 if (Config::Get().interface.ListRideVehiclesSeparately)
                 {
                     ft = Formatter();
-                    ft.Add<StringId>(rideEntry->naming.Name);
+                    ft.Add<StringId>(rideEntry.naming.Name);
                     DrawTextEllipsised(
                         dpi, screenPos + ScreenCoordsXY{ 0, 39 }, WindowWidth - 2, STR_NEW_RIDE_VEHICLE_NAME, ft);
                 }
@@ -956,20 +958,45 @@ static Widget window_new_ride_widgets[] = {
             if (!(GetGameState().Park.Flags & PARK_FLAGS_NO_MONEY))
             {
                 // Get price of ride
-                int32_t startPieceId = GetRideTypeDescriptor(item.Type).StartTrackPiece;
+                auto startPieceId = GetRideTypeDescriptor(item.Type).StartTrackPiece;
                 money64 price = GetRideTypeDescriptor(item.Type).BuildCosts.TrackPrice;
                 const auto& ted = GetTrackElementDescriptor(startPieceId);
-                price *= ted.PriceModifier;
+                price *= ted.priceModifier;
                 price = (price >> 16) * GetRideTypeDescriptor(item.Type).BuildCosts.PriceEstimateMultiplier;
 
                 //
                 StringId stringId = STR_NEW_RIDE_COST;
-                if (GetRideTypeDescriptor(item.Type).HasFlag(RIDE_TYPE_FLAG_HAS_TRACK))
+                if (GetRideTypeDescriptor(item.Type).HasFlag(RtdFlag::hasTrack))
                     stringId = STR_NEW_RIDE_COST_FROM;
 
                 ft = Formatter();
                 ft.Add<money64>(price);
                 DrawTextBasic(dpi, screenPos + ScreenCoordsXY{ textWidth, 51 }, stringId, ft, { TextAlignment::RIGHT });
+            }
+
+            // Draw object author(s) if debugging tools are active
+            if (Config::Get().general.DebuggingTools)
+            {
+                auto repoItem = ObjectRepositoryFindObjectByEntry(&(rideObj->GetObjectEntry()));
+
+                StringId authorStringId = repoItem->Authors.size() > 1 ? STR_AUTHORS_STRING : STR_AUTHOR_STRING;
+
+                std::string authorsString;
+                for (auto& author : repoItem->Authors)
+                {
+                    if (!authorsString.empty())
+                        authorsString.append(", ");
+
+                    authorsString.append(author);
+                }
+
+                ft = Formatter();
+                ft.Add<StringId>(authorStringId);
+                ft.Add<const char*>(authorsString.c_str());
+
+                DrawTextEllipsised(
+                    dpi, screenPos + ScreenCoordsXY{ textWidth, 0 }, WindowWidth - 2, STR_WINDOW_COLOUR_2_STRINGID, ft,
+                    { TextAlignment::RIGHT });
             }
         }
 
@@ -986,7 +1013,7 @@ static Widget window_new_ride_widgets[] = {
                 spriteIndex += tab == THRILL_TAB ? ThrillRidesTabAnimationSequence[frame] : frame;
 
                 GfxDrawSprite(
-                    dpi, ImageId(spriteIndex, colours[1]),
+                    dpi, ImageId(spriteIndex, colours[1].colour),
                     windowPos + ScreenCoordsXY{ widgets[widgetIndex].left, widgets[widgetIndex].top });
             }
         }

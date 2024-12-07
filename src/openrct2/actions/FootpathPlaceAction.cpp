@@ -10,6 +10,8 @@
 #include "FootpathPlaceAction.h"
 
 #include "../Cheats.h"
+#include "../Context.h"
+#include "../Diagnostic.h"
 #include "../GameState.h"
 #include "../OpenRCT2.h"
 #include "../core/MemoryStream.h"
@@ -18,15 +20,19 @@
 #include "../management/Finance.h"
 #include "../object/PathAdditionEntry.h"
 #include "../ride/RideConstruction.h"
+#include "../windows/Intent.h"
 #include "../world/ConstructionClearance.h"
 #include "../world/Footpath.h"
 #include "../world/Location.hpp"
 #include "../world/Park.h"
+#include "../world/QuarterTile.h"
 #include "../world/Scenery.h"
-#include "../world/Surface.h"
 #include "../world/TileElementsView.h"
 #include "../world/Wall.h"
+#include "../world/tile_element/EntranceElement.h"
+#include "../world/tile_element/PathElement.h"
 #include "../world/tile_element/Slope.h"
+#include "../world/tile_element/SurfaceElement.h"
 
 #include <algorithm>
 
@@ -91,12 +97,12 @@ GameActions::Result FootpathPlaceAction::Query() const
         return GameActions::Result(GameActions::Status::Disallowed, STR_CANT_BUILD_FOOTPATH_HERE, STR_LAND_SLOPE_UNSUITABLE);
     }
 
-    if (_loc.z < FootpathMinHeight)
+    if (_loc.z < kFootpathMinHeight)
     {
         return GameActions::Result(GameActions::Status::Disallowed, STR_CANT_BUILD_FOOTPATH_HERE, STR_TOO_LOW);
     }
 
-    if (_loc.z > FootpathMaxHeight)
+    if (_loc.z > kFootpathMaxHeight)
     {
         return GameActions::Result(GameActions::Status::Disallowed, STR_CANT_BUILD_FOOTPATH_HERE, STR_TOO_HIGH);
     }
@@ -108,7 +114,9 @@ GameActions::Result FootpathPlaceAction::Query() const
             GameActions::Status::InvalidParameters, STR_CANT_BUILD_FOOTPATH_HERE, STR_ERR_VALUE_OUT_OF_RANGE);
     }
 
-    FootpathProvisionalRemove();
+    auto intent = Intent(INTENT_ACTION_REMOVE_PROVISIONAL_FOOTPATH);
+    ContextBroadcastIntent(&intent);
+
     auto tileElement = MapGetFootpathElementSlope(_loc, _slope);
     if (tileElement == nullptr)
     {
@@ -140,7 +148,7 @@ GameActions::Result FootpathPlaceAction::Execute() const
         {
             // It is possible, let's remove walls between the old and new piece of path
             auto zLow = _loc.z;
-            auto zHigh = zLow + PATH_CLEARANCE;
+            auto zHigh = zLow + kPathClearance;
             WallRemoveIntersectingWalls(
                 { _loc, zLow, zHigh + ((_slope & kTileSlopeRaisedCornersMask) ? 16 : 0) }, DirectionReverse(_direction));
             WallRemoveIntersectingWalls(
@@ -282,11 +290,11 @@ GameActions::Result FootpathPlaceAction::ElementInsertQuery(GameActions::Result 
 
     QuarterTile quarterTile{ 0b1111, 0 };
     auto zLow = _loc.z;
-    auto zHigh = zLow + PATH_CLEARANCE;
+    auto zHigh = zLow + kPathClearance;
     if (_slope & FOOTPATH_PROPERTIES_FLAG_IS_SLOPED)
     {
         quarterTile = QuarterTile{ 0b1111, 0b1100 }.Rotate(_slope & kTileElementDirectionMask);
-        zHigh += PATH_HEIGHT_STEP;
+        zHigh += kPathHeightStep;
     }
 
     auto entranceElement = MapGetParkEntranceElementAt(_loc, false);
@@ -329,7 +337,7 @@ GameActions::Result FootpathPlaceAction::ElementInsertQuery(GameActions::Result 
             GameActions::Status::InvalidParameters, STR_CANT_BUILD_FOOTPATH_HERE, STR_ERR_SURFACE_ELEMENT_NOT_FOUND);
     }
     int32_t supportHeight = zLow - surfaceElement->GetBaseZ();
-    res.Cost += supportHeight < 0 ? 20.00_GBP : (supportHeight / PATH_HEIGHT_STEP) * 5.00_GBP;
+    res.Cost += supportHeight < 0 ? 20.00_GBP : (supportHeight / kPathHeightStep) * 5.00_GBP;
 
     // Prevent the place sound from being spammed
     if (entranceIsSamePath)
@@ -351,11 +359,11 @@ GameActions::Result FootpathPlaceAction::ElementInsertExecute(GameActions::Resul
 
     QuarterTile quarterTile{ 0b1111, 0 };
     auto zLow = _loc.z;
-    auto zHigh = zLow + PATH_CLEARANCE;
+    auto zHigh = zLow + kPathClearance;
     if (_slope & FOOTPATH_PROPERTIES_FLAG_IS_SLOPED)
     {
         quarterTile = QuarterTile{ 0b1111, 0b1100 }.Rotate(_slope & kTileElementDirectionMask);
-        zHigh += PATH_HEIGHT_STEP;
+        zHigh += kPathHeightStep;
     }
 
     auto entranceElement = MapGetParkEntranceElementAt(_loc, false);
@@ -392,7 +400,7 @@ GameActions::Result FootpathPlaceAction::ElementInsertExecute(GameActions::Resul
             GameActions::Status::InvalidParameters, STR_CANT_BUILD_FOOTPATH_HERE, STR_ERR_SURFACE_ELEMENT_NOT_FOUND);
     }
     int32_t supportHeight = zLow - surfaceElement->GetBaseZ();
-    res.Cost += supportHeight < 0 ? 20.00_GBP : (supportHeight / PATH_HEIGHT_STEP) * 5.00_GBP;
+    res.Cost += supportHeight < 0 ? 20.00_GBP : (supportHeight / kPathHeightStep) * 5.00_GBP;
 
     if (entrancePath)
     {
@@ -462,16 +470,16 @@ void FootpathPlaceAction::AutomaticallySetPeepSpawn() const
 {
     auto mapSizeUnits = GetMapSizeUnits();
     uint8_t direction = 0;
-    if (_loc.x != COORDS_XY_STEP)
+    if (_loc.x != kCoordsXYStep)
     {
         direction++;
-        if (_loc.y != mapSizeUnits.y - COORDS_XY_STEP)
+        if (_loc.y != mapSizeUnits.y - kCoordsXYStep)
         {
             direction++;
-            if (_loc.x != mapSizeUnits.x - COORDS_XY_STEP)
+            if (_loc.x != mapSizeUnits.x - kCoordsXYStep)
             {
                 direction++;
-                if (_loc.y != COORDS_XY_STEP)
+                if (_loc.y != kCoordsXYStep)
                     return;
             }
         }
@@ -495,8 +503,8 @@ void FootpathPlaceAction::RemoveIntersectingWalls(PathElement* pathElement) cons
     {
         auto direction = pathElement->GetSlopeDirection();
         int32_t z = pathElement->GetBaseZ();
-        WallRemoveIntersectingWalls({ _loc, z, z + (6 * COORDS_Z_STEP) }, DirectionReverse(direction));
-        WallRemoveIntersectingWalls({ _loc, z, z + (6 * COORDS_Z_STEP) }, direction);
+        WallRemoveIntersectingWalls({ _loc, z, z + (6 * kCoordsZStep) }, DirectionReverse(direction));
+        WallRemoveIntersectingWalls({ _loc, z, z + (6 * kCoordsZStep) }, direction);
         // Removing walls may have made the pointer invalid, so find it again
         pathElement = MapGetFootpathElement(CoordsXYZ(_loc, z));
         if (pathElement == nullptr)

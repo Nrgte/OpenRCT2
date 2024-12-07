@@ -14,12 +14,12 @@
 #include <algorithm>
 #include <cmath>
 #include <openrct2/audio/AudioSource.h>
-#include <openrct2/common.h>
 #include <speex/speex_resampler.h>
 
 namespace OpenRCT2::Audio
 {
-    template<typename AudioSource_ = SDLAudioSource> class AudioChannelImpl final : public ISDLAudioChannel
+    template<typename AudioSource_ = SDLAudioSource>
+    class AudioChannelImpl final : public ISDLAudioChannel
     {
         static_assert(std::is_base_of_v<IAudioSource, AudioSource_>);
 

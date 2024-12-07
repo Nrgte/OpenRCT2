@@ -9,12 +9,12 @@
 
 #pragma once
 
-#include "../common.h"
 #include "../config/ConfigTypes.h"
-#include "../core/String.hpp"
+#include "../core/DateTime.h"
+#include "../core/StringTypes.h"
 
 #include <ctime>
-#include <string>
+#include <vector>
 
 #ifdef _WIN32
 #    define PATH_SEPARATOR u8"\\"
@@ -45,7 +45,7 @@ struct RealWorldDate;
 struct RealWorldTime;
 struct TTFFontDescriptor;
 
-namespace Platform
+namespace OpenRCT2::Platform
 {
     std::string GetEnvironmentVariable(std::string_view name);
     std::string GetFolderPath(SPECIAL_FOLDER folder);
@@ -124,7 +124,13 @@ namespace Platform
     uint32_t GetTicks();
 
     void Sleep(uint32_t ms);
-} // namespace Platform
+
+    bool SSE41Available();
+    bool AVX2Available();
+
+    std::vector<std::string_view> GetSearchablePathsRCT1();
+    std::vector<std::string_view> GetSearchablePathsRCT2();
+} // namespace OpenRCT2::Platform
 
 #ifdef __ANDROID__
 class AndroidClassLoader

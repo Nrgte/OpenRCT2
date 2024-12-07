@@ -11,13 +11,12 @@
 
 #include "../../Game.h"
 #include "../../GameState.h"
-#include "../../common.h"
 #include "../../config/Config.h"
 #include "../../drawing/Drawing.h"
 #include "../../interface/Colour.h"
 #include "../../interface/Viewport.h"
 #include "../../localisation/Formatting.h"
-#include "../../localisation/Localisation.h"
+#include "../../localisation/StringIds.h"
 #include "../../object/WallSceneryEntry.h"
 #include "../../profiling/Profiling.h"
 #include "../../ride/Track.h"
@@ -26,7 +25,7 @@
 #include "../../world/Map.h"
 #include "../../world/Scenery.h"
 #include "../../world/TileInspector.h"
-#include "../../world/Wall.h"
+#include "../../world/tile_element/WallElement.h"
 #include "Paint.TileElement.h"
 
 using namespace OpenRCT2;
@@ -164,7 +163,7 @@ static void PaintWallScrollingText(
         return;
 
     scrollingMode = wallEntry.scrolling_mode + ((direction + 1) & 3);
-    if (scrollingMode >= MAX_SCROLLING_TEXT_MODES)
+    if (scrollingMode >= kMaxScrollingTextModes)
         return;
 
     auto banner = wallElement.GetBanner();

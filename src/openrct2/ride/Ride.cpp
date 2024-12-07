@@ -11,6 +11,7 @@
 
 #include "../Cheats.h"
 #include "../Context.h"
+#include "../Diagnostic.h"
 #include "../Editor.h"
 #include "../Game.h"
 #include "../GameState.h"
@@ -22,7 +23,6 @@
 #include "../actions/RideSetVehicleAction.h"
 #include "../audio/AudioMixer.h"
 #include "../audio/audio.h"
-#include "../common.h"
 #include "../config/Config.h"
 #include "../core/BitSet.hpp"
 #include "../core/FixedVector.h"
@@ -31,11 +31,11 @@
 #include "../entity/EntityRegistry.h"
 #include "../entity/Peep.h"
 #include "../entity/Staff.h"
+#include "../interface/Viewport.h"
 #include "../interface/Window_internal.h"
-#include "../localisation/Date.h"
 #include "../localisation/Formatter.h"
 #include "../localisation/Formatting.h"
-#include "../localisation/Localisation.h"
+#include "../localisation/Localisation.Date.h"
 #include "../management/Finance.h"
 #include "../management/Marketing.h"
 #include "../management/NewsItem.h"
@@ -45,7 +45,6 @@
 #include "../object/ObjectManager.h"
 #include "../object/RideObject.h"
 #include "../object/StationObject.h"
-#include "../paint/VirtualFloor.h"
 #include "../profiling/Profiling.h"
 #include "../rct1/RCT1.h"
 #include "../scenario/Scenario.h"
@@ -63,6 +62,9 @@
 #include "../world/Park.h"
 #include "../world/Scenery.h"
 #include "../world/TileElementsView.h"
+#include "../world/tile_element/EntranceElement.h"
+#include "../world/tile_element/PathElement.h"
+#include "../world/tile_element/TrackElement.h"
 #include "CableLift.h"
 #include "RideAudio.h"
 #include "RideConstruction.h"
@@ -94,6 +96,18 @@ RideMode& operator++(RideMode& d, int)
 static constexpr int32_t RideInspectionInterval[] = {
     10, 20, 30, 45, 60, 120, 0, 0,
 };
+
+// clang-format off
+const StringId kRideInspectionIntervalNames[] = {
+    STR_EVERY_10_MINUTES,
+    STR_EVERY_20_MINUTES,
+    STR_EVERY_30_MINUTES,
+    STR_EVERY_45_MINUTES,
+    STR_EVERY_HOUR,
+    STR_EVERY_2_HOURS,
+    STR_NEVER,
+};
+// clang-format on
 
 // This is the highest used index + 1 of the GameState_t::Rides array.
 static size_t _endOfUsedRange = 0;
@@ -284,11 +298,11 @@ size_t Ride::GetNumPrices() const
 {
     size_t result = 0;
     const auto& rtd = GetRideTypeDescriptor();
-    if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_CASH_MACHINE) || rtd.HasFlag(RIDE_TYPE_FLAG_IS_FIRST_AID))
+    if (rtd.HasFlag(RtdFlag::isCashMachine) || rtd.HasFlag(RtdFlag::isFirstAid))
     {
         result = 0;
     }
-    else if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_TOILET))
+    else if (rtd.HasFlag(RtdFlag::isToilet))
     {
         result = 1;
     }
@@ -364,7 +378,7 @@ void Ride::UpdateQueueLength(StationIndex stationIndex)
 
 void Ride::QueueInsertGuestAtFront(StationIndex stationIndex, Guest* peep)
 {
-    assert(stationIndex.ToUnderlying() < OpenRCT2::Limits::MaxStationsPerRide);
+    assert(stationIndex.ToUnderlying() < OpenRCT2::Limits::kMaxStationsPerRide);
     assert(peep != nullptr);
 
     peep->GuestNextInQueue = EntityId::GetNull();
@@ -485,7 +499,7 @@ bool RideTryGetOriginElement(const Ride& ride, CoordsXYE* output)
         bool specialTrackPiece
             = (it.element->AsTrack()->GetTrackType() != TrackElemType::BeginStation
                && it.element->AsTrack()->GetTrackType() != TrackElemType::MiddleStation
-               && (std::get<0>(ted.SequenceProperties) & TRACK_SEQUENCE_FLAG_ORIGIN));
+               && (ted.sequences[0].flags & TRACK_SEQUENCE_FLAG_ORIGIN));
 
         // Set result tile to this track piece if first found track or a ???
         if (resultTileElement == nullptr || specialTrackPiece)
@@ -495,8 +509,8 @@ bool RideTryGetOriginElement(const Ride& ride, CoordsXYE* output)
             if (output != nullptr)
             {
                 output->element = resultTileElement;
-                output->x = it.x * COORDS_XY_STEP;
-                output->y = it.y * COORDS_XY_STEP;
+                output->x = it.x * kCoordsXYStep;
+                output->y = it.y * kCoordsXYStep;
             }
         }
 
@@ -532,7 +546,7 @@ bool TrackBlockGetNextFromZero(
     if (tileElement == nullptr)
     {
         output->element = nullptr;
-        output->x = LOCATION_NULL;
+        output->x = kLocationNull;
         return false;
     }
 
@@ -552,18 +566,17 @@ bool TrackBlockGetNextFromZero(
             continue;
 
         const auto& ted = GetTrackElementDescriptor(trackElement->GetTrackType());
-        const auto* nextTrackBlock = ted.Block;
-        if (nextTrackBlock == nullptr)
+        if (ted.numSequences == 0)
             continue;
 
-        const auto& nextTrackCoordinate = ted.Coordinates;
-        uint8_t nextRotation = tileElement->GetDirectionWithOffset(nextTrackCoordinate.rotation_begin)
-            | (nextTrackCoordinate.rotation_begin & TRACK_BLOCK_2);
+        const auto& nextTrackCoordinate = ted.coordinates;
+        uint8_t nextRotation = tileElement->GetDirectionWithOffset(nextTrackCoordinate.rotationBegin)
+            | (nextTrackCoordinate.rotationBegin & TRACK_BLOCK_2);
 
         if (nextRotation != direction_start)
             continue;
 
-        int16_t nextZ = nextTrackCoordinate.z_begin - nextTrackBlock->z + tileElement->GetBaseZ();
+        int16_t nextZ = nextTrackCoordinate.zBegin - ted.sequences[0].clearance.z + tileElement->GetBaseZ();
         if (nextZ != trackPos.z)
             continue;
 
@@ -602,11 +615,12 @@ bool TrackBlockGetNext(CoordsXYE* input, CoordsXYE* output, int32_t* z, int32_t*
         return false;
 
     const auto& ted = GetTrackElementDescriptor(inputElement->GetTrackType());
-    const auto* trackBlock = ted.GetBlockForSequence(inputElement->GetSequenceIndex());
-    if (trackBlock == nullptr)
+    auto sequenceIndex = inputElement->GetSequenceIndex();
+    if (sequenceIndex >= ted.numSequences)
         return false;
 
-    const auto& trackCoordinate = ted.Coordinates;
+    const auto& trackBlock = ted.sequences[sequenceIndex].clearance;
+    const auto& trackCoordinate = ted.coordinates;
 
     int32_t x = input->x;
     int32_t y = input->y;
@@ -616,15 +630,15 @@ bool TrackBlockGetNext(CoordsXYE* input, CoordsXYE* output, int32_t* z, int32_t*
 
     CoordsXY coords = { x, y };
     CoordsXY trackCoordOffset = { trackCoordinate.x, trackCoordinate.y };
-    CoordsXY trackBlockOffset = { trackBlock->x, trackBlock->y };
+    CoordsXY trackBlockOffset = { trackBlock.x, trackBlock.y };
     coords += trackCoordOffset.Rotate(rotation);
     coords += trackBlockOffset.Rotate(DirectionReverse(rotation));
 
-    OriginZ -= trackBlock->z;
-    OriginZ += trackCoordinate.z_end;
+    OriginZ -= trackBlock.z;
+    OriginZ += trackCoordinate.zEnd;
 
-    uint8_t directionStart = ((trackCoordinate.rotation_end + rotation) & kTileElementDirectionMask)
-        | (trackCoordinate.rotation_end & TRACK_BLOCK_2);
+    uint8_t directionStart = ((trackCoordinate.rotationEnd + rotation) & kTileElementDirectionMask)
+        | (trackCoordinate.rotationEnd & TRACK_BLOCK_2);
 
     return TrackBlockGetNextFromZero({ coords, OriginZ }, *ride, directionStart, output, z, direction, false);
 }
@@ -668,27 +682,29 @@ bool TrackBlockGetPreviousFromZero(
         if (trackElement->GetRideIndex() != ride.id)
             continue;
 
-        const auto* ted = &GetTrackElementDescriptor(trackElement->GetTrackType());
-        const auto& nextTrackCoordinate = ted->Coordinates;
-
-        const auto* nextTrackBlock = ted->GetBlockForSequence(trackElement->GetSequenceIndex());
-        if (nextTrackBlock == nullptr)
-            continue;
-        if ((nextTrackBlock + 1)->index != 255)
+        const auto& ted = GetTrackElementDescriptor(trackElement->GetTrackType());
+        if (ted.numSequences == 0)
             continue;
 
-        uint8_t nextRotation = tileElement->GetDirectionWithOffset(nextTrackCoordinate.rotation_end)
-            | (nextTrackCoordinate.rotation_end & TRACK_BLOCK_2);
+        auto sequenceIndex = trackElement->GetSequenceIndex();
+        if ((sequenceIndex + 1) != ted.numSequences)
+            continue;
+
+        const auto& currentBlock = ted.sequences[sequenceIndex].clearance;
+
+        const auto& nextTrackCoordinate = ted.coordinates;
+        uint8_t nextRotation = tileElement->GetDirectionWithOffset(nextTrackCoordinate.rotationEnd)
+            | (nextTrackCoordinate.rotationEnd & TRACK_BLOCK_2);
 
         if (nextRotation != directionStart)
             continue;
 
-        int16_t nextZ = nextTrackCoordinate.z_end - nextTrackBlock->z + tileElement->GetBaseZ();
+        int16_t nextZ = nextTrackCoordinate.zEnd - currentBlock.z + tileElement->GetBaseZ();
         if (nextZ != trackPos.z)
             continue;
 
-        nextRotation = tileElement->GetDirectionWithOffset(nextTrackCoordinate.rotation_begin)
-            | (nextTrackCoordinate.rotation_begin & TRACK_BLOCK_2);
+        nextRotation = tileElement->GetDirectionWithOffset(nextTrackCoordinate.rotationBegin)
+            | (nextTrackCoordinate.rotationBegin & TRACK_BLOCK_2);
         outTrackBeginEnd->begin_element = tileElement;
         outTrackBeginEnd->begin_x = trackPos.x;
         outTrackBeginEnd->begin_y = trackPos.y;
@@ -703,12 +719,8 @@ bool TrackBlockGetPreviousFromZero(
 
         outTrackBeginEnd->begin_z = tileElement->GetBaseZ();
 
-        ted = &GetTrackElementDescriptor(trackElement->GetTrackType());
-        const auto* nextTrackBlock2 = ted->Block;
-        if (nextTrackBlock2 == nullptr)
-            continue;
-
-        outTrackBeginEnd->begin_z += nextTrackBlock2->z - nextTrackBlock->z;
+        const auto& firstBlock = ted.sequences[0].clearance;
+        outTrackBeginEnd->begin_z += firstBlock.z - currentBlock.z;
         outTrackBeginEnd->begin_direction = nextRotation;
         outTrackBeginEnd->end_direction = DirectionReverse(directionStart);
         return true;
@@ -746,24 +758,25 @@ bool TrackBlockGetPrevious(const CoordsXYE& trackPos, TrackBeginEnd* outTrackBeg
     if (ride == nullptr)
         return false;
 
-    const auto* trackBlock = ted.GetBlockForSequence(trackElement->GetSequenceIndex());
-    if (trackBlock == nullptr)
+    auto sequenceIndex = trackElement->GetSequenceIndex();
+    if (sequenceIndex >= ted.numSequences)
         return false;
 
-    auto trackCoordinate = ted.Coordinates;
+    const auto& trackBlock = ted.sequences[sequenceIndex].clearance;
+    auto trackCoordinate = ted.coordinates;
 
     int32_t z = trackElement->GetBaseZ();
 
     uint8_t rotation = trackElement->GetDirection();
     CoordsXY coords = CoordsXY{ trackPos };
-    CoordsXY offsets = { trackBlock->x, trackBlock->y };
+    CoordsXY offsets = { trackBlock.x, trackBlock.y };
     coords += offsets.Rotate(DirectionReverse(rotation));
 
-    z -= trackBlock->z;
-    z += trackCoordinate.z_begin;
+    z -= trackBlock.z;
+    z += trackCoordinate.zBegin;
 
-    rotation = ((trackCoordinate.rotation_begin + rotation) & kTileElementDirectionMask)
-        | (trackCoordinate.rotation_begin & TRACK_BLOCK_2);
+    rotation = ((trackCoordinate.rotationBegin + rotation) & kTileElementDirectionMask)
+        | (trackCoordinate.rotationBegin & TRACK_BLOCK_2);
 
     return TrackBlockGetPreviousFromZero({ coords, z }, *ride, rotation, outTrackBeginEnd);
 }
@@ -782,7 +795,7 @@ bool Ride::FindTrackGap(const CoordsXYE& input, CoordsXYE* output) const
         return false;
 
     const auto& rtd = GetRideTypeDescriptor();
-    if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+    if (rtd.HasFlag(RtdFlag::isMaze))
         return false;
 
     WindowBase* w = WindowFindByClass(WindowClass::RideConstruction);
@@ -835,7 +848,7 @@ void Ride::FormatStatusTo(Formatter& ft) const
     }
     else if (status == RideStatus::Closed)
     {
-        if (!GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY))
+        if (!GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility))
         {
             if (num_riders != 0)
             {
@@ -874,7 +887,7 @@ void Ride::FormatStatusTo(Formatter& ft) const
             ft.Add<StringId>(STR_NONE);
         }
     }
-    else if (!GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY))
+    else if (!GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility))
     {
         ft.Add<StringId>(num_riders == 1 ? STR_PERSON_ON_RIDE : STR_PEOPLE_ON_RIDE);
         ft.Add<uint16_t>(num_riders);
@@ -903,7 +916,7 @@ int32_t Ride::GetTotalTime() const
 
 bool Ride::CanHaveMultipleCircuits() const
 {
-    if (!(GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_ALLOW_MULTIPLE_CIRCUITS)))
+    if (!(GetRideTypeDescriptor().HasFlag(RtdFlag::allowMultipleCircuits)))
         return false;
 
     // Only allow circuit or launch modes
@@ -930,9 +943,9 @@ bool Ride::SupportsStatus(RideStatus s) const
         case RideStatus::Open:
             return true;
         case RideStatus::Simulating:
-            return (!rtd.HasFlag(RIDE_TYPE_FLAG_NO_TEST_MODE) && rtd.HasFlag(RIDE_TYPE_FLAG_HAS_TRACK));
+            return (!rtd.HasFlag(RtdFlag::noTestMode) && rtd.HasFlag(RtdFlag::hasTrack));
         case RideStatus::Testing:
-            return !rtd.HasFlag(RIDE_TYPE_FLAG_NO_TEST_MODE);
+            return !rtd.HasFlag(RtdFlag::noTestMode);
         case RideStatus::Count: // Meaningless but necessary to satisfy -Wswitch
             return false;
     }
@@ -1065,12 +1078,12 @@ const RideStation& Ride::GetStation(StationIndex stationIndex) const
     return stations[stationIndex.ToUnderlying()];
 }
 
-std::array<RideStation, OpenRCT2::Limits::MaxStationsPerRide>& Ride::GetStations()
+std::array<RideStation, OpenRCT2::Limits::kMaxStationsPerRide>& Ride::GetStations()
 {
     return stations;
 }
 
-const std::array<RideStation, OpenRCT2::Limits::MaxStationsPerRide>& Ride::GetStations() const
+const std::array<RideStation, OpenRCT2::Limits::kMaxStationsPerRide>& Ride::GetStations() const
 {
     return stations;
 }
@@ -1095,8 +1108,8 @@ void Ride::Update()
 
     // Update stations
     const auto& rtd = GetRideTypeDescriptor();
-    if (!rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
-        for (StationIndex::UnderlyingType i = 0; i < OpenRCT2::Limits::MaxStationsPerRide; i++)
+    if (!rtd.HasFlag(RtdFlag::isMaze))
+        for (StationIndex::UnderlyingType i = 0; i < OpenRCT2::Limits::kMaxStationsPerRide; i++)
             RideUpdateStation(*this, StationIndex::FromUnderlying(i));
 
     // Update financial statistics
@@ -1108,7 +1121,7 @@ void Ride::Update()
         num_customers_timeout = 0;
 
         // Shift number of customers history, start of the array is the most recent one
-        for (int32_t i = OpenRCT2::Limits::CustomerHistorySize - 1; i > 0; i--)
+        for (int32_t i = OpenRCT2::Limits::kCustomerHistorySize - 1; i > 0; i--)
         {
             num_customers[i] = num_customers[i - 1];
         }
@@ -1179,10 +1192,10 @@ void UpdateChairlift(Ride& ride)
         return;
 
     auto bullwheelLoc = ride.ChairliftBullwheelLocation[0].ToCoordsXYZ();
-    MapInvalidateTileZoom1({ bullwheelLoc, bullwheelLoc.z, bullwheelLoc.z + (4 * COORDS_Z_STEP) });
+    MapInvalidateTileZoom1({ bullwheelLoc, bullwheelLoc.z, bullwheelLoc.z + (4 * kCoordsZStep) });
 
     bullwheelLoc = ride.ChairliftBullwheelLocation[1].ToCoordsXYZ();
-    MapInvalidateTileZoom1({ bullwheelLoc, bullwheelLoc.z, bullwheelLoc.z + (4 * COORDS_Z_STEP) });
+    MapInvalidateTileZoom1({ bullwheelLoc, bullwheelLoc.z, bullwheelLoc.z + (4 * kCoordsZStep) });
 }
 
 /**
@@ -1281,7 +1294,7 @@ void UpdateSpiralSlide(Ride& ride)
 
     const uint8_t current_rotation = GetCurrentRotation();
     // Invalidate something related to station start
-    for (int32_t i = 0; i < OpenRCT2::Limits::MaxStationsPerRide; i++)
+    for (int32_t i = 0; i < OpenRCT2::Limits::kMaxStationsPerRide; i++)
     {
         if (ride.stations[i].Start.IsNull())
             continue;
@@ -1385,7 +1398,8 @@ static int32_t GetAgePenalty(const Ride& ride)
  */
 static void RideBreakdownUpdate(Ride& ride)
 {
-    const auto currentTicks = GetGameState().CurrentTicks;
+    auto& gameState = GetGameState();
+    const auto currentTicks = gameState.CurrentTicks;
     if (currentTicks & 255)
         return;
 
@@ -1399,14 +1413,14 @@ static void RideBreakdownUpdate(Ride& ride)
     {
         int32_t totalDowntime = 0;
 
-        for (int32_t i = 0; i < OpenRCT2::Limits::DowntimeHistorySize; i++)
+        for (int32_t i = 0; i < OpenRCT2::Limits::kDowntimeHistorySize; i++)
         {
             totalDowntime += ride.downtime_history[i];
         }
 
         ride.downtime = std::min(totalDowntime / 2, 100);
 
-        for (int32_t i = OpenRCT2::Limits::DowntimeHistorySize - 1; i > 0; i--)
+        for (int32_t i = OpenRCT2::Limits::kDowntimeHistorySize - 1; i > 0; i--)
         {
             ride.downtime_history[i] = ride.downtime_history[i - 1];
         }
@@ -1439,7 +1453,7 @@ static void RideBreakdownUpdate(Ride& ride)
     // continues.
     if ((ride.reliability == 0
          || static_cast<uint32_t>(ScenarioRand() & 0x2FFFFF) <= 1u + kRideInitialReliability - ride.reliability)
-        && !GetGameState().Cheats.DisableAllBreakdowns)
+        && !gameState.Cheats.DisableAllBreakdowns)
     {
         int32_t breakdownReason = RideGetNewBreakdownProblem(ride);
         if (breakdownReason != -1)
@@ -1453,22 +1467,21 @@ static void RideBreakdownUpdate(Ride& ride)
  */
 static int32_t RideGetNewBreakdownProblem(const Ride& ride)
 {
-    int32_t availableBreakdownProblems, totalProbability, randomProbability, problemBits, breakdownProblem;
-
-    // Brake failure is more likely when it's raining
-    _breakdownProblemProbabilities[BREAKDOWN_BRAKES_FAILURE] = ClimateIsRaining() ? 20 : 3;
+    // Brake failure is more likely when it's raining or heavily snowing (HeavySnow and Blizzard)
+    _breakdownProblemProbabilities[BREAKDOWN_BRAKES_FAILURE] = (ClimateIsRaining() || ClimateIsSnowingHeavily()) ? 20 : 3;
 
     if (!ride.CanBreakDown())
         return -1;
 
-    availableBreakdownProblems = ride.GetRideTypeDescriptor().AvailableBreakdowns;
+    int32_t availableBreakdownProblems = ride.GetRideTypeDescriptor().AvailableBreakdowns;
 
     // Calculate the total probability range for all possible breakdown problems
-    totalProbability = 0;
-    problemBits = availableBreakdownProblems;
+    int32_t totalProbability = 0;
+    uint32_t problemBits = availableBreakdownProblems;
+    int32_t breakdownProblem;
     while (problemBits != 0)
     {
-        breakdownProblem = UtilBitScanForward(problemBits);
+        breakdownProblem = Numerics::bitScanForward(problemBits);
         problemBits &= ~(1 << breakdownProblem);
         totalProbability += _breakdownProblemProbabilities[breakdownProblem];
     }
@@ -1476,13 +1489,13 @@ static int32_t RideGetNewBreakdownProblem(const Ride& ride)
         return -1;
 
     // Choose a random number within this range
-    randomProbability = ScenarioRand() % totalProbability;
+    int32_t randomProbability = ScenarioRand() % totalProbability;
 
     // Find which problem range the random number lies
     problemBits = availableBreakdownProblems;
     do
     {
-        breakdownProblem = UtilBitScanForward(problemBits);
+        breakdownProblem = Numerics::bitScanForward(problemBits);
         problemBits &= ~(1 << breakdownProblem);
         randomProbability -= _breakdownProblemProbabilities[breakdownProblem];
     } while (randomProbability >= 0);
@@ -1824,7 +1837,7 @@ Staff* FindClosestMechanic(const CoordsXY& entrancePosition, int32_t forInspecti
             if (!peep->IsLocationInPatrol(location))
                 continue;
 
-        if (peep->x == LOCATION_NULL)
+        if (peep->x == kLocationNull)
             continue;
 
         // Manhattan distance
@@ -1968,7 +1981,7 @@ void DefaultMusicUpdate(Ride& ride)
     if (ride.music_tune_id == TUNE_ID_NULL)
     {
         auto& objManager = GetContext()->GetObjectManager();
-        auto musicObj = static_cast<MusicObject*>(objManager.GetLoadedObject(ObjectType::Music, ride.music));
+        auto musicObj = objManager.GetLoadedObject<MusicObject>(ride.music);
         if (musicObj != nullptr)
         {
             auto numTracks = musicObj->GetTrackCount();
@@ -1989,7 +2002,7 @@ static void RideMusicUpdate(Ride& ride)
 {
     const auto& rtd = ride.GetRideTypeDescriptor();
 
-    if (!rtd.HasFlag(RIDE_TYPE_FLAG_MUSIC_ON_DEFAULT) && !rtd.HasFlag(RIDE_TYPE_FLAG_ALLOW_MUSIC))
+    if (!rtd.HasFlag(RtdFlag::hasMusicByDefault) && !rtd.HasFlag(RtdFlag::allowMusic))
         return;
     rtd.MusicUpdateFunction(ride);
 }
@@ -2156,7 +2169,7 @@ std::pair<RideMeasurement*, OpenRCT2String> Ride::GetMeasurement()
     const auto& rtd = GetRideTypeDescriptor();
 
     // Check if ride type supports data logging
-    if (!rtd.HasFlag(RIDE_TYPE_FLAG_HAS_DATA_LOGGING))
+    if (!rtd.HasFlag(RtdFlag::hasDataLogging))
     {
         return { nullptr, { STR_DATA_LOGGING_NOT_AVAILABLE_FOR_THIS_TYPE_OF_RIDE, {} } };
     }
@@ -2165,7 +2178,7 @@ std::pair<RideMeasurement*, OpenRCT2String> Ride::GetMeasurement()
     if (measurement == nullptr)
     {
         measurement = std::make_unique<RideMeasurement>();
-        if (rtd.HasFlag(RIDE_TYPE_FLAG_HAS_G_FORCES))
+        if (rtd.HasFlag(RtdFlag::hasGForces))
         {
             measurement->flags |= RIDE_MEASUREMENT_FLAG_G_FORCES;
         }
@@ -2255,15 +2268,15 @@ void RideSetVehicleColoursToRandomPreset(Ride& ride, uint8_t preset_index)
     {
         assert(preset_index < presetList->count);
 
-        ride.colour_scheme_type = RIDE_COLOUR_SCHEME_MODE_ALL_SAME;
+        ride.vehicleColourSettings = VehicleColourSettings::same;
         ride.vehicle_colours[0] = presetList->list[preset_index];
     }
     else
     {
-        ride.colour_scheme_type = RIDE_COLOUR_SCHEME_MODE_DIFFERENT_PER_TRAIN;
+        ride.vehicleColourSettings = VehicleColourSettings::perTrain;
         for (uint32_t i = 0; i < presetList->count; i++)
         {
-            const auto index = i % 32U;
+            const auto index = i % 32u;
             ride.vehicle_colours[i] = presetList->list[index];
         }
     }
@@ -2287,7 +2300,7 @@ void RideCheckAllReachable()
         if (ride.status != RideStatus::Open || ride.connected_message_throttle != 0)
             continue;
 
-        if (ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY))
+        if (ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility))
             RideShopConnected(ride);
         else
             RideEntranceExitConnected(ride);
@@ -2375,7 +2388,7 @@ static void RideShopConnected(const Ride& ride)
         return;
 
     const auto& ted = GetTrackElementDescriptor(track_type);
-    uint8_t entrance_directions = std::get<0>(ted.SequenceProperties) & 0xF;
+    uint8_t entrance_directions = ted.sequences[0].flags & 0xF;
     uint8_t tile_direction = trackElement->GetDirection();
     entrance_directions = Numerics::rol4(entrance_directions, tile_direction);
 
@@ -2597,7 +2610,7 @@ static ResultWithMessage RideModeCheckValidStationNumbers(const Ride& ride)
     }
 
     const auto& rtd = ride.GetRideTypeDescriptor();
-    if (rtd.HasFlag(RIDE_TYPE_FLAG_HAS_ONE_STATION) && numStations > 1)
+    if (rtd.HasFlag(RtdFlag::hasOneStation) && numStations > 1)
         return { false, STR_UNABLE_TO_OPERATE_WITH_MORE_THAN_ONE_STATION_IN_THIS_MODE };
 
     return { true };
@@ -2614,10 +2627,10 @@ static StationIndexWithMessage RideModeCheckStationPresent(const Ride& ride)
     if (stationIndex.IsNull())
     {
         const auto& rtd = ride.GetRideTypeDescriptor();
-        if (!rtd.HasFlag(RIDE_TYPE_FLAG_HAS_TRACK))
+        if (!rtd.HasFlag(RtdFlag::hasTrack))
             return { StationIndex::GetNull(), STR_NOT_YET_CONSTRUCTED };
 
-        if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+        if (rtd.HasFlag(RtdFlag::isMaze))
             return { StationIndex::GetNull(), STR_NOT_YET_CONSTRUCTED };
 
         return { StationIndex::GetNull(), STR_REQUIRES_A_STATION_PLATFORM };
@@ -2636,7 +2649,7 @@ static ResultWithMessage RideCheckForEntranceExit(RideId rideIndex)
     if (ride == nullptr)
         return { false };
 
-    if (ride->GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_IS_SHOP_OR_FACILITY))
+    if (ride->GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility))
         return { true };
 
     uint8_t entrance = 0;
@@ -2780,7 +2793,7 @@ static bool RideCheckTrackContainsInversions(const CoordsXYE& input, CoordsXYE* 
     if (ride != nullptr)
     {
         const auto& rtd = ride->GetRideTypeDescriptor();
-        if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+        if (rtd.HasFlag(RtdFlag::isMaze))
             return true;
     }
 
@@ -2799,7 +2812,7 @@ static bool RideCheckTrackContainsInversions(const CoordsXYE& input, CoordsXYE* 
     {
         auto trackType = it.current.element->AsTrack()->GetTrackType();
         const auto& ted = GetTrackElementDescriptor(trackType);
-        if (ted.Flags & TRACK_ELEM_FLAG_INVERSION_TO_NORMAL)
+        if (ted.flags & TRACK_ELEM_FLAG_INVERSION_TO_NORMAL)
         {
             *output = it.current;
             return true;
@@ -2841,7 +2854,7 @@ static bool RideCheckTrackContainsBanked(const CoordsXYE& input, CoordsXYE* outp
         return false;
 
     const auto& rtd = ride->GetRideTypeDescriptor();
-    if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+    if (rtd.HasFlag(RtdFlag::isMaze))
         return true;
 
     WindowBase* w = WindowFindByClass(WindowClass::RideConstruction);
@@ -2859,7 +2872,7 @@ static bool RideCheckTrackContainsBanked(const CoordsXYE& input, CoordsXYE* outp
     {
         auto trackType = it.current.element->AsTrack()->GetTrackType();
         const auto& ted = GetTrackElementDescriptor(trackType);
-        if (ted.Flags & TRACK_ELEM_FLAG_BANKED)
+        if (ted.flags & TRACK_ELEM_FLAG_BANKED)
         {
             *output = it.current;
             return true;
@@ -2909,7 +2922,7 @@ static int32_t RideCheckStationLength(const CoordsXYE& input, CoordsXYE* output)
     do
     {
         const auto& ted = GetTrackElementDescriptor(output->element->AsTrack()->GetTrackType());
-        if (std::get<0>(ted.SequenceProperties) & TRACK_SEQUENCE_FLAG_ORIGIN)
+        if (ted.sequences[0].flags & TRACK_SEQUENCE_FLAG_ORIGIN)
         {
             num_station_elements++;
             last_good_station = *output;
@@ -2957,7 +2970,7 @@ static bool RideCheckStartAndEndIsStation(const CoordsXYE& input)
     TrackGetBack(input, &trackBack);
     auto trackType = trackBack.element->AsTrack()->GetTrackType();
     const auto* ted = &GetTrackElementDescriptor(trackType);
-    if (!(std::get<0>(ted->SequenceProperties) & TRACK_SEQUENCE_FLAG_ORIGIN))
+    if (!(ted->sequences[0].flags & TRACK_SEQUENCE_FLAG_ORIGIN))
     {
         return false;
     }
@@ -2967,7 +2980,7 @@ static bool RideCheckStartAndEndIsStation(const CoordsXYE& input)
     TrackGetFront(input, &trackFront);
     trackType = trackFront.element->AsTrack()->GetTrackType();
     ted = &GetTrackElementDescriptor(trackType);
-    if (!(std::get<0>(ted->SequenceProperties) & TRACK_SEQUENCE_FLAG_ORIGIN))
+    if (!(ted->sequences[0].flags & TRACK_SEQUENCE_FLAG_ORIGIN))
     {
         return false;
     }
@@ -2983,7 +2996,7 @@ static bool RideCheckStartAndEndIsStation(const CoordsXYE& input)
  */
 static void RideSetBoatHireReturnPoint(Ride& ride, const CoordsXYE& startElement)
 {
-    int32_t trackType = -1;
+    auto trackType = TrackElemType::None;
     auto returnPos = startElement;
     int32_t startX = returnPos.x;
     int32_t startY = returnPos.y;
@@ -2991,7 +3004,7 @@ static void RideSetBoatHireReturnPoint(Ride& ride, const CoordsXYE& startElement
     while (TrackBlockGetPrevious(returnPos, &trackBeginEnd))
     {
         // If previous track is back to the starting x, y, then break loop (otherwise possible infinite loop)
-        if (trackType != -1 && startX == trackBeginEnd.begin_x && startY == trackBeginEnd.begin_y)
+        if (trackType != TrackElemType::None && startX == trackBeginEnd.begin_x && startY == trackBeginEnd.begin_y)
             break;
 
         auto trackCoords = CoordsXYZ{ trackBeginEnd.begin_x, trackBeginEnd.begin_y, trackBeginEnd.begin_z };
@@ -3005,7 +3018,7 @@ static void RideSetBoatHireReturnPoint(Ride& ride, const CoordsXYE& startElement
 
     trackType = returnPos.element->AsTrack()->GetTrackType();
     const auto& ted = GetTrackElementDescriptor(trackType);
-    int32_t elementReturnDirection = ted.Coordinates.rotation_begin;
+    int32_t elementReturnDirection = ted.coordinates.rotationBegin;
     ride.boat_hire_return_direction = returnPos.element->GetDirectionWithOffset(elementReturnDirection);
     ride.boat_hire_return_position = TileCoordsXY{ returnPos };
 }
@@ -3017,7 +3030,7 @@ static void RideSetBoatHireReturnPoint(Ride& ride, const CoordsXYE& startElement
 static void RideSetMazeEntranceExitPoints(Ride& ride)
 {
     // Needs room for an entrance and an exit per station, plus one position for the list terminator.
-    TileCoordsXYZD positions[(OpenRCT2::Limits::MaxStationsPerRide * 2) + 1];
+    TileCoordsXYZD positions[(OpenRCT2::Limits::kMaxStationsPerRide * 2) + 1];
 
     // Create a list of all the entrance and exit positions
     TileCoordsXYZD* position = positions;
@@ -3103,6 +3116,8 @@ static void RideOpenBlockBrakes(const CoordsXYE& startElement)
             case TrackElemType::Up60ToFlat:
                 SetBrakeClosedMultiTile(*currentElement.element->AsTrack(), { currentElement.x, currentElement.y }, false);
                 break;
+            default:
+                break;
         }
     } while (TrackBlockGetNext(&currentElement, &currentElement, nullptr, nullptr)
              && currentElement.element != startElement.element);
@@ -3174,7 +3189,7 @@ static void RideSetStartFinishPoints(RideId rideIndex, const CoordsXYE& startEle
         return;
 
     const auto& rtd = ride->GetRideTypeDescriptor();
-    if (rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+    if (rtd.HasFlag(RtdFlag::isMaze))
         RideSetMazeEntranceExitPoints(*ride);
     else if (ride->type == RIDE_TYPE_BOAT_HIRE)
         RideSetBoatHireReturnPoint(*ride, startElement);
@@ -3371,7 +3386,7 @@ static Vehicle* VehicleCreateCar(
         }
         else
         {
-            if (rtd.HasFlag(RIDE_TYPE_FLAG_VEHICLE_IS_INTEGRAL))
+            if (rtd.HasFlag(RtdFlag::vehicleIsIntegral))
             {
                 if (rtd.StartTrackPiece != TrackElemType::FlatTrack1x4B)
                 {
@@ -3494,7 +3509,7 @@ static bool VehicleCreateTrains(Ride& ride, const CoordsXYZ& trainsPos, TrackEle
         }
         lastTrain = train;
 
-        for (int32_t i = 0; i <= OpenRCT2::Limits::MaxTrainsPerRide; i++)
+        for (int32_t i = 0; i <= OpenRCT2::Limits::kMaxTrainsPerRide; i++)
         {
             if (ride.vehicles[i].IsNull())
             {
@@ -3576,6 +3591,8 @@ static void RideCreateVehiclesFindFirstBlock(const Ride& ride, CoordsXYE* outXYE
             case TrackElemType::BlockBrakes:
                 *outXYElement = { trackPos, reinterpret_cast<TileElement*>(trackElement) };
                 return;
+            default:
+                break;
         }
     }
 
@@ -3634,13 +3651,13 @@ ResultWithMessage Ride::CreateVehicles(const CoordsXYE& element, bool isApplying
     // Initialise station departs
     // 006DDDD0:
     lifecycle_flags |= RIDE_LIFECYCLE_ON_TRACK;
-    for (int32_t i = 0; i < OpenRCT2::Limits::MaxStationsPerRide; i++)
+    for (int32_t i = 0; i < OpenRCT2::Limits::kMaxStationsPerRide; i++)
     {
         stations[i].Depart = (stations[i].Depart & kStationDepartFlag) | 1;
     }
 
     //
-    if (type != RIDE_TYPE_SPACE_RINGS && !GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_VEHICLE_IS_INTEGRAL))
+    if (type != RIDE_TYPE_SPACE_RINGS && !GetRideTypeDescriptor().HasFlag(RtdFlag::vehicleIsIntegral))
     {
         if (IsBlockSectioned())
         {
@@ -3773,7 +3790,7 @@ static ResultWithMessage RideInitialiseCableLiftTrack(const Ride& ride, bool isA
             continue;
 
         const auto& ted = GetTrackElementDescriptor(tileElement->AsTrack()->GetTrackType());
-        if (!(std::get<0>(ted.SequenceProperties) & TRACK_SEQUENCE_FLAG_ORIGIN))
+        if (!(ted.sequences[0].flags & TRACK_SEQUENCE_FLAG_ORIGIN))
         {
             continue;
         }
@@ -3957,7 +3974,7 @@ void Ride::ConstructMissingEntranceOrExit() const
     }
 
     const auto& rtd = GetRideTypeDescriptor();
-    if (!rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+    if (!rtd.HasFlag(RtdFlag::isMaze))
     {
         auto location = incompleteStation->GetStart();
         WindowScrollToLocation(*w, location);
@@ -4011,7 +4028,7 @@ TrackElement* Ride::GetOriginElement(StationIndex stationIndex) const
 
         auto* trackElement = tileElement->AsTrack();
         const auto& ted = GetTrackElementDescriptor(trackElement->GetTrackType());
-        if (!(std::get<0>(ted.SequenceProperties) & TRACK_SEQUENCE_FLAG_ORIGIN))
+        if (!(ted.sequences[0].flags & TRACK_SEQUENCE_FLAG_ORIGIN))
             continue;
 
         if (trackElement->GetRideIndex() == id)
@@ -4114,8 +4131,7 @@ ResultWithMessage Ride::Open(bool isApplying)
     // to set the track to its final state and clean up ghosts.
     // We can't just call close as it would cause a stack overflow during shop creation
     // with auto open on.
-    if (WindowClass::RideConstruction == gCurrentToolWidget.window_classification
-        && id.ToUnderlying() == gCurrentToolWidget.window_number && (InputTestFlag(INPUT_FLAG_TOOL_ACTIVE)))
+    if (isToolActive(WindowClass::RideConstruction, static_cast<rct_windownumber>(id.ToUnderlying())))
     {
         WindowCloseByNumber(WindowClass::RideConstruction, id.ToUnderlying());
     }
@@ -4318,13 +4334,13 @@ void Ride::SetColourPreset(uint8_t index)
     {
         colours = colourPresets->list[index];
     }
-    for (int32_t i = 0; i < OpenRCT2::Limits::NumColourSchemes; i++)
+    for (size_t i = 0; i < std::size(track_colour); i++)
     {
         track_colour[i].main = colours.main;
         track_colour[i].additional = colours.additional;
         track_colour[i].supports = colours.supports;
     }
-    colour_scheme_type = 0;
+    vehicleColourSettings = VehicleColourSettings::same;
 }
 
 money64 RideGetCommonPrice(const Ride& forRide)
@@ -4362,7 +4378,7 @@ void Ride::SetNameToDefault()
 RideNaming GetRideNaming(const ride_type_t rideType, const RideObjectEntry& rideEntry)
 {
     const auto& rtd = GetRideTypeDescriptor(rideType);
-    if (!rtd.HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+    if (!rtd.HasFlag(RtdFlag::listVehiclesSeparately))
     {
         return rtd.Naming;
     }
@@ -4638,7 +4654,7 @@ bool RideHasAnyTrackElements(const Ride& ride)
 void InvalidateTestResults(Ride& ride)
 {
     ride.measurement = {};
-    ride.excitement = kRideRatingUndefined;
+    ride.ratings.setNull();
     ride.lifecycle_flags &= ~RIDE_LIFECYCLE_TESTED;
     ride.lifecycle_flags &= ~RIDE_LIFECYCLE_TEST_IN_PROGRESS;
     if (ride.lifecycle_flags & RIDE_LIFECYCLE_ON_TRACK)
@@ -4693,12 +4709,12 @@ void RideFixBreakdown(Ride& ride, int32_t reliabilityIncreaseFactor)
  */
 void RideUpdateVehicleColours(const Ride& ride)
 {
-    if (ride.type == RIDE_TYPE_SPACE_RINGS || ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_VEHICLE_IS_INTEGRAL))
+    if (ride.type == RIDE_TYPE_SPACE_RINGS || ride.GetRideTypeDescriptor().HasFlag(RtdFlag::vehicleIsIntegral))
     {
         GfxInvalidateScreen();
     }
 
-    for (int32_t i = 0; i <= OpenRCT2::Limits::MaxTrainsPerRide; i++)
+    for (int32_t i = 0; i <= OpenRCT2::Limits::kMaxTrainsPerRide; i++)
     {
         int32_t carIndex = 0;
         VehicleColour colours = {};
@@ -4706,23 +4722,23 @@ void RideUpdateVehicleColours(const Ride& ride)
         for (Vehicle* vehicle = GetEntity<Vehicle>(ride.vehicles[i]); vehicle != nullptr;
              vehicle = GetEntity<Vehicle>(vehicle->next_vehicle_on_train))
         {
-            switch (ride.colour_scheme_type & 3)
+            switch (ride.vehicleColourSettings)
             {
-                case RIDE_COLOUR_SCHEME_MODE_ALL_SAME:
+                case VehicleColourSettings::same:
                     colours = ride.vehicle_colours[0];
                     break;
-                case RIDE_COLOUR_SCHEME_MODE_DIFFERENT_PER_TRAIN:
+                case VehicleColourSettings::perTrain:
                     colours = ride.vehicle_colours[i];
                     break;
-                case RIDE_COLOUR_SCHEME_MODE_DIFFERENT_PER_CAR:
+                case VehicleColourSettings::perCar:
                     if (vehicle->HasFlag(VehicleFlags::CarIsReversed))
                     {
                         colours = ride.vehicle_colours[std::min(
-                            (ride.num_cars_per_train - 1) - carIndex, OpenRCT2::Limits::MaxCarsPerTrain - 1)];
+                            (ride.num_cars_per_train - 1) - carIndex, OpenRCT2::Limits::kMaxCarsPerTrain - 1)];
                     }
                     else
                     {
-                        colours = ride.vehicle_colours[std::min(carIndex, OpenRCT2::Limits::MaxCarsPerTrain - 1)];
+                        colours = ride.vehicle_colours[std::min(carIndex, OpenRCT2::Limits::kMaxCarsPerTrain - 1)];
                     }
                     break;
             }
@@ -4766,160 +4782,169 @@ struct NecessarySpriteGroup
 };
 
 // Finds track pieces that a given ride entry has sprites for
-OpenRCT2::BitSet<TRACK_GROUP_COUNT> RideEntryGetSupportedTrackPieces(const RideObjectEntry& rideEntry)
+OpenRCT2::BitSet<EnumValue(TrackGroup::count)> RideEntryGetSupportedTrackPieces(const RideObjectEntry& rideEntry)
 {
     // TODO: Use a std::span when C++20 available as 6 is due to jagged array
     static const std::array<NecessarySpriteGroup, 6> trackPieceRequiredSprites[] = {
-        { SpriteGroupType::SlopeFlat, SpritePrecision::None },     // TRACK_FLAT
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TRACK_STRAIGHT
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TRACK_STATION_END
-        { SpriteGroupType::Slopes25, SpritePrecision::Sprites4 },  // TRACK_LIFT_HILL
+        { SpriteGroupType::SlopeFlat, SpritePrecision::None },     // TrackGroup::flat
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TrackGroup::straight
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TrackGroup::stationEnd
+        { SpriteGroupType::Slopes25, SpritePrecision::Sprites4 },  // TrackGroup::liftHill
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60,
-          SpritePrecision::Sprites4 },                             // TRACK_LIFT_HILL_STEEP
-        { SpriteGroupType::Slopes25, SpritePrecision::Sprites16 }, // TRACK_LIFT_HILL_CURVE
+          SpritePrecision::Sprites4 },                             // TrackGroup::liftHillSteep
+        { SpriteGroupType::Slopes25, SpritePrecision::Sprites16 }, // TrackGroup::liftHillCurve
         { SpriteGroupType::FlatBanked22, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked45,
-          SpritePrecision::Sprites16 }, // TRACK_FLAT_ROLL_BANKING
+          SpritePrecision::Sprites16 }, // TrackGroup::flatRollBanking
         { SpriteGroupType::Slopes60, SpritePrecision::Sprites4, SpriteGroupType::Slopes75, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes90, SpritePrecision::Sprites4, SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4,
-          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TRACK_VERTICAL_LOOP
-        { SpriteGroupType::Slopes25, SpritePrecision::Sprites4 },      // TRACK_SLOPE
-        { SpriteGroupType::Slopes60, SpritePrecision::Sprites4 },      // TRACK_SLOPE_STEEP_DOWN
+          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TrackGroup::verticalLoop
+        { SpriteGroupType::Slopes25, SpritePrecision::Sprites4 },      // TrackGroup::slope
+        { SpriteGroupType::Slopes60, SpritePrecision::Sprites4 },      // TrackGroup::slopeSteepDown
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60,
-          SpritePrecision::Sprites4 },                              // TRACK_SLOPE_LONG
-        { SpriteGroupType::Slopes25, SpritePrecision::Sprites16 },  // TRACK_SLOPE_CURVE
-        { SpriteGroupType::Slopes60, SpritePrecision::Sprites16 },  // TRACK_SLOPE_CURVE_STEEP
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TRACK_S_BEND
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TRACK_CURVE_VERY_SMALL
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TRACK_CURVE_SMALL
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TRACK_CURVE
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TRACK_CURVE_LARGE
+          SpritePrecision::Sprites4 },                              // TrackGroup::flatToSteepSlope
+        { SpriteGroupType::Slopes25, SpritePrecision::Sprites16 },  // TrackGroup::slopeCurve
+        { SpriteGroupType::Slopes60, SpritePrecision::Sprites16 },  // TrackGroup::slopeCurveSteep
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TrackGroup::sBend
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TrackGroup::curveVerySmall
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TrackGroup::curveSmall
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TrackGroup::curve
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TrackGroup::curveLarge
         { SpriteGroupType::FlatBanked22, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked45, SpritePrecision::Sprites4,
           SpriteGroupType::FlatBanked67, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked90, SpritePrecision::Sprites4,
           SpriteGroupType::InlineTwists, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 }, // TRACK_TWIST
+          SpritePrecision::Sprites4 }, // TrackGroup::twist
         { SpriteGroupType::Slopes60, SpritePrecision::Sprites4, SpriteGroupType::Slopes75, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes90, SpritePrecision::Sprites4, SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4,
-          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TRACK_HALF_LOOP
+          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TrackGroup::halfLoop
         { SpriteGroupType::Corkscrews, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 },                                 // TRACK_CORKSCREW
-        { SpriteGroupType::SlopeFlat, SpritePrecision::None },         // TRACK_TOWER_BASE
-        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TRACK_HELIX_UP_BANKED_HALF
-        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TRACK_HELIX_DOWN_BANKED_HALF
-        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TRACK_HELIX_UP_BANKED_QUARTER
-        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TRACK_HELIX_DOWN_BANKED_QUARTER
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 },    // TRACK_HELIX_UP_UNBANKED_QUARTER
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 },    // TRACK_HELIX_DOWN_UNBANKED_QUARTER
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TRACK_BRAKES
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TRACK_ON_RIDE_PHOTO
+          SpritePrecision::Sprites4 },                                 // TrackGroup::corkscrew
+        { SpriteGroupType::SlopeFlat, SpritePrecision::None },         // TrackGroup::tower
+        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TrackGroup::helixUpBankedHalf
+        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TrackGroup::helixDownBankedHalf
+        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TrackGroup::helixUpBankedQuarter
+        { SpriteGroupType::FlatBanked45, SpritePrecision::Sprites16 }, // TrackGroup::helixDownBankedQuarter
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 },    // TrackGroup::helixUpUnbankedQuarter
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 },    // TrackGroup::helixDownUnbankedQuarter
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TrackGroup::brakes
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TrackGroup::onridePhoto
         { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4, SpriteGroupType::Slopes12,
-          SpritePrecision::Sprites4 }, // TRACK_WATER_SPLASH
+          SpritePrecision::Sprites4 }, // TrackGroup::waterSplash
         { SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 }, // TRACK_SLOPE_VERTICAL
+          SpritePrecision::Sprites4 }, // TrackGroup::slopeVertical
         { SpriteGroupType::FlatBanked22, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked45, SpritePrecision::Sprites4,
           SpriteGroupType::InlineTwists, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 },                            // TRACK_BARREL_ROLL
-        { SpriteGroupType::Slopes25, SpritePrecision::Sprites4 }, // TRACK_POWERED_LIFT
+          SpritePrecision::Sprites4 },                            // TrackGroup::barrelRoll
+        { SpriteGroupType::Slopes25, SpritePrecision::Sprites4 }, // TrackGroup::poweredLift
         { SpriteGroupType::Slopes60, SpritePrecision::Sprites4, SpriteGroupType::Slopes75, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes90, SpritePrecision::Sprites4, SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4,
-          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 },     // TRACK_HALF_LOOP_LARGE
-        { SpriteGroupType::Slopes12Banked22, SpritePrecision::Sprites16 }, // TRACK_SLOPE_CURVE_BANKED
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 },        // TRACK_LOG_FLUME_REVERSER
+          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 },     // TrackGroup::halfLoopLarge
+        { SpriteGroupType::Slopes12Banked22, SpritePrecision::Sprites16 }, // TrackGroup::slopeCurveBanked
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 },        // TrackGroup::logFlumeReverser
         { SpriteGroupType::FlatBanked22, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked45, SpritePrecision::Sprites4,
           SpriteGroupType::InlineTwists, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 },                              // TRACK_HEARTLINE_ROLL
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TRACK_REVERSER
+          SpritePrecision::Sprites4 },                              // TrackGroup::heartlineRoll
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites16 }, // TrackGroup::reverser
         { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4, SpriteGroupType::Slopes25, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes60, SpritePrecision::Sprites4, SpriteGroupType::Slopes75, SpritePrecision::Sprites4,
-          SpriteGroupType::Slopes90, SpritePrecision::Sprites4 }, // TRACK_REVERSE_FREEFALL
+          SpriteGroupType::Slopes90, SpritePrecision::Sprites4 }, // TrackGroup::reverseFreefall
         { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4, SpriteGroupType::Slopes25, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes60, SpritePrecision::Sprites4, SpriteGroupType::Slopes75, SpritePrecision::Sprites4,
-          SpriteGroupType::Slopes90, SpritePrecision::Sprites4 },         // TRACK_SLOPE_TO_FLAT
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },        // TRACK_BLOCK_BRAKES
-        { SpriteGroupType::Slopes25Banked22, SpritePrecision::Sprites4 }, // TRACK_SLOPE_ROLL_BANKING
+          SpriteGroupType::Slopes90, SpritePrecision::Sprites4 },         // TrackGroup::slopeToFlat
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },        // TrackGroup::blockBrakes
+        { SpriteGroupType::Slopes25Banked22, SpritePrecision::Sprites4 }, // TrackGroup::slopeRollBanking
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60,
-          SpritePrecision::Sprites4 },                             // TRACK_SLOPE_STEEP_LONG
-        { SpriteGroupType::Slopes90, SpritePrecision::Sprites16 }, // TRACK_CURVE_VERTICAL
+          SpritePrecision::Sprites4 },                             // TrackGroup::slopeSteepLong
+        { SpriteGroupType::Slopes90, SpritePrecision::Sprites16 }, // TrackGroup::curveVertical
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60,
-          SpritePrecision::Sprites4 },                                     // TRACK_LIFT_HILL_CABLE
-        { SpriteGroupType::CurvedLiftHillUp, SpritePrecision::Sprites16 }, // TRACK_LIFT_HILL_CURVED
+          SpritePrecision::Sprites4 },                                     // TrackGroup::liftHillCable
+        { SpriteGroupType::CurvedLiftHillUp, SpritePrecision::Sprites16 }, // TrackGroup::liftHillCurved
         { SpriteGroupType::Slopes90, SpritePrecision::Sprites4, SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4,
-          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TRACK_QUARTER_LOOP
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TRACK_SPINNING_TUNNEL
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TRACK_BOOSTER
+          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TrackGroup::quarterLoop
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TrackGroup::spinningTunnel
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 },     // TrackGroup::booster
         { SpriteGroupType::FlatBanked22, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked45, SpritePrecision::Sprites4,
           SpriteGroupType::FlatBanked67, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked90, SpritePrecision::Sprites4,
           SpriteGroupType::InlineTwists, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 }, // TRACK_INLINE_TWIST_UNINVERTED
+          SpritePrecision::Sprites4 }, // TrackGroup::inlineTwistUninverted
         { SpriteGroupType::FlatBanked22, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked45, SpritePrecision::Sprites4,
           SpriteGroupType::FlatBanked67, SpritePrecision::Sprites4, SpriteGroupType::FlatBanked90, SpritePrecision::Sprites4,
           SpriteGroupType::InlineTwists, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 }, // TRACK_INLINE_TWIST_INVERTED
+          SpritePrecision::Sprites4 }, // TrackGroup::inlineTwistInverted
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 }, // TRACK_QUARTER_LOOP_UNINVERTED_UP
+          SpritePrecision::Sprites4 }, // TrackGroup::quarterLoopUninvertedUp
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 }, // TRACK_QUARTER_LOOP_UNINVERTED_DOWN
+          SpritePrecision::Sprites4 }, // TrackGroup::quarterLoopUninvertedDown
         { SpriteGroupType::Slopes90, SpritePrecision::Sprites4, SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4,
-          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TRACK_QUARTER_LOOP_INVERTED_UP
+          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TrackGroup::quarterLoopInvertedUp
         { SpriteGroupType::Slopes90, SpritePrecision::Sprites4, SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4,
-          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TRACK_QUARTER_LOOP_INVERTED_DOWN
-        { SpriteGroupType::Slopes12, SpritePrecision::Sprites4 },      // TRACK_RAPIDS
+          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TrackGroup::quarterLoopInvertedDown
+        { SpriteGroupType::Slopes12, SpritePrecision::Sprites4 },      // TrackGroup::rapids
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 }, // TRACK_FLYING_HALF_LOOP_UNINVERTED_UP
+          SpritePrecision::Sprites4 }, // TrackGroup::flyingHalfLoopUninvertedUp
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90, SpritePrecision::Sprites4,
           SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 },                             // TRACK_FLYING_HALF_LOOP_INVERTED_DOWN
-        {},                                                        // TRACK_FLAT_RIDE_BASE
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TRACK_WATERFALL
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TRACK_WHIRLPOOL
+          SpritePrecision::Sprites4 },                             // TrackGroup::flyingHalfLoopInvertedDown
+        {},                                                        // TrackGroup::flatRideBase
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TrackGroup::waterfall
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TrackGroup::whirlpool
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60,
-          SpritePrecision::Sprites4 }, // TRACK_BRAKE_FOR_DROP
+          SpritePrecision::Sprites4 }, // TrackGroup::brakeForDrop
         { SpriteGroupType::Corkscrews, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 }, // TRACK_CORKSCREW_UNINVERTED
+          SpritePrecision::Sprites4 }, // TrackGroup::corkscrewUninverted
         { SpriteGroupType::Corkscrews, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 }, // TRACK_CORKSCREW_INVERTED
+          SpritePrecision::Sprites4 }, // TrackGroup::corkscrewInverted
         { SpriteGroupType::Slopes12, SpritePrecision::Sprites4, SpriteGroupType::Slopes25,
-          SpritePrecision::Sprites4 },                             // TRACK_HEARTLINE_TRANSFER
-        {},                                                        // TRACK_MINI_GOLF_HOLE
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TRACK_ROTATION_CONTROL_TOGGLE
-        { SpriteGroupType::Slopes60, SpritePrecision::Sprites4 },  // TRACK_SLOPE_STEEP_UP
-        {},                                                        // TRACK_CORKSCREW_LARGE
-        {},                                                        // TRACK_HALF_LOOP_MEDIUM
-        {},                                                        // TRACK_ZERO_G_ROLL
-        {},                                                        // TRACK_ZERO_G_ROLL_LARGE
+          SpritePrecision::Sprites4 },                             // TrackGroup::heartlineTransfer
+        {},                                                        // TrackGroup::miniGolfHole
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites4 }, // TrackGroup::rotationControlToggle
+        { SpriteGroupType::Slopes60, SpritePrecision::Sprites4 },  // TrackGroup::slopeSteepUp
+        { SpriteGroupType::Corkscrews, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
+          SpritePrecision::Sprites4 }, // TrackGroup::corkscrewLarge
+        { SpriteGroupType::Slopes60, SpritePrecision::Sprites4, SpriteGroupType::Slopes75, SpritePrecision::Sprites4,
+          SpriteGroupType::Slopes90, SpritePrecision::Sprites4, SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4,
+          SpriteGroupType::SlopeInverted, SpritePrecision::Sprites4 }, // TrackGroup::halfLoopMedium
+        { SpriteGroupType::Slopes25Banked67, SpritePrecision::Sprites4, SpriteGroupType::Slopes25Banked90,
+          SpritePrecision::Sprites4, SpriteGroupType::Slopes25InlineTwists,
+          SpritePrecision::Sprites4 }, // TrackGroup::zeroGRoll
+        { SpriteGroupType::Slopes42Banked22, SpritePrecision::Sprites4, SpriteGroupType::Slopes42Banked45,
+          SpritePrecision::Sprites4, SpriteGroupType::Slopes42Banked67, SpritePrecision::Sprites4,
+          SpriteGroupType::Slopes42Banked90, SpritePrecision::Sprites4, SpriteGroupType::Slopes60Banked22,
+          SpritePrecision::Sprites4 }, // TrackGroup::zeroGRollLarge
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 }, // TRACK_FLYING_LARGE_HALF_LOOP_UNINVERTED_UP
+          SpritePrecision::Sprites4 }, // TrackGroup::flyingLargeHalfLoopUninvertedUp
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90, SpritePrecision::Sprites4,
           SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 }, // TRACK_FLYING_LARGE_HALF_LOOP_INVERTED_DOWN
+          SpritePrecision::Sprites4 }, // TrackGroup::flyingLargeHalfLoopInvertedDown
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90, SpritePrecision::Sprites4,
           SpriteGroupType::SlopesLoop, SpritePrecision::Sprites4, SpriteGroupType::SlopeInverted,
-          SpritePrecision::Sprites4 }, // TRACK_FLYING_LARGE_HALF_LOOP_UNINVERTED_DOWN
+          SpritePrecision::Sprites4 }, // TrackGroup::flyingLargeHalfLoopUninvertedDown
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 }, // TRACK_FLYING_LARGE_HALF_LOOP_INVERTED_UP
+          SpritePrecision::Sprites4 }, // TrackGroup::flyingLargeHalfLoopInvertedUp
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 }, // TRACK_FLYING_HALF_LOOP_INVERTED_UP
+          SpritePrecision::Sprites4 }, // TrackGroup::flyingHalfLoopInvertedUp
         { SpriteGroupType::Slopes25, SpritePrecision::Sprites4, SpriteGroupType::Slopes60, SpritePrecision::Sprites4,
           SpriteGroupType::Slopes75, SpritePrecision::Sprites4, SpriteGroupType::Slopes90,
-          SpritePrecision::Sprites4 },                             // TRACK_FLYING_HALF_LOOP_UNINVERTED_DOWN
-        {},                                                        // TRACK_SLOPE_CURVE_LARGE
-        {},                                                        // TRACK_SLOPE_CURVE_LARGE_BANKED
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites8 }, // TRACK_DIAG_BRAKES
-        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites8 }, // TRACK_DIAG_BLOCK_BRAKES
+          SpritePrecision::Sprites4 },                             // TrackGroup::flyingHalfLoopUninvertedDown
+        {},                                                        // TrackGroup::slopeCurveLarge
+        {},                                                        // TrackGroup::slopeCurveLargeBanked
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites8 }, // TrackGroup::diagBrakes
+        { SpriteGroupType::SlopeFlat, SpritePrecision::Sprites8 }, // TrackGroup::diagBlockBrakes
+        { SpriteGroupType::Slopes25, SpritePrecision::Sprites4 },  // TrackGroup::inclinedBrakes
     };
-    static_assert(std::size(trackPieceRequiredSprites) == TRACK_GROUP_COUNT);
+    static_assert(std::size(trackPieceRequiredSprites) == EnumValue(TrackGroup::count));
 
     // Only check default vehicle; it's assumed the others will have correct sprites if this one does (I've yet to find an
     // exception, at least)
-    auto supportedPieces = OpenRCT2::BitSet<TRACK_GROUP_COUNT>();
+    auto supportedPieces = OpenRCT2::BitSet<EnumValue(TrackGroup::count)>();
     supportedPieces.flip();
     auto defaultVehicle = rideEntry.GetDefaultCar();
     if (defaultVehicle != nullptr)
@@ -4960,7 +4985,7 @@ static std::optional<int32_t> RideGetSmallestStationLength(const Ride& ride)
 static int32_t RideGetTrackLength(const Ride& ride)
 {
     TileElement* tileElement = nullptr;
-    track_type_t trackType;
+    OpenRCT2::TrackElemType trackType;
     CoordsXYZ trackStart;
     bool foundTrack = false;
 
@@ -4980,7 +5005,7 @@ static int32_t RideGetTrackLength(const Ride& ride)
 
             trackType = tileElement->AsTrack()->GetTrackType();
             const auto& ted = GetTrackElementDescriptor(trackType);
-            if (!(std::get<0>(ted.SequenceProperties) & TRACK_SEQUENCE_FLAG_ORIGIN))
+            if (!(ted.sequences[0].flags & TRACK_SEQUENCE_FLAG_ORIGIN))
                 continue;
 
             if (tileElement->GetBaseZ() != trackStart.z)
@@ -5015,7 +5040,7 @@ static int32_t RideGetTrackLength(const Ride& ride)
     {
         trackType = it.current.element->AsTrack()->GetTrackType();
         const auto& ted = GetTrackElementDescriptor(trackType);
-        result += ted.PieceLength;
+        result += ted.pieceLength;
 
         moveSlowIt = !moveSlowIt;
         if (moveSlowIt)
@@ -5093,7 +5118,7 @@ void Ride::UpdateMaxVehicles()
         {
             case RideMode::ContinuousCircuitBlockSectioned:
             case RideMode::PoweredLaunchBlockSectioned:
-                maxNumTrains = std::clamp<int32_t>(num_stations + num_block_brakes - 1, 1, OpenRCT2::Limits::MaxTrainsPerRide);
+                maxNumTrains = std::clamp<int32_t>(num_stations + num_block_brakes - 1, 1, OpenRCT2::Limits::kMaxTrainsPerRide);
                 break;
             case RideMode::ReverseInclineLaunchedShuttle:
             case RideMode::PoweredLaunchPasstrough:
@@ -5123,9 +5148,9 @@ void Ride::UpdateMaxVehicles()
                 } while (totalLength <= stationLength);
 
                 if ((mode != RideMode::StationToStation && mode != RideMode::ContinuousCircuit)
-                    || !(rtd.HasFlag(RIDE_TYPE_FLAG_ALLOW_MORE_VEHICLES_THAN_STATION_FITS)))
+                    || !(rtd.HasFlag(RtdFlag::allowMoreVehiclesThanStationFits)))
                 {
-                    maxNumTrains = std::min(maxNumTrains, int32_t(OpenRCT2::Limits::MaxTrainsPerRide));
+                    maxNumTrains = std::min(maxNumTrains, int32_t(OpenRCT2::Limits::kMaxTrainsPerRide));
                 }
                 else
                 {
@@ -5154,7 +5179,7 @@ void Ride::UpdateMaxVehicles()
                     {
                         maxNumTrains++;
                         length += totalSpacing;
-                    } while (maxNumTrains < OpenRCT2::Limits::MaxTrainsPerRide && length < trackLength);
+                    } while (maxNumTrains < OpenRCT2::Limits::kMaxTrainsPerRide && length < trackLength);
                 }
                 break;
         }
@@ -5173,7 +5198,7 @@ void Ride::UpdateMaxVehicles()
 
     if (GetGameState().Cheats.DisableTrainLengthLimit)
     {
-        maxNumTrains = OpenRCT2::Limits::MaxTrainsPerRide;
+        maxNumTrains = OpenRCT2::Limits::kMaxTrainsPerRide;
     }
     numTrains = std::min(ProposedNumTrains, static_cast<uint8_t>(maxNumTrains));
 
@@ -5272,7 +5297,7 @@ uint32_t RideCustomersInLast5Minutes(const Ride& ride)
 {
     uint32_t sum = 0;
 
-    for (int32_t i = 0; i < OpenRCT2::Limits::CustomerHistorySize; i++)
+    for (int32_t i = 0; i < OpenRCT2::Limits::kCustomerHistorySize; i++)
     {
         sum += ride.num_customers[i];
     }
@@ -5326,7 +5351,7 @@ std::tuple<float, uint16_t> Ride::RideGetGuestRatings() const
 
     for (auto guest : EntityList<Guest>())
     {
-        float rideRating = guest->AGS.GetMedianIntensityRating(this->id, this->intensity);
+        float rideRating = guest->AGS.GetMedianIntensityRating(this->id, this->ratings.intensity);
         if (rideRating > 0)
         {
             total_ride_rating += rideRating;
@@ -5404,7 +5429,7 @@ static bool CheckForAdjacentStation(const CoordsXYZ& stationCoords, uint8_t dire
         adjX += CoordsDirectionDelta[direction].x;
         adjY += CoordsDirectionDelta[direction].y;
         TileElement* stationElement = GetStationPlatform(
-            { { adjX, adjY, stationCoords.z }, stationCoords.z + 2 * COORDS_Z_STEP });
+            { { adjX, adjY, stationCoords.z }, stationCoords.z + 2 * kCoordsZStep });
         if (stationElement != nullptr)
         {
             auto rideIndex = stationElement->AsTrack()->GetRideIndex();
@@ -5461,24 +5486,13 @@ bool RideHasStationShelter(const Ride& ride)
 
 bool RideHasRatings(const Ride& ride)
 {
-    return ride.excitement != kRideRatingUndefined;
+    return !ride.ratings.isNull();
 }
 
 int32_t GetBoosterSpeed(ride_type_t rideType, int32_t rawSpeed)
 {
-    int8_t shiftFactor = GetRideTypeDescriptor(rideType).OperatingSettings.BoosterSpeedFactor;
-    if (shiftFactor == 0)
-    {
-        return rawSpeed;
-    }
-    if (shiftFactor > 0)
-    {
-        return (rawSpeed << shiftFactor);
-    }
-
-    // Workaround for an issue with older compilers (GCC 6, Clang 4) which would fail the build
-    int8_t shiftFactorAbs = std::abs(shiftFactor);
-    return (rawSpeed >> shiftFactorAbs);
+    // BoosterSpeedFactor has valid values of 1, 2, 4 representing a 1/2, 1, and 2 multiplier.
+    return rawSpeed * GetRideTypeDescriptor(rideType).LegacyBoosterSettings.BoosterSpeedFactor / 2;
 }
 
 void FixInvalidVehicleSpriteSizes()
@@ -5544,7 +5558,7 @@ int32_t RideGetEntryIndex(int32_t rideType, int32_t rideSubType)
                     continue;
                 }
 
-                if (!GetRideTypeDescriptor(rideType).HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+                if (!GetRideTypeDescriptor(rideType).HasFlag(RtdFlag::listVehiclesSeparately))
                 {
                     subType = rideEntryIndex;
                     break;
@@ -5559,13 +5573,13 @@ int32_t RideGetEntryIndex(int32_t rideType, int32_t rideSubType)
 const StationObject* Ride::GetStationObject() const
 {
     auto& objManager = GetContext()->GetObjectManager();
-    return static_cast<StationObject*>(objManager.GetLoadedObject(ObjectType::Station, entrance_style));
+    return objManager.GetLoadedObject<StationObject>(entrance_style);
 }
 
 const MusicObject* Ride::GetMusicObject() const
 {
     auto& objManager = GetContext()->GetObjectManager();
-    return static_cast<MusicObject*>(objManager.GetLoadedObject(ObjectType::Music, music));
+    return objManager.GetLoadedObject<MusicObject>(music);
 }
 
 // Normally, a station has at most one entrance and one exit, which are at the same height
@@ -5754,7 +5768,7 @@ void Ride::FormatNameTo(Formatter& ft) const
     {
         const auto& rtd = GetRideTypeDescriptor();
         auto rideTypeName = rtd.Naming.Name;
-        if (rtd.HasFlag(RIDE_TYPE_FLAG_LIST_VEHICLES_SEPARATELY))
+        if (rtd.HasFlag(RtdFlag::listVehiclesSeparately))
         {
             auto rideEntry = GetRideEntry();
             if (rideEntry != nullptr)
@@ -5914,7 +5928,7 @@ ResultWithMessage Ride::ChangeStatusGetStartElement(StationIndex stationIndex, C
     {
         // Maze is strange, station start is 0... investigation required
         const auto& rtd = GetRideTypeDescriptor();
-        if (!rtd.HasFlag(RIDE_TYPE_FLAG_IS_MAZE))
+        if (!rtd.HasFlag(RtdFlag::isMaze))
             return { false };
     }
 
@@ -6000,7 +6014,7 @@ ResultWithMessage Ride::ChangeStatusCreateVehicles(bool isApplying, const Coords
         RideSetStartFinishPoints(id, trackElement);
 
     const auto& rtd = GetRideTypeDescriptor();
-    if (!rtd.HasFlag(RIDE_TYPE_FLAG_NO_VEHICLES) && !(lifecycle_flags & RIDE_LIFECYCLE_ON_TRACK))
+    if (!rtd.HasFlag(RtdFlag::noVehicles) && !(lifecycle_flags & RIDE_LIFECYCLE_ON_TRACK))
     {
         const auto createVehicleResult = CreateVehicles(trackElement, isApplying);
         if (!createVehicleResult.Successful)
@@ -6009,7 +6023,7 @@ ResultWithMessage Ride::ChangeStatusCreateVehicles(bool isApplying, const Coords
         }
     }
 
-    if (rtd.HasFlag(RIDE_TYPE_FLAG_ALLOW_CABLE_LIFT_HILL) && (lifecycle_flags & RIDE_LIFECYCLE_CABLE_LIFT_HILL_COMPONENT_USED)
+    if (rtd.HasFlag(RtdFlag::allowCableLiftHill) && (lifecycle_flags & RIDE_LIFECYCLE_CABLE_LIFT_HILL_COMPONENT_USED)
         && !(lifecycle_flags & RIDE_LIFECYCLE_CABLE_LIFT))
     {
         const auto createCableLiftResult = RideCreateCableLift(id, isApplying);
@@ -6018,6 +6032,28 @@ ResultWithMessage Ride::ChangeStatusCreateVehicles(bool isApplying, const Coords
     }
 
     return { true };
+}
+
+uint8_t Ride::getNumDrops() const
+{
+    return dropsPoweredLifts & kRideNumDropsMask;
+}
+
+void Ride::setNumDrops(uint8_t newValue)
+{
+    dropsPoweredLifts &= ~kRideNumDropsMask;
+    dropsPoweredLifts |= (newValue & kRideNumDropsMask);
+}
+
+uint8_t Ride::getNumPoweredLifts() const
+{
+    return dropsPoweredLifts >> 6;
+}
+
+void Ride::setPoweredLifts(uint8_t newValue)
+{
+    dropsPoweredLifts &= ~kRideNumPoweredLiftsMask;
+    dropsPoweredLifts |= (newValue << 6);
 }
 
 money64 Ride::GetNormalizedRideValue() const
@@ -6030,22 +6066,23 @@ money64 Ride::GetNormalizedRideValue() const
         return oldValue * 2;
 
     const int32_t normalizedAverageRideSpeed = 24; // in km/h
-    const int32_t normalizedRideDuration = 90; // in seconds
+    const int32_t normalizedRideDuration = 90;     // in seconds
 
     const int32_t amplitude = 15900; // 14900 // 10800
     const float incline = 0.02f;
     const float falloff = 5;
 
-    const float averageRideSpeedWeight = 0.25f; //0.2f // 0.3f
-    const float rideDurationWeight = 0.32f; // 0.37f
-    const float weightNormalizer = 0.3f; 
+    const float averageRideSpeedWeight = 0.25f; // 0.2f // 0.3f
+    const float rideDurationWeight = 0.32f;     // 0.37f
+    const float weightNormalizer = 0.3f;
 
     // money64 value2 = sqrt(
-    //    (value * value) * sqrt(averageRideSpeed * 2) / sqrt(normalizedAverageRideSpeed) * rideTime / normalizedRideDuration); // Old function
+    //    (value * value) * sqrt(averageRideSpeed * 2) / sqrt(normalizedAverageRideSpeed) * rideTime / normalizedRideDuration);
+    //    // Old function
 
     money64 newValue = amplitude * pow((1 / (1 + exp(-incline * oldValue))), falloff)
-        * (pow(averageRideSpeed, averageRideSpeedWeight) / normalizedAverageRideSpeed
-            * pow(rideTime,rideDurationWeight) / normalizedRideDuration)
+        * (pow(averageRideSpeed, averageRideSpeedWeight) / normalizedAverageRideSpeed * pow(rideTime, rideDurationWeight)
+           / normalizedRideDuration)
         / (weightNormalizer + 1 / (rideTime + averageRideSpeed));
 
     return newValue * 2;

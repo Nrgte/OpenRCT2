@@ -13,18 +13,22 @@
 #include "../GameState.h"
 #include "../OpenRCT2.h"
 #include "../interface/Window.h"
-#include "../localisation/Localisation.h"
 #include "../localisation/StringIds.h"
 #include "../management/Finance.h"
 #include "../object/SmallSceneryEntry.h"
 #include "../ride/RideData.h"
 #include "../windows/Intent.h"
 #include "../world/ConstructionClearance.h"
+#include "../world/Footpath.h"
 #include "../world/Park.h"
 #include "../world/Scenery.h"
-#include "../world/Surface.h"
 #include "../world/TileElementsView.h"
+#include "../world/Wall.h"
+#include "../world/tile_element/PathElement.h"
 #include "../world/tile_element/Slope.h"
+#include "../world/tile_element/SmallSceneryElement.h"
+#include "../world/tile_element/SurfaceElement.h"
+#include "../world/tile_element/TrackElement.h"
 
 using namespace OpenRCT2;
 
@@ -68,7 +72,7 @@ GameActions::Result LandSetHeightAction::Query() const
         return GameActions::Result(GameActions::Status::Disallowed, STR_NONE, errorMessage);
     }
 
-    if (!(gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && !GetGameState().Cheats.SandboxMode)
+    if (!(gScreenFlags & SCREEN_FLAGS_SCENARIO_EDITOR) && !gameState.Cheats.SandboxMode)
     {
         if (!MapIsLocationInPark(_coords))
         {
@@ -77,7 +81,7 @@ GameActions::Result LandSetHeightAction::Query() const
     }
 
     money64 sceneryRemovalCost = 0;
-    if (!GetGameState().Cheats.DisableClearanceChecks)
+    if (!gameState.Cheats.DisableClearanceChecks)
     {
         if (gameState.Park.Flags & PARK_FLAGS_FORBID_TREE_REMOVAL)
         {
@@ -94,7 +98,7 @@ GameActions::Result LandSetHeightAction::Query() const
     }
 
     // Check for ride support limits
-    if (!GetGameState().Cheats.DisableSupportLimits)
+    if (!gameState.Cheats.DisableSupportLimits)
     {
         errorMessage = CheckRideSupports();
         if (errorMessage != STR_NONE)
@@ -125,7 +129,7 @@ GameActions::Result LandSetHeightAction::Query() const
         return res;
     }
 
-    if (!GetGameState().Cheats.DisableClearanceChecks)
+    if (!gameState.Cheats.DisableClearanceChecks)
     {
         uint8_t zCorner = _height;
         if (_style & kTileSlopeRaisedCornersMask)
@@ -138,7 +142,7 @@ GameActions::Result LandSetHeightAction::Query() const
         }
 
         auto clearResult = MapCanConstructWithClearAt(
-            { _coords, _height * COORDS_Z_STEP, zCorner * COORDS_Z_STEP }, &MapSetLandHeightClearFunc, { 0b1111, 0 }, 0,
+            { _coords, _height * kCoordsZStep, zCorner * kCoordsZStep }, &MapSetLandHeightClearFunc, { 0b1111, 0 }, 0,
             CreateCrossingMode::none);
         if (clearResult.Error != GameActions::Status::Ok)
         {
@@ -311,7 +315,7 @@ TileElement* LandSetHeightAction::CheckFloatingStructures(TileElement* surfaceEl
                     zCorner += 2;
                 }
             }
-            if (zCorner > (waterHeight / COORDS_Z_STEP) - 2)
+            if (zCorner > (waterHeight / kCoordsZStep) - 2)
             {
                 return ++surfaceElement;
             }
@@ -337,7 +341,7 @@ void LandSetHeightAction::SetSurfaceHeight(TileElement* surfaceElement) const
     surfaceElement->BaseHeight = _height;
     surfaceElement->ClearanceHeight = _height;
     surfaceElement->AsSurface()->SetSlope(_style);
-    int32_t waterHeight = surfaceElement->AsSurface()->GetWaterHeight() / COORDS_Z_STEP;
+    int32_t waterHeight = surfaceElement->AsSurface()->GetWaterHeight() / kCoordsZStep;
     if (waterHeight != 0 && waterHeight <= _height)
     {
         surfaceElement->AsSurface()->SetWaterHeight(0);

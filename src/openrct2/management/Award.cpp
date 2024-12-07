@@ -13,7 +13,6 @@
 #include "../config/Config.h"
 #include "../entity/Guest.h"
 #include "../interface/Window.h"
-#include "../localisation/Localisation.h"
 #include "../localisation/StringIds.h"
 #include "../profiling/Profiling.h"
 #include "../ride/Ride.h"
@@ -291,7 +290,7 @@ static bool AwardIsDeservedBestFood(int32_t activeAwardTypes)
     {
         if (ride.status != RideStatus::Open)
             continue;
-        if (!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_SELLS_FOOD))
+        if (!ride.GetRideTypeDescriptor().HasFlag(RtdFlag::sellsFood))
             continue;
 
         shops++;
@@ -336,7 +335,7 @@ static bool AwardIsDeservedWorstFood(int32_t activeAwardTypes)
     {
         if (ride.status != RideStatus::Open)
             continue;
-        if (!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_SELLS_FOOD))
+        if (!ride.GetRideTypeDescriptor().HasFlag(RtdFlag::sellsFood))
             continue;
 
         shops++;
@@ -375,7 +374,7 @@ static bool AwardIsDeservedBestToilets([[maybe_unused]] int32_t activeAwardTypes
     const auto& rideManager = GetRideManager();
     auto numToilets = static_cast<size_t>(std::count_if(rideManager.begin(), rideManager.end(), [](const Ride& ride) {
         const auto& rtd = ride.GetRideTypeDescriptor();
-        return rtd.HasFlag(RIDE_TYPE_FLAG_IS_TOILET) && ride.status == RideStatus::Open;
+        return rtd.HasFlag(RtdFlag::isToilet) && ride.status == RideStatus::Open;
     }));
 
     // At least 4 open toilets
@@ -464,11 +463,11 @@ static bool AwardIsDeservedBestCustomDesignedRides(int32_t activeAwardTypes)
     auto customDesignedRides = 0;
     for (const auto& ride : GetRideManager())
     {
-        if (!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_HAS_TRACK))
+        if (!ride.GetRideTypeDescriptor().HasFlag(RtdFlag::hasTrack))
             continue;
         if (ride.lifecycle_flags & RIDE_LIFECYCLE_NOT_CUSTOM_DESIGN)
             continue;
-        if (ride.excitement < RIDE_RATING(5, 50))
+        if (ride.ratings.excitement < RIDE_RATING(5, 50))
             continue;
         if (ride.status != RideStatus::Open || (ride.lifecycle_flags & RIDE_LIFECYCLE_CRASHED))
             continue;
@@ -496,7 +495,7 @@ static bool AwardIsDeservedMostDazzlingRideColours(int32_t activeAwardTypes)
     auto colourfulRides = 0;
     for (const auto& ride : GetRideManager())
     {
-        if (!ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_HAS_TRACK))
+        if (!ride.GetRideTypeDescriptor().HasFlag(RtdFlag::hasTrack))
             continue;
 
         countedRides++;
@@ -604,7 +603,8 @@ void AwardUpdateAll()
 {
     PROFILED_FUNCTION();
 
-    auto& currentAwards = GetGameState().CurrentAwards;
+    auto& gameState = GetGameState();
+    auto& currentAwards = gameState.CurrentAwards;
     // Decrease award times
     for (auto& award : currentAwards)
     {
@@ -620,7 +620,7 @@ void AwardUpdateAll()
     }
 
     // Only add new awards if park is open
-    if (GetGameState().Park.Flags & PARK_FLAGS_PARK_OPEN)
+    if (gameState.Park.Flags & PARK_FLAGS_PARK_OPEN)
     {
         // Set active award types as flags
         int32_t activeAwardTypes = 0;
@@ -630,7 +630,7 @@ void AwardUpdateAll()
         }
 
         // Check if there was a free award entry
-        if (currentAwards.size() < OpenRCT2::Limits::MaxAwards)
+        if (currentAwards.size() < OpenRCT2::Limits::kMaxAwards)
         {
             // Get a random award type not already active
             AwardType awardType;

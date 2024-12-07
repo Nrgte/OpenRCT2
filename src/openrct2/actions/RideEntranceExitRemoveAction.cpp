@@ -9,10 +9,12 @@
 
 #include "RideEntranceExitRemoveAction.h"
 
+#include "../Diagnostic.h"
 #include "../ride/Ride.h"
 #include "../ride/Station.h"
 #include "../world/Entrance.h"
 #include "../world/TileElementsView.h"
+#include "../world/tile_element/EntranceElement.h"
 
 using namespace OpenRCT2;
 

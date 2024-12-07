@@ -10,6 +10,7 @@
 #include "CommandLineSprite.h"
 
 #include "Context.h"
+#include "Diagnostic.h"
 #include "OpenRCT2.h"
 #include "core/FileStream.h"
 #include "core/Imaging.h"
@@ -21,7 +22,6 @@
 #include "object/ObjectLimits.h"
 #include "object/ObjectManager.h"
 #include "object/ObjectRepository.h"
-#include "util/Util.h"
 
 #include <cmath>
 #include <cstring>
@@ -31,6 +31,7 @@
 #include <iomanip>
 #include <sstream>
 
+using namespace OpenRCT2;
 using namespace OpenRCT2::Drawing;
 
 static int32_t CommandLineForSpriteCombine(const char** argv, int32_t argc);
@@ -205,14 +206,14 @@ static bool SpriteImageExport(const G1Element& spriteElement, u8string_view outP
     GfxSpriteToBuffer(dpi, args);
 
     auto const pixels8 = dpi.bits;
-    auto const pixelsLen = (dpi.width + dpi.pitch) * dpi.height;
+    auto const pixelsLen = dpi.LineStride() * dpi.WorldHeight();
     try
     {
         Image image;
         image.Width = dpi.width;
         image.Height = dpi.height;
         image.Depth = 8;
-        image.Stride = dpi.width + dpi.pitch;
+        image.Stride = dpi.LineStride();
         image.Palette = std::make_unique<GamePalette>(StandardPalette);
         image.Pixels = std::vector<uint8_t>(pixels8, pixels8 + pixelsLen);
         Imaging::WriteToFile(outPath, image, IMAGE_FORMAT::PNG);
@@ -496,7 +497,8 @@ int32_t CommandLineForSprite(const char** argv, int32_t argc)
             }
         }
 
-        ImageImportMeta meta = { { xOffset, yOffset }, Palette::OpenRCT2, ImportFlags::RLE, gSpriteMode };
+        uint8_t importFlags = EnumToFlag(ImportFlags::RLE);
+        ImageImportMeta meta = { { xOffset, yOffset }, Palette::OpenRCT2, importFlags, gSpriteMode };
         auto importResult = SpriteImageImport(imagePath, meta);
         if (!importResult.has_value())
             return -1;

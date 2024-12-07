@@ -11,6 +11,7 @@
 
 #    include "CustomListView.h"
 
+#    include "../interface/Viewport.h"
 #    include "../interface/Widget.h"
 #    include "../interface/Window.h"
 
@@ -18,7 +19,6 @@
 #    include <openrct2/Context.h>
 #    include <openrct2/localisation/Formatter.h>
 #    include <openrct2/localisation/Formatting.h>
-#    include <openrct2/localisation/Localisation.h>
 #    include <openrct2/util/Util.h>
 
 using namespace OpenRCT2::Scripting;
@@ -28,7 +28,8 @@ namespace OpenRCT2::Scripting
 {
     constexpr size_t COLUMN_HEADER_HEIGHT = kListRowHeight + 1;
 
-    template<> ColumnSortOrder FromDuk(const DukValue& d)
+    template<>
+    ColumnSortOrder FromDuk(const DukValue& d)
     {
         if (d.type() == DukValue::Type::STRING)
         {
@@ -41,7 +42,8 @@ namespace OpenRCT2::Scripting
         return ColumnSortOrder::None;
     }
 
-    template<> DukValue ToDuk(duk_context* ctx, const ColumnSortOrder& value)
+    template<>
+    DukValue ToDuk(duk_context* ctx, const ColumnSortOrder& value)
     {
         switch (value)
         {
@@ -54,7 +56,8 @@ namespace OpenRCT2::Scripting
         }
     }
 
-    template<> std::optional<int32_t> FromDuk(const DukValue& d)
+    template<>
+    std::optional<int32_t> FromDuk(const DukValue& d)
     {
         if (d.type() == DukValue::Type::NUMBER)
         {
@@ -63,7 +66,8 @@ namespace OpenRCT2::Scripting
         return std::nullopt;
     }
 
-    template<> ListViewColumn FromDuk(const DukValue& d)
+    template<>
+    ListViewColumn FromDuk(const DukValue& d)
     {
         ListViewColumn result;
         result.CanSort = AsOrDefault(d["canSort"], false);
@@ -86,7 +90,8 @@ namespace OpenRCT2::Scripting
         return result;
     }
 
-    template<> DukValue ToDuk(duk_context* ctx, const ListViewColumn& value)
+    template<>
+    DukValue ToDuk(duk_context* ctx, const ListViewColumn& value)
     {
         DukObject obj(ctx);
         obj.Set("canSort", value.CanSort);
@@ -100,7 +105,8 @@ namespace OpenRCT2::Scripting
         return obj.Take();
     }
 
-    template<> ListViewItem FromDuk(const DukValue& d)
+    template<>
+    ListViewItem FromDuk(const DukValue& d)
     {
         ListViewItem result;
         if (d.type() == DukValue::Type::STRING)
@@ -129,7 +135,8 @@ namespace OpenRCT2::Scripting
         return result;
     }
 
-    template<> std::vector<ListViewColumn> FromDuk(const DukValue& d)
+    template<>
+    std::vector<ListViewColumn> FromDuk(const DukValue& d)
     {
         std::vector<ListViewColumn> result;
         if (d.is_array())
@@ -143,7 +150,8 @@ namespace OpenRCT2::Scripting
         return result;
     }
 
-    template<> std::vector<ListViewItem> FromDuk(const DukValue& d)
+    template<>
+    std::vector<ListViewItem> FromDuk(const DukValue& d)
     {
         std::vector<ListViewItem> result;
         if (d.is_array())
@@ -157,7 +165,8 @@ namespace OpenRCT2::Scripting
         return result;
     }
 
-    template<> std::optional<RowColumn> FromDuk(const DukValue& d)
+    template<>
+    std::optional<RowColumn> FromDuk(const DukValue& d)
     {
         if (d.type() == DukValue::Type::OBJECT)
         {
@@ -171,7 +180,8 @@ namespace OpenRCT2::Scripting
         return std::nullopt;
     }
 
-    template<> DukValue ToDuk(duk_context* ctx, const RowColumn& value)
+    template<>
+    DukValue ToDuk(duk_context* ctx, const RowColumn& value)
     {
         DukObject obj(ctx);
         obj.Set("row", value.Row);
@@ -179,7 +189,8 @@ namespace OpenRCT2::Scripting
         return obj.Take();
     }
 
-    template<> ScrollbarType FromDuk(const DukValue& d)
+    template<>
+    ScrollbarType FromDuk(const DukValue& d)
     {
         auto value = AsOrDefault(d, "");
         if (value == "horizontal")
@@ -191,7 +202,8 @@ namespace OpenRCT2::Scripting
         return ScrollbarType::None;
     }
 
-    template<> DukValue ToDuk(duk_context* ctx, const ScrollbarType& value)
+    template<>
+    DukValue ToDuk(duk_context* ctx, const ScrollbarType& value)
     {
         switch (value)
         {
@@ -433,9 +445,9 @@ ScreenSize CustomListView::GetSize()
         auto left = result.width - widget->right + widget->left + 21;
         if (left < 0)
             left = 0;
-        if (left < scroll.h_left)
+        if (left < scroll.contentOffsetX)
         {
-            scroll.h_left = left;
+            scroll.contentOffsetX = left;
             Invalidate();
         }
 
@@ -443,9 +455,9 @@ ScreenSize CustomListView::GetSize()
         auto top = result.height - widget->bottom + widget->top + 21;
         if (top < 0)
             top = 0;
-        if (top < scroll.v_top)
+        if (top < scroll.contentOffsetY)
         {
-            scroll.v_top = top;
+            scroll.contentOffsetY = top;
             Invalidate();
         }
     }
@@ -549,9 +561,9 @@ void CustomListView::MouseUp(const ScreenCoordsXY& pos)
     }
 }
 
-void CustomListView::Paint(WindowBase* w, DrawPixelInfo& dpi, const ScrollBar* scroll) const
+void CustomListView::Paint(WindowBase* w, DrawPixelInfo& dpi, const ScrollArea* scroll) const
 {
-    auto paletteIndex = ColourMapA[w->colours[1]].mid_light;
+    auto paletteIndex = ColourMapA[w->colours[1].colour].mid_light;
     GfxFillRect(dpi, { { dpi.x, dpi.y }, { dpi.x + dpi.width, dpi.y + dpi.height } }, paletteIndex);
 
     int32_t y = ShowColumnHeaders ? COLUMN_HEADER_HEIGHT : 0;
@@ -596,7 +608,7 @@ void CustomListView::Paint(WindowBase* w, DrawPixelInfo& dpi, const ScrollBar* s
                 {
                     GfxFillRect(
                         dpi, { { dpi.x, y }, { dpi.x + dpi.width, y + (kListRowHeight - 1) } },
-                        ColourMapA[w->colours[1]].lighter | 0x1000000);
+                        ColourMapA[w->colours[1].colour].lighter | 0x1000000);
                 }
 
                 // Columns
@@ -638,9 +650,9 @@ void CustomListView::Paint(WindowBase* w, DrawPixelInfo& dpi, const ScrollBar* s
 
     if (ShowColumnHeaders)
     {
-        y = scroll->v_top;
+        y = scroll->contentOffsetY;
 
-        auto bgColour = ColourMapA[w->colours[1]].mid_light;
+        auto bgColour = ColourMapA[w->colours[1].colour].mid_light;
         GfxFillRect(dpi, { { dpi.x, y }, { dpi.x + dpi.width, y + 12 } }, bgColour);
 
         int32_t x = 0;
@@ -704,8 +716,8 @@ void CustomListView::PaintSeperator(
     auto lineY1 = lineY0 + 1;
 
     auto baseColour = ParentWindow->colours[1];
-    auto lightColour = ColourMapA[baseColour].lighter;
-    auto darkColour = ColourMapA[baseColour].mid_dark;
+    auto lightColour = ColourMapA[baseColour.colour].lighter;
+    auto darkColour = ColourMapA[baseColour.colour].mid_dark;
 
     if (hasText)
     {
@@ -715,8 +727,9 @@ void CustomListView::PaintSeperator(
         DrawTextBasic(dpi, { centreX, pos.y }, STR_STRING, ft, { baseColour, TextAlignment::CENTRE });
 
         // Get string dimensions
-        FormatStringLegacy(gCommonStringFormatBuffer, sizeof(gCommonStringFormatBuffer), STR_STRING, ft.Data());
-        int32_t categoryStringHalfWidth = (GfxGetStringWidth(gCommonStringFormatBuffer, FontStyle::Medium) / 2) + 4;
+        utf8 stringBuffer[512]{};
+        FormatStringLegacy(stringBuffer, sizeof(stringBuffer), STR_STRING, ft.Data());
+        int32_t categoryStringHalfWidth = (GfxGetStringWidth(stringBuffer, FontStyle::Medium) / 2) + 4;
         int32_t strLeft = centreX - categoryStringHalfWidth;
         int32_t strRight = centreX + categoryStringHalfWidth;
 
@@ -770,7 +783,7 @@ std::optional<RowColumn> CustomListView::GetItemIndexAt(const ScreenCoordsXY& po
     {
         // Check if we pressed the header
         auto& scroll = ParentWindow->scrolls[ScrollIndex];
-        int32_t absoluteY = pos.y - scroll.v_top;
+        int32_t absoluteY = pos.y - scroll.contentOffsetY;
         if (ShowColumnHeaders && absoluteY >= 0 && absoluteY < kListRowHeight)
         {
             result = RowColumn();
