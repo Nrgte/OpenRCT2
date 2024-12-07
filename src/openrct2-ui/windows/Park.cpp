@@ -793,7 +793,9 @@ namespace OpenRCT2::Ui::Windows
             const auto& gameState = GetGameState();
             _guestProps.series = gameState.GuestsInParkHistory;
             const Widget* background = &widgets[WIDX_PAGE_BACKGROUND];
-            _guestGraphBounds = { windowPos + ScreenCoordsXY{ background->left + 4, background->top + 15 },
+
+            // Old Value: _guestGraphBounds = { windowPos + ScreenCoordsXY{ background->left + 4, background->top + 15 },
+            _guestGraphBounds = { windowPos + ScreenCoordsXY{ background->left + 4, background->top + 25 },
                                   windowPos + ScreenCoordsXY{ background->right - 4, background->bottom - 4 } };
 
             // Calculate Y axis max and min
@@ -829,6 +831,12 @@ namespace OpenRCT2::Ui::Windows
             Formatter ft;
             ft.Add<uint32_t>(GetGameState().NumGuestsInPark);
             DrawTextBasic(dpi, windowPos + ScreenCoordsXY{ widget->left + 3, widget->top + 2 }, STR_GUESTS_IN_PARK_LABEL, ft);
+
+            // Temporarily show the soft guest cap for debug purposes.
+            ft = Formatter();
+            ft.Add<StringId>(STR_STRING);
+            ft.Add<const char*>(("Current Soft Guest Cap : " + std::to_string(GetGameState().SuggestedGuestMaximum)).c_str());
+            DrawTextBasic(dpi, windowPos + ScreenCoordsXY{ widget->left + 3, widget->top + 14 }, STR_BLACK_STRING, ft);
 
             // Graph border
             GfxFillRectInset(dpi, _guestGraphBounds, colours[1], INSET_RECT_F_30);
