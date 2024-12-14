@@ -31,4 +31,6 @@ namespace OpenRCT2::PathFinding
 
     int32_t GuestPathFindParkEntranceLeaving(Peep& peep, uint8_t edges);
 
+    int32_t CalculateHeuristicPathingScoreWrapper(const CoordsXYZ& loc1, const CoordsXYZ& loc2);
+
 }; // namespace OpenRCT2::PathFinding

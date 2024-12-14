@@ -644,6 +644,12 @@ namespace OpenRCT2::PathFinding
         return xDelta + yDelta + zDelta;
     }
 
+    int32_t CalculateHeuristicPathingScoreWrapper(const CoordsXYZ& loc1, const CoordsXYZ& loc2)
+    {
+        return CalculateHeuristicPathingScore(TileCoordsXYZ(loc1), TileCoordsXYZ(loc2));
+    }
+
+
     /**
      * Searches for the tile with the best heuristic score within the search limits
      * starting from the given tile x,y,z and going in the given direction test_edge.
