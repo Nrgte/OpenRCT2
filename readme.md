@@ -1,4 +1,13 @@
+### About OpenRCT2-SIM
 
+The goal of OpenRCT2-SIM is to make the game more realistic especially when it comes to the guest behavior.
+
+Notable differenes:
+- Ride Value is determined based on ride time and average ride speed. This makes long coasters more attractive.
+- Guests now rate rides according to their preferences.
+- Guest choose rides not solely based on Excitement anymore, but take various other factors into account such as how they rated a ride, the queue time and proximity.
+- Soft guest cap also is increased for rides with a longer ride time and a high average ride speed.
+- Maximum price is increased to $40. Yes you can charge $40 for umbrellas (for now).
 
 <p align="center">
   <a href="https://openrct2.io">
