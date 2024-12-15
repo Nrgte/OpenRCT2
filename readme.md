@@ -8,6 +8,7 @@ Notable differenes:
 - Guest choose rides not solely based on Excitement anymore, but take various other factors into account such as how they rated a ride, the queue time and proximity.
 - Soft guest cap also is increased for rides with a longer ride time and a high average ride speed.
 - Maximum price is increased to $40. Yes you can charge $40 for umbrellas (for now).
+- Guests actively seek out first aid stalls and toilets if necessary.
   
 
 
