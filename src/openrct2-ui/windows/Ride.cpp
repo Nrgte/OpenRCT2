@@ -6429,7 +6429,6 @@ namespace OpenRCT2::Ui::Windows
         {
             auto price = IncomeGetSecondaryPrice();
 
-
             if (price < MAX_RIDE_PRICE)
                 price++;
 
@@ -6503,7 +6502,8 @@ namespace OpenRCT2::Ui::Windows
 
         void IncomeResize()
         {
-            WindowSetResize(*this, 316, 194, 316, 194);
+            //WindowSetResize(*this, 316, 194, 316, 194);
+            WindowSetResize(*this, 316, 206, 316, 206);
         }
 
         void IncomeOnMouseDown(WidgetIndex widgetIndex)
@@ -6711,6 +6711,7 @@ namespace OpenRCT2::Ui::Windows
 
                 DrawTextBasic(dpi, screenCoords, stringId, ft);
             }
+
             screenCoords.y += 44;
 
             // Secondary item profit / loss per item sold
@@ -6769,6 +6770,23 @@ namespace OpenRCT2::Ui::Windows
             ft = Formatter();
             ft.Add<money64>(ride->total_profit);
             DrawTextBasic(dpi, screenCoords, STR_TOTAL_PROFIT, ft);
+
+
+            // Temporary cheat to display price disparity.
+            screenCoords.y += kListRowHeight;
+            std::stringstream ss;
+            ss << std::fixed << std::setprecision(1) << (ride->value * 2 / 10.0f);
+            std::string oldPrice = ss.str();
+            ss.str("");
+            ss << std::fixed << std::setprecision(1) << (ride->GetNormalizedRideValue() / 10.0f);
+            std::string newPrice = ss.str();
+
+            stringId = STR_BLACK_STRING;
+            ft = Formatter();
+            ft.Add<StringId>(STR_STRING);
+            ft.Add<const char*>(("Old max price : " + oldPrice + " - New max price: " + newPrice)
+                    .c_str());
+            DrawTextBasic(dpi, screenCoords, stringId, ft);
         }
 
 #pragma endregion

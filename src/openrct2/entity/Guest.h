@@ -384,6 +384,8 @@ public:
     // the history, thoughts, etc.
     void RemoveRideFromMemory(RideId rideId);
 
+    void initAGS(std::vector<RideId> rides);
+
 private:
     void UpdateRide();
     void UpdateOnRide() {}; // TODO

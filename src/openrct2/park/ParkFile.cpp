@@ -2288,6 +2288,7 @@ namespace OpenRCT2
                 std::vector<ObjectEntryIndex> rideTypeUse;
                 cs.ReadWriteVector(rideTypeUse, [&cs](ObjectEntryIndex& rideType) { cs.ReadWrite(rideType); });
                 OpenRCT2::RideUse::GetTypeHistory().Set(guest.Id, std::move(rideTypeUse));
+                guest.initAGS(rideUse);
             }
             else
             {

@@ -8077,6 +8077,16 @@ void Guest::RateRide(Ride& ride)
     }
 }
 
+void Guest::initAGS(std::vector<RideId> rides)
+{
+    for (RideId id : rides) {
+        Ride* ride = GetRide(id);
+        this->RateRide(*ride);
+    }
+
+}
+
+
 float getRideRatingProbability(uint8_t value, float standardDeviation, int8_t offset)
 {
     float tampering = -2.0f;
@@ -8181,3 +8191,4 @@ uint8_t getRandomTemperdFunctionValue(uint8_t highestMinIntensity)
     }
     return 0;
 }
+
