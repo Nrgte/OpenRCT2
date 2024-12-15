@@ -10,6 +10,14 @@ Notable differences:
 - Maximum price is increased to $40. Yes you can charge $40 for umbrellas (for now).
 - Guests actively seek out first aid stalls and toilets if necessary.
 
+For Debug purposes there are some borderline cheaty information displayed like this:
+![grafik](https://github.com/user-attachments/assets/6c0dcda9-b3d2-4863-8753-056c6cdaf3fb)
+
+Or this:
+![grafik](https://github.com/user-attachments/assets/41aeb8aa-680f-49cd-a98b-0d907059dc3c)
+
+
+
 <p align="center">
   <a href="https://openrct2.io">
     <img src="https://raw.githubusercontent.com/OpenRCT2/OpenRCT2/develop/resources/logo/icon_x128.png" style="width: 128px;" alt="OpenRCT2 logo"/>
