@@ -3,7 +3,7 @@
 The goal of OpenRCT2-SIM is to make the game more realistic especially when it comes to the guest behavior.
 
 Notable differences:
-- Ride Value is determined based on ride time and average ride speed. This makes long coasters more attractive.
+- Ride Value is determined based on ride time and average ride speed. This makes long coasters more attractive. Ride prices don't degrade with time anymore.
 - Guests now rate rides according to their preferences.
 - Guest choose rides not solely based on Excitement anymore, but take various other factors into account such as how they rated a ride, the queue time and proximity.
 - Soft guest cap also is increased for rides with a longer ride time and a high average ride speed.
