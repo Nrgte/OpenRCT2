@@ -11,7 +11,7 @@ Notable differences:
 - Maximum price is increased to $40. Yes you can charge $40 for umbrellas (for now).
 - Guests actively seek out first aid stalls and toilets if necessary.
 
-## Feature overview
+## Feature overview video
 [![Features explained!](http://img.youtube.com/vi/XryAcB_dLiU/0.jpg)](https://www.youtube.com/watch?v=XryAcB_dLiU)
 
 ## Other stuff
