@@ -12,9 +12,9 @@ Notable differences:
 - Guests actively seek out first aid stalls and toilets if necessary.
 
 ## Feature overview
+[![Features explained!](http://img.youtube.com/vi/XryAcB_dLiU/0.jpg)](https://www.youtube.com/watch?v=XryAcB_dLiU)
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/XryAcB_dLiU?si=P_5WzlSHgRh4Li08" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-
+## Other stuff
 
 For Debug purposes there are some borderline cheaty information displayed like this:
 ![grafik](https://github.com/user-attachments/assets/6c0dcda9-b3d2-4863-8753-056c6cdaf3fb)
