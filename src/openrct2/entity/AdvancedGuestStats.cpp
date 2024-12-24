@@ -27,7 +27,7 @@ float AdvancedGuestStats::GetMedianIntensityRating(RideId id, ride_rating curren
 
     std::vector<GuestRideRating> matches = FindRideIntensityRatingsByRideId(id);
 
-    int n = matches.size();
+    size_t n = matches.size();
 
     if (n == 0)
         return 0;

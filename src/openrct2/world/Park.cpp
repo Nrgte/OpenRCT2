@@ -146,7 +146,7 @@ namespace OpenRCT2::Park
                 amplifier *= 1.15f;
 
             // We give them a little boost to compensate for the facility guest cap loss.
-            if (!gameState.Park.Flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION || ride.ratings.excitement > RIDE_RATING(6, 00))
+            if (!(gameState.Park.Flags & PARK_FLAGS_DIFFICULT_GUEST_GENERATION) || ride.ratings.excitement > RIDE_RATING(6, 00))
                 amplifier *= 1.25f;
 
             // Add guest score for ride type

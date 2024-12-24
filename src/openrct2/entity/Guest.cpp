@@ -2249,7 +2249,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                             // Intensity calculations. Even though the max intensity can go up to 15, it's capped
                             // at 10.0 (before happiness calculations). A full happiness bar will increase the max
                             // intensity and decrease the min intensity by about 2.5.
-                            ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
+                            //ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
                             ride_rating minIntensity = (Intensity.GetMinimum() * 100) - Happiness;
 
                             // std::string mxIntensity = "maxIntensity: " + std::to_string(maxIntensity) + "\n";
@@ -2371,21 +2371,24 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
 
                 // money64 value2 = sqrt((value * value) * sqrt(averageRideSpeed*2) / sqrt(24) * rideTime / 90);
                 money64 value2 = ride.GetNormalizedRideValue();
+
+                /*
                 std::string rideValue = "Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
                     + " ; ridetime: " + std::to_string(rideTime) + " ; avg. ride speed: " + std::to_string(averageRideSpeed)
                     + " ; values: (" + std::to_string(value) + "," + std::to_string(value2) + ")\n";
                 OutputDebugStringA(rideValue.c_str());
-
+                */
                 value = value2;
             }
             else
             {
                 money64 value2 = ride.GetNormalizedRideValue();
+                /*
                 std::string rideValue = "Flat Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
                     + " ; ridetime: " + std::to_string(rideTime) + " ; avg. ride speed: " + std::to_string(averageRideSpeed)
                     + " ; values: (" + std::to_string(value) + "," + std::to_string(value2) + ")\n";
                 OutputDebugStringA(rideValue.c_str());
-
+                */
                 value = value2;
             }
 
@@ -8058,6 +8061,7 @@ void Guest::RateRide(Ride& ride)
     this->AGS.InsertRideIntensityRating(ride.id, rating, ride.ratings.intensity);
     std::vector<GuestRideRating> rideRatings = this->AGS.FindRideIntensityRatingsByRideId(ride.id);
 
+    /*
     if (rideRatings.size() > 1)
     {
         for (int i = 0; i < rideRatings.size(); ++i)
@@ -8075,6 +8079,7 @@ void Guest::RateRide(Ride& ride)
         std::cout << this->GetName() << " rated ride: " << this->AGS.RideIntensitySatisfaction[0].getRide()->GetName() << " = "
                   << r << std::endl;
     }
+    */
 }
 
 void Guest::initAGS(std::vector<RideId> rides)

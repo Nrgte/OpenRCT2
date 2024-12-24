@@ -6060,9 +6060,14 @@ money64 Ride::GetNormalizedRideValue() const
 {
     money64 oldValue = this->value;
     int32_t rideTime = this->GetTotalTime();
+    if (rideTime == 104)
+        rideTime = 104;
     int32_t averageRideSpeed = ((this->average_speed * 9) >> 18) * 1.60934; // in km/h
 
     if (rideTime <= 0)
+        return oldValue * 2;
+
+    if (rideTime <= 1 && averageRideSpeed <= 1)
         return oldValue * 2;
 
     const int32_t normalizedAverageRideSpeed = 24; // in km/h

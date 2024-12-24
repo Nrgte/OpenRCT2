@@ -57,6 +57,7 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <AdditionalOptions>$(OPENRCT2_CL_ADDITIONALOPTIONS) %(AdditionalOptions)</AdditionalOptions>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <AdditionalDependencies>libopenrct2.lib;%(AdditionalDependencies)</AdditionalDependencies>
