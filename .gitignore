@@ -18,6 +18,9 @@ sequencesversion
 objectsversion
 /out/
 
+#localisation
+openrct2-localisation
+
 #lib
 lib
 libversion
