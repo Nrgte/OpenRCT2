@@ -69,6 +69,7 @@ enum class ShopItem : uint8_t
     EmptyJuiceCup,
     RoastSausage,
     EmptyBowlBlue,
+    CreditCard,
     Count = 56,
     None = 255
 };

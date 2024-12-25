@@ -2279,5 +2279,7 @@ namespace OpenRCT2
         STR_ADJUST_LARGER_WATER_TIP = 2381,
         STR_ADJUST_SMALLER_WATER_TIP = 2380,
         STR_WATER = 2383,
+
+        STR_CREDIT_CARD = 28000,
     };
 }

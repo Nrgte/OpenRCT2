@@ -256,7 +256,7 @@ private:
         const utf8* identifier = sb.GetBuffer();
 
         int32_t stringId;
-        if (sscanf(identifier, "STR_%4d", &stringId) != 1)
+        if (sscanf(identifier, "STR_%5d", &stringId) != 1)
         {
             // Ignore line entirely
             return;

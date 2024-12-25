@@ -2541,7 +2541,8 @@ void Guest::SpendMoney(money64& peep_expend_type, money64 amount, ExpenditureTyp
 {
     assert(!(GetGameState().Park.Flags & PARK_FLAGS_NO_MONEY));
 
-    CashInPocket = std::max(0.00_GBP, static_cast<money64>(CashInPocket) - amount);
+    if (!HasItem(ShopItem::CreditCard))
+        CashInPocket = std::max(0.00_GBP, static_cast<money64>(CashInPocket) - amount);
     CashSpent += amount;
 
     peep_expend_type += amount;
@@ -7564,6 +7565,11 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     uint8_t energy = (ScenarioRand() % 64) + 65;
     peep->Energy = energy;
     peep->EnergyTarget = energy;
+
+
+    // 35% chance to spawn with a credit card
+    if ((ScenarioRand() & 0xFFFF) <= 22937)
+        peep->GiveItem(ShopItem::CreditCard);
 
     IncrementGuestsHeadingForPark();
 
