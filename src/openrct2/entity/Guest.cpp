@@ -1033,7 +1033,7 @@ void Guest::Tick128UpdateGuest(uint32_t index)
     }
 
     std::string name = this->GetName();
-    if (name == "Mhairi M.")
+    if (name == "Brandon C.")
     {
         this->Toilet += 0;
         this->Nausea += 0;
@@ -1064,7 +1064,7 @@ void Guest::Tick128UpdateGuest(uint32_t index)
     // The happier the guest the more likely they go on a ride. Base Happiness of 160 = 8192. Or if the guest is sick or has to go to the toilet.
     uint16_t probabilityToGoOnRide = 8192 * Happiness / 160;
     //if ((ScenarioRand() & 0xFFFF) <= ((HasItem(ShopItem::Map)) ? 8192u : 2184u))
-    if ((ScenarioRand() & 0xFFFF) <= probabilityToGoOnRide || Nausea > 200 || Toilet > 200)
+    if ((ScenarioRand() & 0xFFFF) <= probabilityToGoOnRide || Nausea > 200 || Toilet > 200 || Hunger < 75 || Thirst < 75)
     {
         PickRideToGoOn();
     }
@@ -1863,7 +1863,8 @@ void Guest::PickRideToGoOn()
     if (ride != nullptr)
     {
         // Head to that ride
-        std::string debugGuest = this->GetName() + " goes to ride : " + ride->GetName() + "\n";
+        std::string debugGuest = this->GetName() + " goes to ride : " + ride->GetName() + "; Hunger = " + std::to_string(Hunger)
+            + " ; Thirst = " + std::to_string(Thirst) + " ; Toilet = " + std::to_string(Toilet) + "\n";
         OutputDebugStringA(debugGuest.c_str());
         GuestHeadingToRideId = ride->id;
         GuestIsLostCountdown = 200;
@@ -1884,6 +1885,8 @@ Ride* Guest::FindBestRideToGoOn()
 
     int toiletThreshold = 160;
     int nauseaThreshold = 160;
+    int hungerThreshold = 75;
+    int thirstThreshold = 75;
     int cashInPocketThreshold = 20;
     auto rideConsideration = FindRidesToGoOn();
     Ride* chosenRide = nullptr;
@@ -1895,15 +1898,28 @@ Ride* Guest::FindBestRideToGoOn()
         {
             if (!(ride.lifecycle_flags & RIDE_LIFECYCLE_QUEUE_FULL))
             {
-                if (ShouldGoOnRide(ride, StationIndex::FromUnderlying(0), false, true) && RideHasRatings(ride))
+                if (ShouldGoOnRide(ride, StationIndex::FromUnderlying(0), false, true) && (RideHasRatings(ride) || ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility)))
                 {
                     const auto& rtd = ride.GetRideTypeDescriptor();
-                    if (Toilet > toiletThreshold && rtd.HasFlag(RtdFlag::isToilet))
+                    if (Toilet >= toiletThreshold && !rtd.HasFlag(RtdFlag::isToilet))
+                        continue;
+                    else if (Nausea >= nauseaThreshold && !rtd.HasFlag(RtdFlag::isFirstAid))
+                        continue;
+                    else if (Hunger <= hungerThreshold)
+                    {
+                        if (!rtd.HasFlag(RtdFlag::sellsFood))
+                            continue;
+                    }
+                    else if (Thirst <= thirstThreshold)
+                    {
+                        if (!rtd.HasFlag(RtdFlag::sellsDrinks))
+                            continue;
+                    }
+                    else if (CashInPocket < cashInPocketThreshold && rtd.HasFlag(RtdFlag::isCashMachine) && Happiness > 200)
                         return &ride;
-                    if (Nausea > nauseaThreshold && rtd.HasFlag(RtdFlag::isFirstAid))
-                        return &ride;
-                    if (CashInPocket < cashInPocketThreshold && rtd.HasFlag(RtdFlag::isCashMachine) && Happiness > 200)
-                        return &ride;
+                    else if (Toilet < toiletThreshold && Hunger > hungerThreshold && Thirst > thirstThreshold && rtd.HasFlag(RtdFlag::isShopOrFacility))
+                        continue;
+
 
                     viableRides.push_back(&ride);
                     /*
@@ -1917,15 +1933,24 @@ Ride* Guest::FindBestRideToGoOn()
         }
     }
 
-    // Guest who don't find a toilet or a First Aid Room get grumpy really fast.
-    if (Toilet > toiletThreshold || Nausea > nauseaThreshold)
+    bool lookingForFacitilty = false;
+
+    // Guest who don't find a toilet, food, drink stall get grumpy really fast.
+    if (Toilet > toiletThreshold || Thirst < thirstThreshold || Hunger < hungerThreshold)
     {
-        if (HappinessTarget >= 64)
+        if (viableRides.size() == 0)
         {
-            HappinessTarget -= 8;
+            if (HappinessTarget >= 64)
+            {
+                HappinessTarget -= 8;
+            }
+            return chosenRide;
         }
-        return chosenRide;
+
+        lookingForFacitilty = true;
     }
+    else if (Nausea > nauseaThreshold)
+        lookingForFacitilty = true;
 
 
     //int32_t lowestScore = 0;
@@ -1949,11 +1974,16 @@ Ride* Guest::FindBestRideToGoOn()
 
             int32_t stationPfScore = 0;
             std::array<RideStation, OpenRCT2::Limits::kMaxStationsPerRide>& stations = ride->GetStations();
+
             for (RideStation& station : stations)
             {
                 if (station.Start.IsNull())
                     continue;
+
                 CoordsXYZ stationPosition = station.Entrance.ToCoordsXYZ();
+                if (lookingForFacitilty)
+                    stationPosition = CoordsXYZ(station.Start, station.Height);
+
                 int32_t pfScore = PathFinding::CalculateHeuristicPathingScoreWrapper(this->GetLocation(), stationPosition);
                 if (pfScore < stationPfScore || stationPfScore == 0)
                     stationPfScore = pfScore;
@@ -1977,6 +2007,10 @@ Ride* Guest::FindBestRideToGoOn()
     int points = 10;
     for (auto& [ride, _] : ridePfScores)
     {
+        // If a guest is looking for a facility, just go to the closest.
+        if (lookingForFacitilty)
+            return ride;
+
         totalRideScore[ride] += points;
         points -= 2;
         if (points <= 0)
