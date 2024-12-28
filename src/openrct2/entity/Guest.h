@@ -323,6 +323,8 @@ public:
     uint8_t FavouriteRideRating;
     uint64_t ItemFlags;
 
+    uint8_t FailedGoOnRideChecks;
+
     AdvancedGuestStats AGS;
 
     //void Initialize(const CoordsXYZ&);

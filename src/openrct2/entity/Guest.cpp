@@ -1033,11 +1033,11 @@ void Guest::Tick128UpdateGuest(uint32_t index)
     }
 
     std::string name = this->GetName();
-    if (name == "Brandon C.")
+    if (name == "Oscar T.")
     {
         this->Toilet += 0;
         this->Nausea += 0;
-    }     
+    }
 
     if (State == PeepState::Walking && !OutsideOfPark && !(PeepFlags & PEEP_FLAGS_LEAVING_PARK) && GuestNumRides == 0
         && GuestHeadingToRideId.IsNull())
@@ -1061,13 +1061,19 @@ void Guest::Tick128UpdateGuest(uint32_t index)
         }
     }
 
-    // The happier the guest the more likely they go on a ride. Base Happiness of 160 = 8192. Or if the guest is sick or has to go to the toilet.
-    uint16_t probabilityToGoOnRide = 8192 * Happiness / 160;
-    //if ((ScenarioRand() & 0xFFFF) <= ((HasItem(ShopItem::Map)) ? 8192u : 2184u))
+    // The happier the guest the more likely they go on a ride. Base Happiness of 160 = 8192. Or if the guest is sick or has to
+    // go to the toilet. Each failed try increases the success chance of subsequent tries;
+    float failedGoOnRideChecksMultiplier = 1.3f;
+    float failedModifier = pow(failedGoOnRideChecksMultiplier, FailedGoOnRideChecks + 1) + 1 - failedGoOnRideChecksMultiplier;
+    uint16_t probabilityToGoOnRide = (8192 * failedModifier) * Happiness / 160;
+    // if ((ScenarioRand() & 0xFFFF) <= ((HasItem(ShopItem::Map)) ? 8192u : 2184u))
     if ((ScenarioRand() & 0xFFFF) <= probabilityToGoOnRide || Nausea > 200 || Toilet > 200 || Hunger < 75 || Thirst < 75)
     {
         PickRideToGoOn();
+        FailedGoOnRideChecks = 0;
     }
+    else
+        FailedGoOnRideChecks++;
 
     if ((index & 0x3FF) == (currentTicks & 0x3FF))
     {
@@ -1888,6 +1894,7 @@ Ride* Guest::FindBestRideToGoOn()
     int hungerThreshold = 75;
     int thirstThreshold = 75;
     int cashInPocketThreshold = 20;
+    int cashInPocketHardThreshold = 5;
     auto rideConsideration = FindRidesToGoOn();
     Ride* chosenRide = nullptr;
     std::vector<Ride*> viableRides;
@@ -1898,7 +1905,8 @@ Ride* Guest::FindBestRideToGoOn()
         {
             if (!(ride.lifecycle_flags & RIDE_LIFECYCLE_QUEUE_FULL))
             {
-                if (ShouldGoOnRide(ride, StationIndex::FromUnderlying(0), false, true) && (RideHasRatings(ride) || ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility)))
+                if (ShouldGoOnRide(ride, StationIndex::FromUnderlying(0), false, true)
+                    && (RideHasRatings(ride) || ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility)))
                 {
                     const auto& rtd = ride.GetRideTypeDescriptor();
                     if (Toilet >= toiletThreshold && !rtd.HasFlag(RtdFlag::isToilet))
@@ -1915,11 +1923,13 @@ Ride* Guest::FindBestRideToGoOn()
                         if (!rtd.HasFlag(RtdFlag::sellsDrinks))
                             continue;
                     }
-                    else if (CashInPocket < cashInPocketThreshold && rtd.HasFlag(RtdFlag::isCashMachine) && Happiness > 200)
-                        return &ride;
-                    else if (Toilet < toiletThreshold && Hunger > hungerThreshold && Thirst > thirstThreshold && rtd.HasFlag(RtdFlag::isShopOrFacility))
-                        continue;
-
+                    else if (CashInPocket <= cashInPocketThreshold)
+                        if (!rtd.HasFlag(RtdFlag::isCashMachine) || Happiness < 200)
+                            continue;
+                        else if (
+                            Toilet < toiletThreshold && Hunger > hungerThreshold && Thirst > thirstThreshold
+                            && rtd.HasFlag(RtdFlag::isShopOrFacility))
+                            continue;
 
                     viableRides.push_back(&ride);
                     /*
@@ -1936,14 +1946,12 @@ Ride* Guest::FindBestRideToGoOn()
     bool lookingForFacitilty = false;
 
     // Guest who don't find a toilet, food, drink stall get grumpy really fast.
-    if (Toilet > toiletThreshold || Thirst < thirstThreshold || Hunger < hungerThreshold)
+    if (Toilet >= toiletThreshold || Thirst <= thirstThreshold || Hunger <= hungerThreshold
+        || CashInPocket <= cashInPocketHardThreshold)
     {
         if (viableRides.size() == 0)
         {
-            if (HappinessTarget >= 64)
-            {
-                HappinessTarget -= 8;
-            }
+            HappinessTarget -= 8;
             return chosenRide;
         }
 
@@ -1952,8 +1960,10 @@ Ride* Guest::FindBestRideToGoOn()
     else if (Nausea > nauseaThreshold)
         lookingForFacitilty = true;
 
+    if (!lookingForFacitilty)
+        lookingForFacitilty = false;
 
-    //int32_t lowestScore = 0;
+    // int32_t lowestScore = 0;
     std::map<Ride*, int> totalRideScore;
     std::vector<std::pair<Ride*, int32_t>> ridePfScores;
     std::vector<std::pair<Ride*, float>> guestRideRatings;
@@ -1965,10 +1975,14 @@ Ride* Guest::FindBestRideToGoOn()
             if (viableRides.size() == 1)
                 return ride;
 
-            if (!HasRidden(*ride))
-                totalRideScore[ride] += 20;
+            float medianIntensityRating = this->AGS.GetMedianIntensityRating(ride->id, ride->ratings.intensity);
+            // if (!HasRidden(*ride))
+            if (medianIntensityRating <= 0)
+                totalRideScore[ride] += 100;
+            else
+                totalRideScore[ride] += 0;
 
-            guestRideRatings.emplace_back(ride, this->AGS.GetMedianIntensityRating(ride->id, ride->ratings.intensity));
+            guestRideRatings.emplace_back(ride, medianIntensityRating);
             rideExcitments.emplace_back(ride, ride->ratings.excitement);
             rideQueueTimes.emplace_back(ride, ride->GetMaxQueueTime());
 
@@ -2000,45 +2014,55 @@ Ride* Guest::FindBestRideToGoOn()
         return chosenRide;
 
     std::sort(ridePfScores.begin(), ridePfScores.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
-    std::sort(guestRideRatings.begin(), guestRideRatings.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
+    std::sort(
+        guestRideRatings.begin(), guestRideRatings.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
     std::sort(rideExcitments.begin(), rideExcitments.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
     std::sort(rideQueueTimes.begin(), rideQueueTimes.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
 
-    int points = 10;
-    for (auto& [ride, _] : ridePfScores)
+    int points = 100;
+    float highestScore = 5000;
+    for (auto& [ride, score] : ridePfScores)
     {
         // If a guest is looking for a facility, just go to the closest.
         if (lookingForFacitilty)
             return ride;
 
-        totalRideScore[ride] += points;
-        points -= 2;
-        if (points <= 0)
-            break;
+        if (score < highestScore)
+            highestScore = score;
+
+        totalRideScore[ride] += points * highestScore / score;
     }
-    points = 20;
-    for (auto& [ride, _] : guestRideRatings)
+    points = 200;
+    highestScore = 10.0f;
+    for (auto& [ride, score] : guestRideRatings)
     {
-        totalRideScore[ride] += points;
-        points -= 2;
-        if (points <= 0)
-            break;
+        if (score > highestScore)
+            highestScore = score;
+
+        totalRideScore[ride] += points * score / highestScore;
     }
-    points = 10;
-    for (auto& [ride, _] : rideExcitments)
+
+    points = 50;
+    highestScore = 0.0f;
+    for (auto& [ride, score] : rideExcitments)
     {
-        totalRideScore[ride] += points;
-        points -= 4;
-        if (points <= 0)
-            break;
+        if (score > highestScore)
+            highestScore = score;
+
+        totalRideScore[ride] += points * score / highestScore;
     }
-    points = 5;
-    for (auto& [ride, _] : rideQueueTimes)
+
+    points = 25;
+    highestScore = 10;
+    for (auto& [ride, score] : rideQueueTimes)
     {
-        totalRideScore[ride] += points;
-        points--;
-        if (points <= 0)
-            break;
+        if (score < highestScore)
+            highestScore = score;
+
+        totalRideScore[ride] += points * highestScore / score;
+
+        if (totalRideScore[ride] < 0)
+            totalRideScore[ride] = 0;
     }
 
     int totalScores = 0;
@@ -2048,7 +2072,7 @@ Ride* Guest::FindBestRideToGoOn()
     }
 
     std::random_device rd;
-    std::mt19937 gen(rd()); 
+    std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(1, totalScores);
     int randomValue = dis(gen);
 
@@ -2058,7 +2082,8 @@ Ride* Guest::FindBestRideToGoOn()
         cumulativeScore += score;
         if (randomValue < cumulativeScore)
         {
-            return ride;         }
+            return ride;
+        }
     }
 
     return chosenRide;
@@ -2082,38 +2107,36 @@ OpenRCT2::BitSet<OpenRCT2::Limits::kMaxRidesInPark> Guest::FindRidesToGoOn()
             }
         }
     }
-    else
-    {
-        // Take nearby rides into consideration
-        constexpr auto radius = 10 * 32;
-        int32_t cx = Floor2(x, 32);
-        int32_t cy = Floor2(y, 32);
-        for (int32_t tileX = cx - radius; tileX <= cx + radius; tileX += kCoordsXYStep)
-        {
-            for (int32_t tileY = cy - radius; tileY <= cy + radius; tileY += kCoordsXYStep)
-            {
-                auto location = CoordsXY{ tileX, tileY };
-                if (!MapIsLocationValid(location))
-                    continue;
 
-                for (auto* trackElement : TileElementsView<TrackElement>(location))
+    // Take nearby rides into consideration
+    constexpr auto radius = 10 * 32;
+    int32_t cx = Floor2(x, 32);
+    int32_t cy = Floor2(y, 32);
+    for (int32_t tileX = cx - radius; tileX <= cx + radius; tileX += kCoordsXYStep)
+    {
+        for (int32_t tileY = cy - radius; tileY <= cy + radius; tileY += kCoordsXYStep)
+        {
+            auto location = CoordsXY{ tileX, tileY };
+            if (!MapIsLocationValid(location))
+                continue;
+
+            for (auto* trackElement : TileElementsView<TrackElement>(location))
+            {
+                auto rideIndex = trackElement->GetRideIndex();
+                if (!rideIndex.IsNull())
                 {
-                    auto rideIndex = trackElement->GetRideIndex();
-                    if (!rideIndex.IsNull())
-                    {
-                        rideConsideration[rideIndex.ToUnderlying()] = true;
-                    }
+                    rideConsideration[rideIndex.ToUnderlying()] = true;
                 }
             }
         }
+    }
 
-        // Always take the tall rides into consideration (realistic as you can usually see them from anywhere in the park)
-        for (auto& ride : GetRideManager())
+    // Always take the tall rides into consideration (realistic as you can usually see them from anywhere in the park)
+    for (auto& ride : GetRideManager())
+    {
+        if (ride.highest_drop_height > 66 || ride.ratings.excitement >= RIDE_RATING(8, 00))
         {
-            if (ride.highest_drop_height > 66 || ride.ratings.excitement >= RIDE_RATING(8, 00))
-            {
-                rideConsideration[ride.id.ToUnderlying()] = true;
-            }
+            rideConsideration[ride.id.ToUnderlying()] = true;
         }
     }
 
@@ -2283,7 +2306,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                             // Intensity calculations. Even though the max intensity can go up to 15, it's capped
                             // at 10.0 (before happiness calculations). A full happiness bar will increase the max
                             // intensity and decrease the min intensity by about 2.5.
-                            //ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
+                            // ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
                             ride_rating minIntensity = (Intensity.GetMinimum() * 100) - Happiness;
 
                             // std::string mxIntensity = "maxIntensity: " + std::to_string(maxIntensity) + "\n";
@@ -3364,6 +3387,9 @@ static void PeepDecideWhetherToLeavePark(Guest* peep)
             {
                 return;
             }
+            // Leave the park if the peek is unhappy and is out of money.
+            else if (peep->Energy <= 55 && peep->Happiness <= 45 && peep->CashInPocket <= 1.00_GBP)
+                PeepLeavePark(peep);
         }
     }
 
@@ -7600,7 +7626,6 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     peep->Energy = energy;
     peep->EnergyTarget = energy;
 
-
     // 35% chance to spawn with a credit card
     if ((ScenarioRand() & 0xFFFF) <= 22937)
         peep->GiveItem(ShopItem::CreditCard);
@@ -8037,7 +8062,6 @@ void Guest::Serialise(DataSerialiser& stream)
 // Currently only rates the ride depending on the Intensity.
 void Guest::RateRide(Ride& ride)
 {
-
     uint8_t rating = 0;
     float standardDistDeviation = 2.0f;
     int minIntensity = this->Intensity.GetMinimum();
@@ -8124,13 +8148,12 @@ void Guest::RateRide(Ride& ride)
 
 void Guest::initAGS(std::vector<RideId> rides)
 {
-    for (RideId id : rides) {
+    for (RideId id : rides)
+    {
         Ride* ride = GetRide(id);
         this->RateRide(*ride);
     }
-
 }
-
 
 float getRideRatingProbability(uint8_t value, float standardDeviation, int8_t offset)
 {
@@ -8236,4 +8259,3 @@ uint8_t getRandomTemperdFunctionValue(uint8_t highestMinIntensity)
     }
     return 0;
 }
-
