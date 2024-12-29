@@ -1033,7 +1033,7 @@ void Guest::Tick128UpdateGuest(uint32_t index)
     }
 
     std::string name = this->GetName();
-    if (name == "Oscar T.")
+    if (name == "Meghan C.")
     {
         this->Toilet += 0;
         this->Nausea += 0;
@@ -1924,12 +1924,14 @@ Ride* Guest::FindBestRideToGoOn()
                             continue;
                     }
                     else if (CashInPocket <= cashInPocketThreshold)
+                    {
                         if (!rtd.HasFlag(RtdFlag::isCashMachine) || Happiness < 200)
                             continue;
-                        else if (
-                            Toilet < toiletThreshold && Hunger > hungerThreshold && Thirst > thirstThreshold
-                            && rtd.HasFlag(RtdFlag::isShopOrFacility))
-                            continue;
+                    }
+                    else if (
+                        Toilet < toiletThreshold && Hunger > hungerThreshold && Thirst > thirstThreshold
+                        && rtd.HasFlag(RtdFlag::isShopOrFacility))
+                        continue;
 
                     viableRides.push_back(&ride);
                     /*
@@ -2306,8 +2308,8 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                             // Intensity calculations. Even though the max intensity can go up to 15, it's capped
                             // at 10.0 (before happiness calculations). A full happiness bar will increase the max
                             // intensity and decrease the min intensity by about 2.5.
-                            // ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
-                            ride_rating minIntensity = (Intensity.GetMinimum() * 100) - Happiness;
+                            ride_rating maxIntensity = (Intensity.GetMaximum() * 100);
+                            ride_rating minIntensity = (Intensity.GetMinimum() * 100);
 
                             // std::string mxIntensity = "maxIntensity: " + std::to_string(maxIntensity) + "\n";
                             // std::string mnIntensity = "minIntensity: " + std::to_string(minIntensity) + "\n";
@@ -2317,7 +2319,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                             //! ride.GetRideTypeDescriptor().HasFlag(RIDE_TYPE_FLAG_TRANSPORT_RIDE)
 
                             // Ignore minIntensity if ride is a transport ride or guest is very nauseous.
-                            if (ride.ratings.intensity < minIntensity
+                            if (ride.ratings.intensity < minIntensity - Happiness
                                 && !ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isTransportRide) && Nausea < 160)
                             {
                                 if (peepAtRide)
@@ -2338,7 +2340,13 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                             // if (ride.intensity > maxIntensity)
                             if (averageIntensityRating > 0 && random_value > averageIntensityRating)
                             {
-                                PeepRideIsTooIntense(this, ride, peepAtRide);
+                                if (ride.ratings.intensity < (minIntensity + maxIntensity) / 2)
+                                {
+                                    InsertNewThought(PeepThoughtType::MoreThrilling, ride.id);
+                                    ChoseNotToGoOnRide(ride, peepAtRide, true);
+                                }
+                                else
+                                    PeepRideIsTooIntense(this, ride, peepAtRide);
                                 return false;
                             }
 
@@ -7523,6 +7531,7 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     }
     */
 
+    uint8_t averageIntensity = (intensityLowest + intensityHighest) / 2;
     peep->Intensity = IntensityRange(intensityLowest, intensityHighest);
 
     uint8_t nauseaTolerance = ScenarioRand() & 0x7;
@@ -7530,6 +7539,14 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     {
         nauseaTolerance += 4;
     }
+    else if (averageIntensity < 5)
+        nauseaTolerance -= 2;
+    else if (averageIntensity >= 10)
+        nauseaTolerance += 3;
+    else if (averageIntensity >= 8)
+        nauseaTolerance += 2;
+    else if (averageIntensity >= 5)
+        nauseaTolerance += 1;
 
     peep->NauseaTolerance = nausea_tolerance_distribution[nauseaTolerance];
 
