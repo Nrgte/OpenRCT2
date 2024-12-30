@@ -1912,9 +1912,9 @@ Ride* Guest::FindBestRideToGoOn()
                     && (RideHasRatings(ride) || ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility)))
                 {
                     const auto& rtd = ride.GetRideTypeDescriptor();
-                    if (Toilet >= toiletThreshold && !rtd.HasFlag(RtdFlag::isToilet))
+                    if (Toilet >= toiletThreshold && !(rtd.specialType == RtdSpecialType::toilet))
                         continue;
-                    else if (Nausea >= nauseaThreshold && !rtd.HasFlag(RtdFlag::isFirstAid))
+                    else if (Nausea >= nauseaThreshold && !(rtd.specialType == RtdSpecialType::firstAid))
                         continue;
                     else if (Hunger <= hungerThreshold)
                     {
@@ -1928,7 +1928,7 @@ Ride* Guest::FindBestRideToGoOn()
                     }
                     else if (CashInPocket <= cashInPocketThreshold)
                     {
-                        if (!rtd.HasFlag(RtdFlag::isCashMachine) || Happiness < 200)
+                        if (!(rtd.specialType == RtdSpecialType::cashMachine) || Happiness < 200)
                             continue;
                     }
                     else if (
