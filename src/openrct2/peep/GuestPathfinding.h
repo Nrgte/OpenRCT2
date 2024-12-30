@@ -13,6 +13,7 @@
 #include "../world/Location.hpp"
 
 #include <memory>
+#include <vector>
 
 struct Peep;
 struct Guest;
@@ -33,4 +34,13 @@ namespace OpenRCT2::PathFinding
 
     int32_t CalculateHeuristicPathingScoreWrapper(const CoordsXYZ& loc1, const CoordsXYZ& loc2);
 
+    //std::vector<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal);
+    //std::vector<TileCoordsXYZ> GetTileNeighbours(const TileCoordsXYZ& coords);
+    //uint8_t CalculateNeighbourZ(const TileCoordsXYZ& current, const TileCoordsXYZ& neighbor, const PathElement* element);
+
 }; // namespace OpenRCT2::PathFinding
+
+namespace AdvancedPathfinding
+{
+    std::vector<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal);
+};

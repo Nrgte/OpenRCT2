@@ -490,6 +490,15 @@ struct TileCoordsXYZ : public TileCoordsXY
         TileCoordsXY::SetNull();
         z = 0;
     }
+
+    // Hash function for unordered_map
+    struct Hasher
+    {
+        size_t operator()(const TileCoordsXYZ& coords) const
+        {
+            return std::hash<int>()(coords.x) ^ std::hash<int>()(coords.y) ^ std::hash<int>()(coords.z);
+        }
+    };
 };
 
 struct TileCoordsXYRangedZ : public TileCoordsXY

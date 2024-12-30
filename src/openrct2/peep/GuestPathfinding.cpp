@@ -27,10 +27,18 @@
 #include "../world/tile_element/TileElement.h"
 #include "../world/tile_element/TrackElement.h"
 
+#include <algorithm>
 #include <bit>
 #include <bitset>
 #include <cassert>
+#include <chrono>
 #include <cstring>
+#include <format>
+#include <limits>
+#include <queue>
+#include <unordered_map>
+#include <vector>
+#include <windows.h>
 
 namespace OpenRCT2::PathFinding
 {
@@ -648,7 +656,6 @@ namespace OpenRCT2::PathFinding
     {
         return CalculateHeuristicPathingScore(TileCoordsXYZ(loc1), TileCoordsXYZ(loc2));
     }
-
 
     /**
      * Searches for the tile with the best heuristic score within the search limits
@@ -2112,6 +2119,42 @@ namespace OpenRCT2::PathFinding
 
         GetRideQueueEnd(loc);
 
+        std::vector<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc);
+        if (tileList[0].x == -1)
+        {
+            TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+
+            std::string searchedTiles = "Searched Tiles: ";
+            for (TileCoordsXYZ tile : tileList)
+                searchedTiles = searchedTiles + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+
+            searchedTiles = searchedTiles + "\n";
+            std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+            std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+            std::string debugPF = "Pathfinding: " + peep.GetName() + " can't find entrance to: " + ride->GetName()
+                + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
+            OutputDebugStringA(debugPF.c_str());
+            OutputDebugStringA(searchedTiles.c_str());
+        }
+        else
+        {
+            /*
+            TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+
+            std::string foundPath = "PATH FOUND: ";
+            for (TileCoordsXYZ tile : tileList)
+                foundPath = foundPath + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+
+            foundPath = foundPath + "\n";
+            std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+            std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+            std::string debugPF = "Pathfinding: " + peep.GetName() + " Found Path to: " + ride->GetName()
+                + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
+            OutputDebugStringA(debugPF.c_str());
+            OutputDebugStringA(foundPath.c_str());
+            */
+        }
+
         direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, loc, peep, true, rideIndex);
 
         if (direction == INVALID_DIRECTION)
@@ -2135,3 +2178,165 @@ namespace OpenRCT2::PathFinding
     }
 
 } // namespace OpenRCT2::PathFinding
+
+namespace AdvancedPathfinding
+{
+    using namespace OpenRCT2::PathFinding;
+
+    // Node for A* search
+    struct Node
+    {
+        int32_t x, y = 0;
+        TileCoordsXYZ coords;
+        double g_score; // Cost from start
+        double f_score; // Estimated total cost (g_score + h_score)
+        Node* parent;
+        std::chrono::time_point<std::chrono::high_resolution_clock> timestamp; // Timestamp
+
+        Node()
+            : coords()
+            , x(0)
+            , y(0)
+            , g_score(std::numeric_limits<double>::infinity())
+            , f_score(std::numeric_limits<double>::infinity())
+            , parent(nullptr)
+        {
+        }
+
+        Node(const TileCoordsXYZ& coords)
+            : coords(coords)
+            , x(coords.x)
+            , y(coords.y)
+            , g_score(std::numeric_limits<double>::infinity())
+            , f_score(std::numeric_limits<double>::infinity())
+            , parent(nullptr)
+        {
+        }
+    };
+
+    struct AStarCompare
+    {
+        bool operator()(const Node* a, const Node* b)
+        {
+            if (a->f_score != b->f_score)
+            {
+                return a->f_score > b->f_score; // Higher f_score goes first (priority)
+            }
+            // If f_scores are equal, favor the node that was added to the queue earlier
+            // You can implement timestamps or sequence numbers here
+            // Example using a hypothetical timestamp member:
+            return a->timestamp < b->timestamp;
+        }
+    };
+
+    // Helper function to calculate the z-coordinate of the neighbor based on slope
+    static uint8_t CalculateNeighbourZ(TileCoordsXYZ coords, TileCoordsXYZ neighbour, const PathElement* element, Direction dir)
+    {
+        // Look whether the next tile is in a higher or lower position
+        PathElement* upperElement = MapGetPathElementAt(TileCoordsXYZ{ neighbour.x, neighbour.y, neighbour.z + 2 });
+        if (upperElement != nullptr)
+            return coords.z + 2;
+
+        PathElement* lowerElement = MapGetPathElementAt(TileCoordsXYZ{ neighbour.x, neighbour.y, neighbour.z - 2 });
+        if (lowerElement != nullptr)
+            return coords.z - 2;
+
+        return element->BaseHeight; // Default: return base height of the path element
+    }
+
+    // Get neighboring tiles
+    static std::vector<TileCoordsXYZ> GetTileNeighbours(const TileCoordsXYZ& coords)
+    {
+        std::vector<TileCoordsXYZ> neighbors;
+
+        PathElement* element = MapGetPathElementAt(coords);
+        if (element == nullptr)
+            return neighbors;
+
+        uint8_t permittedEdges = PathGetPermittedEdges(false, element);
+
+        // Define an array to map directions to offsets (assuming 4 cardinal directions)
+        // Southwest, Northwest, Northeast, Southeast
+        const int dx[] = { -1, 0, 1, 0 }; // x offsets
+        const int dy[] = { 0, 1, 0, -1 }; // y offsets
+
+        for (Direction dir : ALL_DIRECTIONS)
+        {
+            // Check if the direction is permitted
+            if (permittedEdges & (1 << dir))
+            { 
+                TileCoordsXYZ neighbor = { coords.x + dx[dir], coords.y + dy[dir], coords.z };
+                int test = 0;
+                if (neighbor.x == 57 && neighbor.y == 62)
+                    test = 1;
+                // Calculate z based on slope (if needed)
+                neighbor.z = CalculateNeighbourZ(coords, neighbor, element, dir);
+                neighbors.push_back(neighbor);
+            }
+        }
+        return neighbors;
+    }
+
+    std::vector<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal)
+    {
+        std::priority_queue<Node*, std::vector<Node*>, AStarCompare> open_set;
+        std::unordered_map<TileCoordsXYZ, Node, TileCoordsXYZ::Hasher> node_map;
+
+        node_map[start] = Node(start);
+        node_map[start].g_score = 0;
+        node_map[start].f_score = CalculateHeuristicPathingScore(goal, start);
+        open_set.push(&node_map[start]);
+
+        while (!open_set.empty())
+        {
+            Node* current = open_set.top();
+            open_set.pop();
+
+            if (current->coords == goal)
+            {
+                // Reconstruct path
+                std::vector<TileCoordsXYZ> path;
+                while (current)
+                {
+                    path.push_back(current->coords);
+                    current = current->parent;
+                }
+                std::reverse(path.begin(), path.end());
+                return path;
+            }
+
+            for (const TileCoordsXYZ& neighbor : GetTileNeighbours(current->coords))
+            {
+                PathElement* element = MapGetPathElementAt(neighbor);
+                if (!element && neighbor != goal)
+                    continue;
+
+                double tentative_g_score = current->g_score + 1; // Assuming uniform cost
+
+                auto it = node_map.find(neighbor);
+                if (it == node_map.end())
+                {
+                    node_map[neighbor] = Node(neighbor);
+                }
+
+                auto& neighbor_node = node_map[neighbor];
+                if (tentative_g_score < neighbor_node.g_score)
+                {
+                    neighbor_node.parent = current;
+                    neighbor_node.g_score = tentative_g_score;
+                    neighbor_node.f_score = neighbor_node.g_score + CalculateHeuristicPathingScore(goal, neighbor);
+
+                    open_set.push(&neighbor_node);
+                }
+            }
+        }
+
+        // No path found. This section ideally should never be reached.
+        std::vector<TileCoordsXYZ> brokenPath;
+        brokenPath.push_back(TileCoordsXYZ{ -1, -1, -1 });
+        for (const auto& pair : node_map)
+            brokenPath.push_back(TileCoordsXYZ{ pair.first.x, pair.first.y, pair.first.z });
+
+        return brokenPath;
+    }
+} // namespace AdvancedPathfinding
