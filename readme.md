@@ -10,6 +10,10 @@ Notable differences:
 - Soft guest cap also is increased for rides with a longer ride time and a high average ride speed.
 - Maximum price is increased to $40. Yes you can charge $40 for umbrellas (for now).
 - Guests actively seek out first aid stalls and toilets if necessary.
+- Guests have a chance to spawn with a credit card now (Localization for EN + DE). This is to make the game less annoying if ATMs are not available.
+- Guests now actively seek out the nearest food and drink stall if they're hungry/thirsty, so make sure you have enough unless you want them to walk across the park.
+- Guests with a park map now also take nearby rides into consideration and not only rides they haven't been on.
+
 
 ## Feature overview video
 [![Features explained!](http://img.youtube.com/vi/XryAcB_dLiU/0.jpg)](https://www.youtube.com/watch?v=XryAcB_dLiU)
