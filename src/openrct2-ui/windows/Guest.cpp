@@ -39,6 +39,8 @@
 #include <openrct2/world/Footpath.h>
 #include <openrct2/world/Park.h>
 
+#include <openrct2/world/tile_element/PathElement.h>
+
 namespace OpenRCT2::Ui::Windows
 {
     static constexpr StringId WINDOW_TITLE = STR_STRINGID;
@@ -190,6 +192,8 @@ namespace OpenRCT2::Ui::Windows
         int16_t _pickedPeepX = kLocationNull; // entity->x gets set to 0x8000 on pickup, this is the old value
         std::vector<RideId> _riddenRides;
 
+        std::vector<PathElement*> ghostElements;
+
     public:
         void OnOpen() override
         {
@@ -216,6 +220,15 @@ namespace OpenRCT2::Ui::Windows
         {
             if (isToolActive(classification, number))
                 ToolCancel();
+
+            const auto peep = GetGuest();
+            for (PathElement* element : ghostElements)
+            {
+                if (element != nullptr)
+                    element->SetGhost(false);
+            }
+
+            ghostElements.clear();
         }
 
         void OnMouseUp(WidgetIndex widx) override
@@ -1814,6 +1827,17 @@ namespace OpenRCT2::Ui::Windows
             {
                 return;
             }
+
+            for (TileCoordsXYZ pfCoords : peep->PathfindingQueue)
+            {
+                PathElement* element = MapGetPathElementAt(pfCoords);
+                if (element != nullptr)
+                {
+                    element->SetGhost(true);
+                    ghostElements.push_back(element);
+                }
+            }
+
             auto screenCoords = windowPos
                 + ScreenCoordsXY{ widgets[WIDX_PAGE_BACKGROUND].left + 4, widgets[WIDX_PAGE_BACKGROUND].top + 4 };
             {

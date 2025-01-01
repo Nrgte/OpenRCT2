@@ -13,7 +13,7 @@
 #include "../world/Location.hpp"
 
 #include <memory>
-#include <vector>
+#include <deque>
 
 struct Peep;
 struct Guest;
@@ -42,5 +42,5 @@ namespace OpenRCT2::PathFinding
 
 namespace AdvancedPathfinding
 {
-    std::vector<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal);
+    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal);
 };

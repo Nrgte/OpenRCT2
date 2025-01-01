@@ -2436,6 +2436,10 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
     if (Action == PeepActionType::Idle)
         Action = PeepActionType::Walking;
 
+    int test = 1;
+    if (this->GetName() == "Ricky P.")
+        test = 2;
+
     auto* guest = As<Guest>();
     if (State == PeepState::Queuing && guest != nullptr)
     {
@@ -2928,4 +2932,98 @@ void Peep::ResetPathfindGoal()
 {
     PathfindGoal.SetNull();
     PathfindGoal.direction = INVALID_DIRECTION;
+}
+
+void Peep::setPathfindingQueue(std::deque<TileCoordsXYZ> pfQueue)
+{
+    this->PathfindingQueue = pfQueue;
+}
+
+Direction Peep::getNextPathfindingDirection()
+{
+    int test = 1;
+    if (this->GetName() == "Mhairi R.")
+        test = 2;
+
+    if (this->PathfindingQueue.empty())
+    {
+        return INVALID_DIRECTION;
+    }
+
+    int deltaX, deltaY = 0;
+    TileCoordsXYZ nextL = TileCoordsXYZ{ this->NextLoc };
+    TileCoordsXYZ start = TileCoordsXYZ{ this->GetLocation() };
+
+     do
+    {
+    TileCoordsXYZ& end = this->PathfindingQueue.front();
+
+        if (&end == nullptr)
+            return INVALID_DIRECTION;
+
+        deltaX = end.x - start.x;
+        deltaY = end.y - start.y;
+
+        if ((std::abs(deltaX) <= 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) <= 1))
+        // if (deltaX == 0 && deltaY == 0)
+        this->PathfindingQueue.pop_front();
+
+    } while ((deltaX == 0 && deltaY == 0)); // && !this->PathfindingQueue.empty());
+
+     // Something went wrong here and we clear the pathfinding.
+     if (deltaX > 1 || deltaY > 1)
+        this->PathfindingQueue.clear();
+    // Only pop it when we're right next to the next tile.
+    // if ((std::abs(deltaX) == 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) == 1))
+    //    this->PathfindingQueue.pop_front();
+
+    if (std::abs(deltaX) > std::abs(deltaY))
+    {
+        if (deltaX > 0)
+        {
+            return 2; // X-increasing
+        }
+        else
+        {
+            return 0; // X-decreasing
+        }
+    }
+    else
+    {
+        if (deltaY > 0)
+        {
+            return 1; // Y-increasing
+        }
+        else
+        {
+            return 3; // Y-decreasing
+        }
+    }
+}
+
+void Peep::updatePathFinding()
+{
+    if (this->PathfindingQueue.empty())
+        return;
+
+    int deltaX, deltaY = 0;
+    TileCoordsXYZ start = TileCoordsXYZ{ this->GetLocation() };
+    TileCoordsXYZ& end = this->PathfindingQueue.front();
+
+    if (&end == nullptr)
+    {
+        this->PathfindingQueue.clear();
+        return;
+    }
+
+    deltaX = end.x - start.x;
+    deltaY = end.y - start.y;
+
+    if ((std::abs(deltaX) == 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) == 1))
+        this->PathfindingQueue.pop_front();
+
+    // Something went wrong here.
+    if (deltaX > 0 || deltaY > 0)
+        this->PathfindingQueue.clear();
+    //        this->PathfindingQueue.pop_front();
 }

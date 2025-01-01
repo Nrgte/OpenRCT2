@@ -38,6 +38,7 @@
 #include <queue>
 #include <unordered_map>
 #include <vector>
+
 #include <windows.h>
 
 namespace OpenRCT2::PathFinding
@@ -251,6 +252,9 @@ namespace OpenRCT2::PathFinding
                 newTile.y += offset;
             }
         }
+        
+        //peep.updatePathFinding();
+
         peep.SetDestination(newTile, 2);
 
         return 0;
@@ -1963,6 +1967,7 @@ namespace OpenRCT2::PathFinding
         {
             LogPathfinding(&peep, "Completed CalculateNextDestination - taking only direction available: %d.", direction);
 
+            peep.updatePathFinding();
             return PeepMoveOneTile(direction, peep);
         }
 
@@ -2119,43 +2124,58 @@ namespace OpenRCT2::PathFinding
 
         GetRideQueueEnd(loc);
 
-        std::vector<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc);
-        if (tileList[0].x == -1)
+        // Only run the pathfinding for guests who currently don't have an active pathfinding.
+        int test = 1;
+        if (peep.GetName() == "Mhairi R.")
+            test = 2;
+
+        if (peep.PathfindingQueue.empty())
         {
-            TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+            std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc);
+            if (tileList.size() > 0)
+            {
+                if (tileList[0].x == -1)
+                {
+                    TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
 
-            std::string searchedTiles = "Searched Tiles: ";
-            for (TileCoordsXYZ tile : tileList)
-                searchedTiles = searchedTiles + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+                    std::string searchedTiles = "Searched Tiles: ";
+                    for (TileCoordsXYZ tile : tileList)
+                        searchedTiles = searchedTiles + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
 
-            searchedTiles = searchedTiles + "\n";
-            std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
-            std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
-            std::string debugPF = "Pathfinding: " + peep.GetName() + " can't find entrance to: " + ride->GetName()
-                + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
-            OutputDebugStringA(debugPF.c_str());
-            OutputDebugStringA(searchedTiles.c_str());
+                    searchedTiles = searchedTiles + "\n";
+                    std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+                    std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+                    std::string debugPF = "Pathfinding: " + peep.GetName() + " can't find entrance to: " + ride->GetName()
+                        + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
+                    OutputDebugStringA(debugPF.c_str());
+                    OutputDebugStringA(searchedTiles.c_str());
+                }
+                else
+                {
+                    peep.setPathfindingQueue(tileList);
+                    /*
+                    TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+
+                    std::string foundPath = "PATH FOUND: ";
+                    for (TileCoordsXYZ tile : tileList)
+                        foundPath = foundPath + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+
+                    foundPath = foundPath + "\n";
+                    std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+                    std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+                    std::string debugPF = "Pathfinding: " + peep.GetName() + " Found Path to: " + ride->GetName()
+                        + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
+                    OutputDebugStringA(debugPF.c_str());
+                    OutputDebugStringA(foundPath.c_str());
+                    */
+                }
+            }
         }
+
+        if (peep.PathfindingQueue.empty())
+            direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, loc, peep, true, rideIndex);
         else
-        {
-            /*
-            TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
-
-            std::string foundPath = "PATH FOUND: ";
-            for (TileCoordsXYZ tile : tileList)
-                foundPath = foundPath + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
-
-            foundPath = foundPath + "\n";
-            std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
-            std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
-            std::string debugPF = "Pathfinding: " + peep.GetName() + " Found Path to: " + ride->GetName()
-                + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
-            OutputDebugStringA(debugPF.c_str());
-            OutputDebugStringA(foundPath.c_str());
-            */
-        }
-
-        direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, loc, peep, true, rideIndex);
+            direction = peep.getNextPathfindingDirection();
 
         if (direction == INVALID_DIRECTION)
         {
@@ -2264,12 +2284,9 @@ namespace AdvancedPathfinding
         {
             // Check if the direction is permitted
             if (permittedEdges & (1 << dir))
-            { 
+            {
                 TileCoordsXYZ neighbor = { coords.x + dx[dir], coords.y + dy[dir], coords.z };
-                int test = 0;
-                if (neighbor.x == 57 && neighbor.y == 62)
-                    test = 1;
-                // Calculate z based on slope (if needed)
+                // Calculate z (if needed)
                 neighbor.z = CalculateNeighbourZ(coords, neighbor, element, dir);
                 neighbors.push_back(neighbor);
             }
@@ -2277,7 +2294,7 @@ namespace AdvancedPathfinding
         return neighbors;
     }
 
-    std::vector<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal)
+    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal)
     {
         std::priority_queue<Node*, std::vector<Node*>, AStarCompare> open_set;
         std::unordered_map<TileCoordsXYZ, Node, TileCoordsXYZ::Hasher> node_map;
@@ -2295,7 +2312,7 @@ namespace AdvancedPathfinding
             if (current->coords == goal)
             {
                 // Reconstruct path
-                std::vector<TileCoordsXYZ> path;
+                std::deque<TileCoordsXYZ> path;
                 while (current)
                 {
                     path.push_back(current->coords);
@@ -2332,7 +2349,7 @@ namespace AdvancedPathfinding
         }
 
         // No path found. This section ideally should never be reached.
-        std::vector<TileCoordsXYZ> brokenPath;
+        std::deque<TileCoordsXYZ> brokenPath;
         brokenPath.push_back(TileCoordsXYZ{ -1, -1, -1 });
         for (const auto& pair : node_map)
             brokenPath.push_back(TileCoordsXYZ{ pair.first.x, pair.first.y, pair.first.z });

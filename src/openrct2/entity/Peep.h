@@ -21,6 +21,7 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <deque>
 
 constexpr uint8_t kPeepMinEnergy = 32;
 constexpr uint8_t kPeepMaxEnergy = 128;
@@ -371,9 +372,11 @@ struct Peep : EntityBase
     uint32_t PeepId;
     uint8_t PathCheckOptimisation; // see peep.checkForPath
     TileCoordsXYZD PathfindGoal;
-    std::array<TileCoordsXYZD, 4> PathfindHistory;
+    std::array<TileCoordsXYZD, 4> PathfindHistory;    
     uint8_t WalkingAnimationFrameNum;
     uint32_t PeepFlags;
+
+    std::deque<TileCoordsXYZ> PathfindingQueue;
 
 public: // Peep
     void Update();
@@ -417,6 +420,10 @@ public: // Peep
     void Serialise(class DataSerialiser& stream);
     void Paint(PaintSession& session, int32_t imageDirection) const;
 
+    void setPathfindingQueue(std::deque<TileCoordsXYZ> pfQueue);
+
+    Direction getNextPathfindingDirection();
+    void updatePathFinding();
     // TODO: Make these private again when done refactoring
 public: // Peep
     [[nodiscard]] bool CheckForPath();
