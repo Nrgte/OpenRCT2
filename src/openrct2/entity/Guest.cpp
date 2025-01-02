@@ -73,9 +73,9 @@
 #include <map>
 #include <numbers>
 #include <random>
-#include <windows.h>
 #include <sfl/static_vector.hpp>
 #include <span>
+#include <windows.h>
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Numerics;
@@ -2304,7 +2304,9 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                     }
                     // If it is raining and the ride provides shelter skip the
                     // ride intensity check and get me on a sheltered ride!
-                    if (!isPrecipitating || !ShouldRideWhileRaining(ride))
+                    // Also skip intensity checks if the ride is used as a proxy ride to get to another ride.
+                    if (!isPrecipitating || !ShouldRideWhileRaining(ride)
+                        || std::find(this->proxyRides.begin(), this->proxyRides.end(), &ride) != this->proxyRides.end())
                     {
                         if (!GetGameState().Cheats.ignoreRideIntensity)
                         {
@@ -2716,7 +2718,8 @@ static void PeepTriedToEnterFullQueue(Guest* peep, Ride& ride)
     peep->PreviousRide = ride.id;
     peep->PreviousRideTimeOut = 0;
     // Change status "Heading to" to "Walking" if queue is full
-    if (ride.id == peep->GuestHeadingToRideId)
+    if (ride.id == peep->GuestHeadingToRideId
+        || std::find(peep->proxyRides.begin(), peep->proxyRides.end(), &ride) != peep->proxyRides.end())
     {
         PeepResetRideHeading(peep);
     }
@@ -2726,6 +2729,9 @@ static void PeepResetRideHeading(Guest* peep)
 {
     peep->GuestHeadingToRideId = RideId::GetNull();
     peep->WindowInvalidateFlags |= PEEP_INVALIDATE_PEEP_ACTION;
+
+    peep->proxyRides.clear();
+    peep->PathfindingQueue.clear();
 }
 
 static void PeepRideIsTooIntense(Guest* peep, Ride& ride, bool peepAtRide)

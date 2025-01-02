@@ -2941,10 +2941,6 @@ void Peep::setPathfindingQueue(std::deque<TileCoordsXYZ> pfQueue)
 
 Direction Peep::getNextPathfindingDirection()
 {
-    int test = 1;
-    if (this->GetName() == "Mhairi R.")
-        test = 2;
-
     if (this->PathfindingQueue.empty())
     {
         return INVALID_DIRECTION;
@@ -2971,11 +2967,19 @@ Direction Peep::getNextPathfindingDirection()
     } while ((deltaX == 0 && deltaY == 0)); // && !this->PathfindingQueue.empty());
 
      // Something went wrong here and we clear the pathfinding.
-     if (deltaX > 1 || deltaY > 1)
+    if (std::abs(deltaX) > 1 || std::abs(deltaY) > 1)
         this->PathfindingQueue.clear();
     // Only pop it when we're right next to the next tile.
     // if ((std::abs(deltaX) == 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) == 1))
     //    this->PathfindingQueue.pop_front();
+
+    PathElement* element = MapGetPathElementAt(start);
+    if (!element)
+        return INVALID_DIRECTION;
+
+    if (element->IsQueue())
+        return INVALID_DIRECTION;
+        
 
     if (std::abs(deltaX) > std::abs(deltaY))
     {
@@ -3001,6 +3005,8 @@ Direction Peep::getNextPathfindingDirection()
     }
 }
 
+
+// Currently not in use anymore.
 void Peep::updatePathFinding()
 {
     if (this->PathfindingQueue.empty())
@@ -3023,7 +3029,7 @@ void Peep::updatePathFinding()
         this->PathfindingQueue.pop_front();
 
     // Something went wrong here.
-    if (deltaX > 0 || deltaY > 0)
+    if (std::abs(deltaX) > 1 || std::abs(deltaY) > 1)
         this->PathfindingQueue.clear();
     //        this->PathfindingQueue.pop_front();
 }

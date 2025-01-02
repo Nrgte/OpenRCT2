@@ -38,7 +38,6 @@
 #include <queue>
 #include <unordered_map>
 #include <vector>
-
 #include <windows.h>
 
 namespace OpenRCT2::PathFinding
@@ -252,8 +251,8 @@ namespace OpenRCT2::PathFinding
                 newTile.y += offset;
             }
         }
-        
-        //peep.updatePathFinding();
+
+        // peep.updatePathFinding();
 
         peep.SetDestination(newTile, 2);
 
@@ -1967,7 +1966,10 @@ namespace OpenRCT2::PathFinding
         {
             LogPathfinding(&peep, "Completed CalculateNextDestination - taking only direction available: %d.", direction);
 
-            peep.updatePathFinding();
+            Direction newDirection = peep.getNextPathfindingDirection();
+            if (!(newDirection == INVALID_DIRECTION))
+                direction = newDirection;
+            // peep.updatePathFinding();
             return PeepMoveOneTile(direction, peep);
         }
 
@@ -2069,108 +2071,138 @@ namespace OpenRCT2::PathFinding
         /* Find the ride's closest entrance station to the peep.
          * At the same time, count how many entrance stations there are and
          * which stations are entrance stations. */
-        auto bestScore = std::numeric_limits<int32_t>::max();
-        StationIndex closestStationNum = StationIndex::FromUnderlying(0);
+        // auto bestScore = std::numeric_limits<int32_t>::max();
+        // StationIndex closestStationNum = StationIndex::FromUnderlying(0);
 
-        int32_t numEntranceStations = 0;
-        BitSet<OpenRCT2::Limits::kMaxStationsPerRide> entranceStations = {};
+        // int32_t numEntranceStations = 0;
+        // BitSet<OpenRCT2::Limits::kMaxStationsPerRide> entranceStations = {};
 
-        for (const auto& station : ride->GetStations())
+        std::deque<StationIndex> sortedStations = AdvancedPathfinding::GetSortedStationQueue(
+            peep, ride); //, numEntranceStations);
+
+        do
         {
-            // Skip if stationNum has no entrance (so presumably an exit only station)
-            if (station.Entrance.IsNull())
-                continue;
-
-            const auto stationIndex = ride->GetStationIndex(&station);
-
-            numEntranceStations++;
-            entranceStations[stationIndex.ToUnderlying()] = true;
-
-            TileCoordsXYZD entranceLocation = station.Entrance;
-            auto score = CalculateHeuristicPathingScore(entranceLocation, TileCoordsXYZ{ peep.NextLoc });
-            if (score < bestScore)
+            if (sortedStations.empty())
             {
-                bestScore = score;
-                closestStationNum = stationIndex;
-                continue;
+                // closestStationNum is always 0 here.
+                const auto& closestStation = ride->GetStation(StationIndex::FromUnderlying(0));
+                auto entranceXY = TileCoordsXY(closestStation.Start);
+                loc.x = entranceXY.x;
+                loc.y = entranceXY.y;
+                loc.z = closestStation.Height;
             }
-        }
-
-        // Ride has no stations with an entrance, so head to station 0.
-        if (numEntranceStations == 0)
-            closestStationNum = StationIndex::FromUnderlying(0);
-
-        if (numEntranceStations > 1 && (ride->depart_flags & RIDE_DEPART_SYNCHRONISE_WITH_ADJACENT_STATIONS))
-        {
-            closestStationNum = GuestPathfindingSelectRandomStation(peep, numEntranceStations, entranceStations);
-        }
-
-        if (numEntranceStations == 0)
-        {
-            // closestStationNum is always 0 here.
-            const auto& closestStation = ride->GetStation(closestStationNum);
-            auto entranceXY = TileCoordsXY(closestStation.Start);
-            loc.x = entranceXY.x;
-            loc.y = entranceXY.y;
-            loc.z = closestStation.Height;
-        }
-        else
-        {
-            TileCoordsXYZD entranceXYZD = ride->GetStation(closestStationNum).Entrance;
-            loc.x = entranceXYZD.x;
-            loc.y = entranceXYZD.y;
-            loc.z = entranceXYZD.z;
-        }
-
-        GetRideQueueEnd(loc);
-
-        // Only run the pathfinding for guests who currently don't have an active pathfinding.
-        int test = 1;
-        if (peep.GetName() == "Mhairi R.")
-            test = 2;
-
-        if (peep.PathfindingQueue.empty())
-        {
-            std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc);
-            if (tileList.size() > 0)
+            else
             {
-                if (tileList[0].x == -1)
+                RideStation& station = ride->GetStation(sortedStations.front());
+                sortedStations.pop_front();
+
+                TileCoordsXYZD entranceXYZD = station.Entrance;
+                loc.x = entranceXYZD.x;
+                loc.y = entranceXYZD.y;
+                loc.z = entranceXYZD.z;
+            }
+            /*
+            for (const auto& station : ride->GetStations())
+            {
+                // Skip if stationNum has no entrance (so presumably an exit only station)
+                if (station.Entrance.IsNull())
+                    continue;
+
+                const auto stationIndex = ride->GetStationIndex(&station);
+
+                numEntranceStations++;
+                entranceStations[stationIndex.ToUnderlying()] = true;
+
+                TileCoordsXYZD entranceLocation = station.Entrance;
+                auto score = CalculateHeuristicPathingScore(entranceLocation, TileCoordsXYZ{ peep.NextLoc });
+                if (score < bestScore)
                 {
-                    TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
-
-                    std::string searchedTiles = "Searched Tiles: ";
-                    for (TileCoordsXYZ tile : tileList)
-                        searchedTiles = searchedTiles + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
-
-                    searchedTiles = searchedTiles + "\n";
-                    std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
-                    std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
-                    std::string debugPF = "Pathfinding: " + peep.GetName() + " can't find entrance to: " + ride->GetName()
-                        + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
-                    OutputDebugStringA(debugPF.c_str());
-                    OutputDebugStringA(searchedTiles.c_str());
+                    bestScore = score;
+                    closestStationNum = stationIndex;
+                    continue;
                 }
-                else
+            }*/
+
+            // Ride has no stations with an entrance, so head to station 0.
+            /*
+            if (numEntranceStations == 0)
+                closestStationNum = StationIndex::FromUnderlying(0);
+
+            if (numEntranceStations > 1 && (ride->depart_flags & RIDE_DEPART_SYNCHRONISE_WITH_ADJACENT_STATIONS))
+            {
+                closestStationNum = GuestPathfindingSelectRandomStation(peep, numEntranceStations, entranceStations);
+            }
+
+            if (numEntranceStations == 0)
+            {
+                // closestStationNum is always 0 here.
+                const auto& closestStation = ride->GetStation(closestStationNum);
+                auto entranceXY = TileCoordsXY(closestStation.Start);
+                loc.x = entranceXY.x;
+                loc.y = entranceXY.y;
+                loc.z = closestStation.Height;
+            }
+            */
+
+            GetRideQueueEnd(loc);
+
+            // Only run the pathfinding for guests who currently don't have an active pathfinding.
+            if (peep.PathfindingQueue.empty())
+            {
+                // std::deque<TileCoordsXYZ> tileList;
+                std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc, peep);
+                if (tileList.size() > 0)
                 {
-                    peep.setPathfindingQueue(tileList);
-                    /*
-                    TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+                    if (tileList[0].x == -1)
+                    {
+                        if (sortedStations.empty())
+                        {
+                            TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
 
-                    std::string foundPath = "PATH FOUND: ";
-                    for (TileCoordsXYZ tile : tileList)
-                        foundPath = foundPath + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+                            std::string searchedTiles = "Searched Tiles: ";
+                            for (TileCoordsXYZ tile : tileList)
+                            {
+                                // PathElement* element = MapGetPathElementAt(tile);
+                                //  if (element != nullptr)
+                                //      element->SetGhost(true);
+                                searchedTiles = searchedTiles + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+                            }
 
-                    foundPath = foundPath + "\n";
-                    std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
-                    std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
-                    std::string debugPF = "Pathfinding: " + peep.GetName() + " Found Path to: " + ride->GetName()
-                        + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
-                    OutputDebugStringA(debugPF.c_str());
-                    OutputDebugStringA(foundPath.c_str());
-                    */
+                            searchedTiles = searchedTiles + "\n";
+                            std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+                            std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+                            std::string debugPF = "Pathfinding: " + peep.GetName()
+                                + " can't find entrance to: " + ride->GetName() + " guest Location = " + peepLocationStr
+                                + " ; Target Location = " + stationLocationStr + "\n";
+                            OutputDebugStringA(debugPF.c_str());
+                            OutputDebugStringA(searchedTiles.c_str());
+
+                            peep.InsertNewThought(PeepThoughtType::CantFind, ride->id);
+                            peep.HappinessTarget = std::max(peep.HappinessTarget - 30, 0);
+                        }
+                    }
+                    else
+                    {
+                        peep.setPathfindingQueue(tileList);
+                        /*
+                        TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+
+                        std::string foundPath = "PATH FOUND: ";
+                        for (TileCoordsXYZ tile : tileList)
+                            foundPath = foundPath + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+
+                        foundPath = foundPath + "\n";
+                        std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+                        std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+                        std::string debugPF = "Pathfinding: " + peep.GetName() + " Found Path to: " + ride->GetName()
+                            + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
+                        OutputDebugStringA(debugPF.c_str());
+                        OutputDebugStringA(foundPath.c_str());
+                        */
+                    }
                 }
             }
-        }
+        } while (!sortedStations.empty() && peep.PathfindingQueue.empty());
 
         if (peep.PathfindingQueue.empty())
             direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, loc, peep, true, rideIndex);
@@ -2211,6 +2243,7 @@ namespace AdvancedPathfinding
         double g_score; // Cost from start
         double f_score; // Estimated total cost (g_score + h_score)
         Node* parent;
+        Ride* proxyRide;
         std::chrono::time_point<std::chrono::high_resolution_clock> timestamp; // Timestamp
 
         Node()
@@ -2220,6 +2253,7 @@ namespace AdvancedPathfinding
             , g_score(std::numeric_limits<double>::infinity())
             , f_score(std::numeric_limits<double>::infinity())
             , parent(nullptr)
+            , proxyRide(nullptr)
         {
         }
 
@@ -2229,7 +2263,9 @@ namespace AdvancedPathfinding
             , y(coords.y)
             , g_score(std::numeric_limits<double>::infinity())
             , f_score(std::numeric_limits<double>::infinity())
+            , timestamp(std::chrono::high_resolution_clock::now())
             , parent(nullptr)
+            , proxyRide(nullptr)
         {
         }
     };
@@ -2245,12 +2281,13 @@ namespace AdvancedPathfinding
             // If f_scores are equal, favor the node that was added to the queue earlier
             // You can implement timestamps or sequence numbers here
             // Example using a hypothetical timestamp member:
-            return a->timestamp < b->timestamp;
+            return a->timestamp > b->timestamp;
         }
     };
 
     // Helper function to calculate the z-coordinate of the neighbor based on slope
-    static uint8_t CalculateNeighbourZ(TileCoordsXYZ coords, TileCoordsXYZ neighbour, const PathElement* element, Direction dir)
+    static uint8_t CalculateNeighbourZ(
+        TileCoordsXYZ coords, TileCoordsXYZ neighbour, const TileElementBase* element, Direction dir)
     {
         // Look whether the next tile is in a higher or lower position
         PathElement* upperElement = MapGetPathElementAt(TileCoordsXYZ{ neighbour.x, neighbour.y, neighbour.z + 2 });
@@ -2264,21 +2301,41 @@ namespace AdvancedPathfinding
         return element->BaseHeight; // Default: return base height of the path element
     }
 
+    static TileCoordsXYZ GetExitPathTile(const TileCoordsXYZ& coords)
+    {
+        const int dx[] = { -1, 0, 1, 0 }; // x offsets
+        const int dy[] = { 0, 1, 0, -1 }; // y offsets
+
+        // We found a ride exit, so we return the path that leads out of it.
+        EntranceElement* exitElement = MapGetRideExitElementAt(coords.ToCoordsXYZ(), false);
+        if (exitElement)
+        {
+            TileCoordsXYZ coordsToCheck;
+            Direction dir = DirectionReverse(exitElement->GetDirection());
+            coordsToCheck = TileCoordsXYZ{ coords.x + dx[dir], coords.y + dy[dir], coords.z };
+            coordsToCheck.z = CalculateNeighbourZ(coords, coordsToCheck, exitElement, dir);
+            return coordsToCheck;
+        }
+
+        return TileCoordsXYZ{};
+    }
+
     // Get neighboring tiles
     static std::vector<TileCoordsXYZ> GetTileNeighbours(const TileCoordsXYZ& coords)
     {
         std::vector<TileCoordsXYZ> neighbors;
 
-        PathElement* element = MapGetPathElementAt(coords);
-        if (element == nullptr)
-            return neighbors;
-
-        uint8_t permittedEdges = PathGetPermittedEdges(false, element);
-
         // Define an array to map directions to offsets (assuming 4 cardinal directions)
         // Southwest, Northwest, Northeast, Southeast
         const int dx[] = { -1, 0, 1, 0 }; // x offsets
         const int dy[] = { 0, 1, 0, -1 }; // y offsets
+
+        PathElement* element = MapGetPathElementAt(coords);
+
+        if (element == nullptr)
+            return neighbors;
+
+        uint8_t permittedEdges = PathGetPermittedEdges(false, element);
 
         for (Direction dir : ALL_DIRECTIONS)
         {
@@ -2294,10 +2351,56 @@ namespace AdvancedPathfinding
         return neighbors;
     }
 
-    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal)
+    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal, Guest& guest)
     {
         std::priority_queue<Node*, std::vector<Node*>, AStarCompare> open_set;
         std::unordered_map<TileCoordsXYZ, Node, TileCoordsXYZ::Hasher> node_map;
+
+        // Find Rides with multiple entrances.
+        std::unordered_map<TileCoordsXYZ, std::pair<Ride*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher>
+            proxyRideEntranceExitMappings;
+        for (auto& ride : GetRideManager())
+        {
+            std::vector<TileCoordsXYZ> exitTiles;
+            std::vector<TileCoordsXYZ> entranceTiles;
+            std::unordered_map<TileCoordsXYZ, TileCoordsXYZ, TileCoordsXYZ::Hasher> entranceExitMappings;
+            uint8_t stationCount = 0;
+            for (const auto& station : ride.GetStations())
+            {
+                if (station.Entrance.IsNull() || station.Exit.IsNull())
+                    continue;
+
+                stationCount++;
+
+                TileCoordsXYZ entranceCoords = TileCoordsXYZ{ station.Entrance.x, station.Entrance.y, station.Entrance.z };
+                TileCoordsXYZ exitCoords = TileCoordsXYZ{ station.Exit.x, station.Exit.y, station.Exit.z };
+                GetRideQueueEnd(entranceCoords);
+
+                // We push the queue start to the entrance list instead of the entrance tile.
+                entranceTiles.push_back(entranceCoords);
+                exitTiles.push_back(exitCoords);
+
+                entranceExitMappings.emplace(entranceCoords, exitCoords);
+            }
+
+            if (stationCount > 1)
+            {
+                for (TileCoordsXYZ entranceTile : entranceTiles)
+                {
+                    // For each entrance with have to filter out it's own exit.
+                    auto itRideExits = entranceExitMappings.find(entranceTile);
+                    if (itRideExits != entranceExitMappings.end())
+                    {
+                        TileCoordsXYZ exitTileToExclude = itRideExits->second;
+                        std::vector<TileCoordsXYZ> filteredExits;
+                        std::copy_if(
+                            exitTiles.begin(), exitTiles.end(), std::back_inserter(filteredExits), [&](const TileCoordsXYZ& coord) { return coord != exitTileToExclude; });
+                        std::pair<Ride*, std::vector<TileCoordsXYZ>> rideExits = std::make_pair(&ride, filteredExits);
+                        proxyRideEntranceExitMappings.emplace(entranceTile, rideExits);
+                    }
+                }
+            }
+        }
 
         node_map[start] = Node(start);
         node_map[start].g_score = 0;
@@ -2316,16 +2419,34 @@ namespace AdvancedPathfinding
                 while (current)
                 {
                     path.push_back(current->coords);
+                    if (current->proxyRide != nullptr)
+                        guest.proxyRides.push_back(current->proxyRide);
                     current = current->parent;
                 }
                 std::reverse(path.begin(), path.end());
                 return path;
             }
 
-            for (const TileCoordsXYZ& neighbor : GetTileNeighbours(current->coords))
+            std::vector<TileCoordsXYZ> neighbours;
+            auto itRideExits = proxyRideEntranceExitMappings.find(current->coords);
+            if (itRideExits != proxyRideEntranceExitMappings.end())
+            {
+                std::pair<Ride*, std::vector<TileCoordsXYZ>> rideExits = itRideExits->second;
+                current->proxyRide = rideExits.first;
+                for (TileCoordsXYZ exit : rideExits.second)
+                    neighbours.push_back(GetExitPathTile(exit));
+                // neighbours.push_back(exit);
+            }
+
+            // Append all regular tiles after the ride exits.
+            std::vector<TileCoordsXYZ> tempNeighbours = GetTileNeighbours(current->coords);
+            neighbours.insert(neighbours.end(), tempNeighbours.begin(), tempNeighbours.end());
+
+            for (const TileCoordsXYZ& neighbor : neighbours)
             {
                 PathElement* element = MapGetPathElementAt(neighbor);
-                if (!element && neighbor != goal)
+                // EntranceElement* exitElement = MapGetRideExitElementAt(neighbor.ToCoordsXYZ(), false);
+                if (!element && neighbor != goal) // && !exitElement
                     continue;
 
                 double tentative_g_score = current->g_score + 1; // Assuming uniform cost
@@ -2356,4 +2477,56 @@ namespace AdvancedPathfinding
 
         return brokenPath;
     }
+
+    // Define the comparator for std::pair<StationIndex, int32_t>
+    struct StationComparator
+    {
+        bool operator()(const std::pair<StationIndex, int32_t>& a, const std::pair<StationIndex, int32_t>& b)
+        {
+            return a.second > b.second; // Higher scores have lower priority
+        }
+    };
+
+    std::deque<StationIndex> GetSortedStationQueue(
+        Peep& peep, Ride* ride) //, int32_t& numEntranceStations) //, TileCoordsXYZ& loc)
+    {
+        auto comparator = [](const std::pair<StationIndex, int32_t>& a, const std::pair<StationIndex, int32_t>& b) {
+            return a.second > b.second; // Higher scores have lower priority
+        };
+
+        std::priority_queue<std::pair<StationIndex, int32_t>, std::vector<std::pair<StationIndex, int32_t>>, StationComparator>
+            stationQueue;
+
+        // int numEntranceStations = 0;
+        //  std::array<bool, MAX_STATIONS> entranceStations = { false };
+
+        for (const auto& station : ride->GetStations())
+        {
+            // Skip stations without entrances
+            if (station.Entrance.IsNull())
+                continue;
+
+            const auto stationIndex = ride->GetStationIndex(&station);
+            // numEntranceStations++;
+            //  entranceStations[stationIndex.ToUnderlying()] = true;
+
+            TileCoordsXYZD entranceLocation = station.Entrance;
+            int32_t score = CalculateHeuristicPathingScore(entranceLocation, TileCoordsXYZ{ peep.NextLoc });
+
+            // Add to the priority queue
+            stationQueue.emplace(stationIndex, score);
+        }
+
+        // Convert priority_queue to deque with the lowest score first
+        std::deque<StationIndex> stationDeque;
+
+        while (!stationQueue.empty())
+        {
+            stationDeque.push_back(stationQueue.top().first);
+            stationQueue.pop();
+        }
+
+        return stationDeque;
+    }
+
 } // namespace AdvancedPathfinding

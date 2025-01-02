@@ -324,6 +324,7 @@ public:
     uint64_t ItemFlags;
 
     uint8_t FailedGoOnRideChecks;
+    std::vector<Ride*> proxyRides;
 
     AdvancedGuestStats AGS;
 
