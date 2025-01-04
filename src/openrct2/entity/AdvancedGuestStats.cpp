@@ -17,6 +17,9 @@ AdvancedGuestStats::AdvancedGuestStats()
 void AdvancedGuestStats::InsertRideIntensityRating(RideId id, uint8_t rating, ride_rating rideRating)
 {
     GuestRideRating temp(id, rating, rideRating);
+    int test = 1;
+    if (this == nullptr)
+        test++;
     this->RideIntensitySatisfaction.push_back(temp);
 }
 
@@ -106,6 +109,7 @@ uint8_t AdvancedGuestStats::GetQueueTimeCancelChance()
     return 0x4000U;
 }
 
+/*
 void AdvancedGuestStats::Serialise(DataSerialiser& stream)
 {
     // stream << RideIntensitySatisfaction;
@@ -117,3 +121,4 @@ void GuestRideRating::Serialise(DataSerialiser& stream)
     stream << ID;
     stream << Rating;
 }
+*/

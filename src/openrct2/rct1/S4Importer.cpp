@@ -2878,6 +2878,7 @@ namespace OpenRCT2::RCT1
         dst->Angriness = src->Angriness;
         dst->TimeLost = src->TimeLost;
 
+        dst->initAGS(RCT12GetRidesBeenOn(src));
         OpenRCT2::RideUse::GetHistory().Set(dst->Id, RCT12GetRidesBeenOn(src));
         OpenRCT2::RideUse::GetTypeHistory().Set(dst->Id, RCT12GetRideTypesBeenOn(src));
 

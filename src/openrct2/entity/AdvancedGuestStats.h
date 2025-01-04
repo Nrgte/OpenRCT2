@@ -5,6 +5,9 @@
 
 #include <iostream>
 #include <vector>
+#include <mutex>
+#include <deque>
+#include <memory>
 
 struct GuestRideRating
 {
@@ -48,7 +51,7 @@ public:
         return Rating;
     }
     
-    void Serialise(DataSerialiser& stream);
+    //void Serialise(DataSerialiser& stream);
     
 };
 
@@ -63,7 +66,8 @@ Traits:
 class AdvancedGuestStats
 {
 public:
-    uint8_t testbla = 0;
+    mutable std::mutex pathfindingQueueMutex;
+
     AdvancedGuestStats();
     void InsertRideIntensityRating(RideId id, uint8_t rating, ride_rating rideRating);
     float GetMedianIntensityRating(RideId id, ride_rating currentIntensity);
@@ -73,10 +77,11 @@ public:
     std::vector<GuestRideRating> FindRidesByRideId(std::vector<GuestRideRating>& ratings, RideId targetId);
     std::vector<GuestRideRating> FindRideIntensityRatingsByRideId(RideId targetId);
     void DeleteOldIntensityRatings(RideId id, ride_rating currentIntensity);
-    void Serialise(DataSerialiser& stream);
+    //void Serialise(DataSerialiser& stream);
    
 
 //private:
-    std::vector<GuestRideRating> RideIntensitySatisfaction;
+    std::vector<GuestRideRating> RideIntensitySatisfaction{};
+    std::deque<TileCoordsXYZ> PathfindingQueue;
 
 };

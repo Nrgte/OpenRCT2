@@ -40,6 +40,9 @@
 #include <vector>
 #include <windows.h>
 
+#include <thread>
+#include <functional>
+
 namespace OpenRCT2::PathFinding
 {
     // The search limits the maximum junctions by certain conditions.
@@ -2077,134 +2080,53 @@ namespace OpenRCT2::PathFinding
         // int32_t numEntranceStations = 0;
         // BitSet<OpenRCT2::Limits::kMaxStationsPerRide> entranceStations = {};
 
-        std::deque<StationIndex> sortedStations = AdvancedPathfinding::GetSortedStationQueue(
-            peep, ride); //, numEntranceStations);
+        std::promise<TileCoordsXYZ> pathfindingPromise;
+        std::future<TileCoordsXYZ> pathfindingFuture = pathfindingPromise.get_future();
 
-        do
+        /*
+        std::thread pathfindingThread([&peep, ride, loc = loc, promise = std::move(pathfindingPromise)]() mutable {
+            AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(promise));
+        });
+
+        try
         {
-            if (sortedStations.empty())
-            {
-                // closestStationNum is always 0 here.
-                const auto& closestStation = ride->GetStation(StationIndex::FromUnderlying(0));
-                auto entranceXY = TileCoordsXY(closestStation.Start);
-                loc.x = entranceXY.x;
-                loc.y = entranceXY.y;
-                loc.z = closestStation.Height;
-            }
-            else
-            {
-                RideStation& station = ride->GetStation(sortedStations.front());
-                sortedStations.pop_front();
+            loc = pathfindingFuture.get(); // Blocks until the promise is fulfilled
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "Exception from pathfinding thread: " << e.what() << "\n";
+        }*/
+        bool enableMultiThreading = false;
 
-                TileCoordsXYZD entranceXYZD = station.Entrance;
-                loc.x = entranceXYZD.x;
-                loc.y = entranceXYZD.y;
-                loc.z = entranceXYZD.z;
-            }
-            /*
-            for (const auto& station : ride->GetStations())
-            {
-                // Skip if stationNum has no entrance (so presumably an exit only station)
-                if (station.Entrance.IsNull())
-                    continue;
-
-                const auto stationIndex = ride->GetStationIndex(&station);
-
-                numEntranceStations++;
-                entranceStations[stationIndex.ToUnderlying()] = true;
-
-                TileCoordsXYZD entranceLocation = station.Entrance;
-                auto score = CalculateHeuristicPathingScore(entranceLocation, TileCoordsXYZ{ peep.NextLoc });
-                if (score < bestScore)
+        if (enableMultiThreading)
+        {
+            std::thread pathfindingThread([&peep, ride, loc, promise = std::move(pathfindingPromise)]() mutable {
+                try
                 {
-                    bestScore = score;
-                    closestStationNum = stationIndex;
-                    continue;
+                    AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(promise));
                 }
-            }*/
-
-            // Ride has no stations with an entrance, so head to station 0.
-            /*
-            if (numEntranceStations == 0)
-                closestStationNum = StationIndex::FromUnderlying(0);
-
-            if (numEntranceStations > 1 && (ride->depart_flags & RIDE_DEPART_SYNCHRONISE_WITH_ADJACENT_STATIONS))
-            {
-                closestStationNum = GuestPathfindingSelectRandomStation(peep, numEntranceStations, entranceStations);
-            }
-
-            if (numEntranceStations == 0)
-            {
-                // closestStationNum is always 0 here.
-                const auto& closestStation = ride->GetStation(closestStationNum);
-                auto entranceXY = TileCoordsXY(closestStation.Start);
-                loc.x = entranceXY.x;
-                loc.y = entranceXY.y;
-                loc.z = closestStation.Height;
-            }
-            */
-
-            GetRideQueueEnd(loc);
-
-            // Only run the pathfinding for guests who currently don't have an active pathfinding.
-            if (peep.PathfindingQueue.empty())
-            {
-                // std::deque<TileCoordsXYZ> tileList;
-                std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc, peep);
-                if (tileList.size() > 0)
+                catch (...)
                 {
-                    if (tileList[0].x == -1)
-                    {
-                        if (sortedStations.empty())
-                        {
-                            TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
-
-                            std::string searchedTiles = "Searched Tiles: ";
-                            for (TileCoordsXYZ tile : tileList)
-                            {
-                                // PathElement* element = MapGetPathElementAt(tile);
-                                //  if (element != nullptr)
-                                //      element->SetGhost(true);
-                                searchedTiles = searchedTiles + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
-                            }
-
-                            searchedTiles = searchedTiles + "\n";
-                            std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
-                            std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
-                            std::string debugPF = "Pathfinding: " + peep.GetName()
-                                + " can't find entrance to: " + ride->GetName() + " guest Location = " + peepLocationStr
-                                + " ; Target Location = " + stationLocationStr + "\n";
-                            OutputDebugStringA(debugPF.c_str());
-                            OutputDebugStringA(searchedTiles.c_str());
-
-                            peep.InsertNewThought(PeepThoughtType::CantFind, ride->id);
-                            peep.HappinessTarget = std::max(peep.HappinessTarget - 30, 0);
-                        }
-                    }
-                    else
-                    {
-                        peep.setPathfindingQueue(tileList);
-                        /*
-                        TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
-
-                        std::string foundPath = "PATH FOUND: ";
-                        for (TileCoordsXYZ tile : tileList)
-                            foundPath = foundPath + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
-
-                        foundPath = foundPath + "\n";
-                        std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
-                        std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
-                        std::string debugPF = "Pathfinding: " + peep.GetName() + " Found Path to: " + ride->GetName()
-                            + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
-                        OutputDebugStringA(debugPF.c_str());
-                        OutputDebugStringA(foundPath.c_str());
-                        */
-                    }
+                    // Handle any exceptions by setting them in the promise
+                    promise.set_exception(std::current_exception());
                 }
-            }
-        } while (!sortedStations.empty() && peep.PathfindingQueue.empty());
+            });
 
-        if (peep.PathfindingQueue.empty())
+            pathfindingThread.detach();
+            // pathfindingThread.join();
+        } else
+            AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(pathfindingPromise));
+
+        try
+        {
+            loc = pathfindingFuture.get(); // Waits for the promise to be fulfilled
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "Exception from pathfinding thread: " << e.what() << "\n";
+        }
+
+        if (peep.getPathfindingQueue().empty())
             direction = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, loc, peep, true, rideIndex);
         else
             direction = peep.getNextPathfindingDirection();
@@ -2394,7 +2316,8 @@ namespace AdvancedPathfinding
                         TileCoordsXYZ exitTileToExclude = itRideExits->second;
                         std::vector<TileCoordsXYZ> filteredExits;
                         std::copy_if(
-                            exitTiles.begin(), exitTiles.end(), std::back_inserter(filteredExits), [&](const TileCoordsXYZ& coord) { return coord != exitTileToExclude; });
+                            exitTiles.begin(), exitTiles.end(), std::back_inserter(filteredExits),
+                            [&](const TileCoordsXYZ& coord) { return coord != exitTileToExclude; });
                         std::pair<Ride*, std::vector<TileCoordsXYZ>> rideExits = std::make_pair(&ride, filteredExits);
                         proxyRideEntranceExitMappings.emplace(entranceTile, rideExits);
                     }
@@ -2527,6 +2450,147 @@ namespace AdvancedPathfinding
         }
 
         return stationDeque;
+    }
+
+    void CalculatePathfinding(
+        Guest& peep, Ride* ride, TileCoordsXYZ loc, std::promise<TileCoordsXYZ> promise)
+    {
+        std::deque<StationIndex> sortedStations = AdvancedPathfinding::GetSortedStationQueue(
+            peep, ride); //, numEntranceStations);
+
+        do
+        {
+            try
+            {
+                if (sortedStations.empty())
+                {
+                    // closestStationNum is always 0 here.
+                    const auto& closestStation = ride->GetStation(StationIndex::FromUnderlying(0));
+                    auto entranceXY = TileCoordsXY(closestStation.Start);
+                    loc.x = entranceXY.x;
+                    loc.y = entranceXY.y;
+                    loc.z = closestStation.Height;
+                }
+                else
+                {
+                    RideStation& station = ride->GetStation(sortedStations.front());
+                    sortedStations.pop_front();
+
+                    TileCoordsXYZD entranceXYZD = station.Entrance;
+                    loc.x = entranceXYZD.x;
+                    loc.y = entranceXYZD.y;
+                    loc.z = entranceXYZD.z;
+                }
+                /*
+                for (const auto& station : ride->GetStations())
+                {
+                    // Skip if stationNum has no entrance (so presumably an exit only station)
+                    if (station.Entrance.IsNull())
+                        continue;
+
+                    const auto stationIndex = ride->GetStationIndex(&station);
+
+                    numEntranceStations++;
+                    entranceStations[stationIndex.ToUnderlying()] = true;
+
+                    TileCoordsXYZD entranceLocation = station.Entrance;
+                    auto score = CalculateHeuristicPathingScore(entranceLocation, TileCoordsXYZ{ peep.NextLoc });
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        closestStationNum = stationIndex;
+                        continue;
+                    }
+                }*/
+
+                // Ride has no stations with an entrance, so head to station 0.
+                /*
+                if (numEntranceStations == 0)
+                    closestStationNum = StationIndex::FromUnderlying(0);
+
+                if (numEntranceStations > 1 && (ride->depart_flags & RIDE_DEPART_SYNCHRONISE_WITH_ADJACENT_STATIONS))
+                {
+                    closestStationNum = GuestPathfindingSelectRandomStation(peep, numEntranceStations, entranceStations);
+                }
+
+                if (numEntranceStations == 0)
+                {
+                    // closestStationNum is always 0 here.
+                    const auto& closestStation = ride->GetStation(closestStationNum);
+                    auto entranceXY = TileCoordsXY(closestStation.Start);
+                    loc.x = entranceXY.x;
+                    loc.y = entranceXY.y;
+                    loc.z = closestStation.Height;
+                }
+                */
+
+                GetRideQueueEnd(loc);
+
+                promise.set_value(loc);
+            }
+            catch (...)
+            {
+                // If an exception occurs, store it in the promise
+                promise.set_exception(std::current_exception());
+            }
+
+            // Only run the pathfinding for guests who currently don't have an active pathfinding.
+            if (peep.getPathfindingQueue().empty())
+            {
+                // std::deque<TileCoordsXYZ> tileList;
+                std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc, peep);
+                if (tileList.size() > 0)
+                {
+                    if (tileList[0].x == -1)
+                    {
+                        if (sortedStations.empty())
+                        {
+                            TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+
+                            std::string searchedTiles = "Searched Tiles: ";
+                            for (TileCoordsXYZ tile : tileList)
+                            {
+                                // PathElement* element = MapGetPathElementAt(tile);
+                                //  if (element != nullptr)
+                                //      element->SetGhost(true);
+                                searchedTiles = searchedTiles + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+                            }
+
+                            searchedTiles = searchedTiles + "\n";
+                            std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+                            std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+                            std::string debugPF = "Pathfinding: " + peep.GetName()
+                                + " can't find entrance to: " + ride->GetName() + " guest Location = " + peepLocationStr
+                                + " ; Target Location = " + stationLocationStr + "\n";
+                            OutputDebugStringA(debugPF.c_str());
+                            OutputDebugStringA(searchedTiles.c_str());
+
+                            peep.InsertNewThought(PeepThoughtType::CantFind, ride->id);
+                            peep.HappinessTarget = std::max(peep.HappinessTarget - 30, 0);
+                        }
+                    }
+                    else
+                    {
+                        peep.setPathfindingQueue(tileList);
+                        /*
+                        TileCoordsXYZ peepLoc = TileCoordsXYZ{ peep.NextLoc };
+
+                        std::string foundPath = "PATH FOUND: ";
+                        for (TileCoordsXYZ tile : tileList)
+                            foundPath = foundPath + std::format("({}, {}, {})", tile.x, tile.y, tile.z) + ", ";
+
+                        foundPath = foundPath + "\n";
+                        std::string peepLocationStr = std::format("({}, {}, {})", peepLoc.x, peepLoc.y, peepLoc.z);
+                        std::string stationLocationStr = std::format("({}, {}, {})", loc.x, loc.y, loc.z);
+                        std::string debugPF = "Pathfinding: " + peep.GetName() + " Found Path to: " + ride->GetName()
+                            + " guest Location = " + peepLocationStr + " ; Target Location = " + stationLocationStr + "\n";
+                        OutputDebugStringA(debugPF.c_str());
+                        OutputDebugStringA(foundPath.c_str());
+                        */
+                    }
+                }
+            }
+        } while (!sortedStations.empty() && peep.getPathfindingQueue().empty());
     }
 
 } // namespace AdvancedPathfinding

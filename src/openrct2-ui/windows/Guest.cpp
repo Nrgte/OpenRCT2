@@ -1361,12 +1361,12 @@ namespace OpenRCT2::Ui::Windows
                 {
                     auto ft = Formatter();
                     const auto guest = GetGuest();
-                    float medianIntensityRating = guest->AGS.GetMedianIntensityRating(r->id, r->ratings.intensity);
+                    float medianIntensityRating = guest->AGS->GetMedianIntensityRating(r->id, r->ratings.intensity);
                     if (medianIntensityRating > 0)
                     {
                         ft.Add<StringId>(STR_STRING);
                         ft.Add<const char*>(
-                            (r->GetName() + " - " + guest->AGS.GetMedianIntensityRatingString(r->id, r->ratings.intensity)).c_str());
+                            (r->GetName() + " - " + guest->AGS->GetMedianIntensityRatingString(r->id, r->ratings.intensity)).c_str());
                     }
                     else
                         r->FormatNameTo(ft);
@@ -1828,7 +1828,7 @@ namespace OpenRCT2::Ui::Windows
                 return;
             }
 
-            for (TileCoordsXYZ pfCoords : peep->PathfindingQueue)
+            for (TileCoordsXYZ pfCoords : peep->getPathfindingQueue())
             {
                 PathElement* element = MapGetPathElementAt(pfCoords);
                 if (element != nullptr)

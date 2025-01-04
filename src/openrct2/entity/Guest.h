@@ -15,7 +15,6 @@
 #include "../ride/ShopItem.h"
 #include "Peep.h"
 
-#include "AdvancedGuestStats.h"
 #include "map"
 
 constexpr int8_t kPeepMaxThoughts = 5;
@@ -326,7 +325,7 @@ public:
     uint8_t FailedGoOnRideChecks;
     std::vector<Ride*> proxyRides;
 
-    AdvancedGuestStats AGS;
+    //AdvancedGuestStats AGS;
 
     //void Initialize(const CoordsXYZ&);
     void UpdateGuest();

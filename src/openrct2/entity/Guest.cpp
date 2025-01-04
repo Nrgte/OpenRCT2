@@ -1872,9 +1872,11 @@ void Guest::PickRideToGoOn()
     if (ride != nullptr)
     {
         // Head to that ride
+        /*
         std::string debugGuest = this->GetName() + " goes to ride : " + ride->GetName() + "; Hunger = " + std::to_string(Hunger)
             + " ; Thirst = " + std::to_string(Thirst) + " ; Toilet = " + std::to_string(Toilet) + "\n";
         OutputDebugStringA(debugGuest.c_str());
+        */
         GuestHeadingToRideId = ride->id;
         GuestIsLostCountdown = 200;
         ResetPathfindGoal();
@@ -1980,7 +1982,7 @@ Ride* Guest::FindBestRideToGoOn()
             if (viableRides.size() == 1)
                 return ride;
 
-            float medianIntensityRating = this->AGS.GetMedianIntensityRating(ride->id, ride->ratings.intensity);
+            float medianIntensityRating = this->AGS->GetMedianIntensityRating(ride->id, ride->ratings.intensity);
             // if (!HasRidden(*ride))
             if (medianIntensityRating <= 0)
                 totalRideScore[ride] += 100;
@@ -2305,8 +2307,8 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                     // If it is raining and the ride provides shelter skip the
                     // ride intensity check and get me on a sheltered ride!
                     // Also skip intensity checks if the ride is used as a proxy ride to get to another ride.
-                    if (!isPrecipitating || !ShouldRideWhileRaining(ride)
-                        || std::find(this->proxyRides.begin(), this->proxyRides.end(), &ride) != this->proxyRides.end())
+                    if ((!isPrecipitating || !ShouldRideWhileRaining(ride))
+                        && std::find(this->proxyRides.begin(), this->proxyRides.end(), &ride) == this->proxyRides.end())
                     {
                         if (!GetGameState().Cheats.ignoreRideIntensity)
                         {
@@ -2340,7 +2342,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                                 return false;
                             }
 
-                            float averageIntensityRating = this->AGS.GetMedianIntensityRating(ride.id, ride.ratings.intensity);
+                            float averageIntensityRating = this->AGS->GetMedianIntensityRating(ride.id, ride.ratings.intensity);
                             float random_value = (rand() % 901 + 100) / 100.0f;
                             // if (ride.intensity > maxIntensity)
                             if (averageIntensityRating > 0 && random_value > averageIntensityRating)
@@ -2406,8 +2408,8 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
             }
 
             // Don't go on ride if the Queue time is too long and the guest has a low patience (to be implemented).
-            if (ride.GetMaxQueueTime() > this->AGS.GetQueueTimeThreshold()
-                && (ScenarioRand() & 0xFFFF) < this->AGS.GetQueueTimeCancelChance())
+            if (ride.GetMaxQueueTime() > this->AGS->GetQueueTimeThreshold()
+                && (ScenarioRand() & 0xFFFF) < this->AGS->GetQueueTimeCancelChance())
             {
                 if (peepAtRide)
                 {
@@ -2731,7 +2733,7 @@ static void PeepResetRideHeading(Guest* peep)
     peep->WindowInvalidateFlags |= PEEP_INVALIDATE_PEEP_ACTION;
 
     peep->proxyRides.clear();
-    peep->PathfindingQueue.clear();
+    peep->clearPathFindingQueue();
 }
 
 static void PeepRideIsTooIntense(Guest* peep, Ride& ride, bool peepAtRide)
@@ -3188,7 +3190,7 @@ static bool PeepShouldGoOnRideAgain(Guest* peep, const Ride& ride)
     if (peep->Toilet > 170)
         return false;
 
-    if (peep->AGS.GetMedianIntensityRating(ride.id, ride.ratings.intensity) >= 7)
+    if (peep->AGS->GetMedianIntensityRating(ride.id, ride.ratings.intensity) >= 7)
         return true;
 
     uint8_t r = (ScenarioRand() & 0xFF);
@@ -7452,14 +7454,17 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     auto& gameState = GetGameState();
     Guest* peep = CreateEntity<Guest>();
 
-    AdvancedGuestStats ags = *new AdvancedGuestStats();
-    // int numElements = ags.RideIntensitySatisfaction.size();
-    // std::cout << "Number of elements: " << numElements << std::endl;
-    peep->AGS = ags;
-    // peep->AGS = {};
-    // new (peep) Guest;
-    // peep->Initialize(coords);
-    // peep->SpriteType = PeepSpriteType::Normal;
+    if (peep->AGS == nullptr)
+        peep->AGS = std::make_unique<AdvancedGuestStats>();
+
+    // AdvancedGuestStats ags = *new AdvancedGuestStats();
+    // peep->AGS = ags;
+    //  int numElements = ags.RideIntensitySatisfaction.size();
+    //  std::cout << "Number of elements: " << numElements << std::endl;
+    //  peep->AGS = {};
+    //  new (peep) Guest;
+    //  peep->Initialize(coords);
+    //  peep->SpriteType = PeepSpriteType::Normal;
     peep->AnimationGroup = PeepAnimationGroup::Normal;
 
     peep->OutsideOfPark = true;
@@ -8157,8 +8162,8 @@ void Guest::RateRide(Ride& ride)
         rating = 1;
 
     // Currently it's just an intensity rating. The name is misleading.
-    this->AGS.InsertRideIntensityRating(ride.id, rating, ride.ratings.intensity);
-    std::vector<GuestRideRating> rideRatings = this->AGS.FindRideIntensityRatingsByRideId(ride.id);
+    this->AGS->InsertRideIntensityRating(ride.id, rating, ride.ratings.intensity);
+    std::vector<GuestRideRating> rideRatings = this->AGS->FindRideIntensityRatingsByRideId(ride.id);
 
     /*
     if (rideRatings.size() > 1)
@@ -8183,6 +8188,9 @@ void Guest::RateRide(Ride& ride)
 
 void Guest::initAGS(std::vector<RideId> rides)
 {
+    if (this->AGS == nullptr)
+        AGS = std::make_unique<AdvancedGuestStats>();
+
     for (RideId id : rides)
     {
         Ride* ride = GetRide(id);

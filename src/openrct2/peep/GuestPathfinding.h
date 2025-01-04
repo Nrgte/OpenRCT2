@@ -15,6 +15,8 @@
 #include <memory>
 #include <deque>
 
+#include <future>
+
 struct Peep;
 struct Guest;
 struct TileElement;
@@ -44,4 +46,5 @@ namespace AdvancedPathfinding
 {
     std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal, Guest& guest);
     std::deque<StationIndex> GetSortedStationQueue(Peep& peep, Ride* ride);
+    void CalculatePathfinding(Guest& peep, Ride* ride, TileCoordsXYZ loc, std::promise<TileCoordsXYZ> promise);
 };

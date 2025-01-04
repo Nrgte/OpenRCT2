@@ -5352,7 +5352,7 @@ std::tuple<float, uint16_t> Ride::RideGetGuestRatings() const
 
     for (auto guest : EntityList<Guest>())
     {
-        float rideRating = guest->AGS.GetMedianIntensityRating(this->id, this->ratings.intensity);
+        float rideRating = guest->AGS->GetMedianIntensityRating(this->id, this->ratings.intensity);
         if (rideRating > 0)
         {
             total_ride_rating += rideRating;

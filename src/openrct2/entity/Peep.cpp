@@ -2934,14 +2934,10 @@ void Peep::ResetPathfindGoal()
     PathfindGoal.direction = INVALID_DIRECTION;
 }
 
-void Peep::setPathfindingQueue(std::deque<TileCoordsXYZ> pfQueue)
-{
-    this->PathfindingQueue = pfQueue;
-}
-
 Direction Peep::getNextPathfindingDirection()
 {
-    if (this->PathfindingQueue.empty())
+    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    if (this->AGS->PathfindingQueue.empty())
     {
         return INVALID_DIRECTION;
     }
@@ -2950,25 +2946,26 @@ Direction Peep::getNextPathfindingDirection()
     TileCoordsXYZ nextL = TileCoordsXYZ{ this->NextLoc };
     TileCoordsXYZ start = TileCoordsXYZ{ this->GetLocation() };
 
-     do
+    do
     {
-    TileCoordsXYZ& end = this->PathfindingQueue.front();
-
-        if (&end == nullptr)
-            return INVALID_DIRECTION;
+        TileCoordsXYZ& end = this->AGS->PathfindingQueue.front();
 
         deltaX = end.x - start.x;
         deltaY = end.y - start.y;
 
         if ((std::abs(deltaX) <= 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) <= 1))
-        // if (deltaX == 0 && deltaY == 0)
-        this->PathfindingQueue.pop_front();
+        {
+            // if (deltaX == 0 && deltaY == 0)
+            this->AGS->PathfindingQueue.pop_front();
+            if (this->AGS->PathfindingQueue.empty())
+                break;
+        }
 
     } while ((deltaX == 0 && deltaY == 0)); // && !this->PathfindingQueue.empty());
 
-     // Something went wrong here and we clear the pathfinding.
+    // Something went wrong here and we clear the pathfinding.
     if (std::abs(deltaX) > 1 || std::abs(deltaY) > 1)
-        this->PathfindingQueue.clear();
+        this->clearPathFindingQueue();
     // Only pop it when we're right next to the next tile.
     // if ((std::abs(deltaX) == 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) == 1))
     //    this->PathfindingQueue.pop_front();
@@ -2979,7 +2976,6 @@ Direction Peep::getNextPathfindingDirection()
 
     if (element->IsQueue())
         return INVALID_DIRECTION;
-        
 
     if (std::abs(deltaX) > std::abs(deltaY))
     {
@@ -3006,6 +3002,54 @@ Direction Peep::getNextPathfindingDirection()
 }
 
 
+const std::deque<TileCoordsXYZ>& Peep::getPathfindingQueue() const
+{
+    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    int test = 2;
+    if (this->GetName() == "Samuel S.")
+        test++;
+    return this->AGS->PathfindingQueue;
+}
+
+void Peep::setPathfindingQueue(const std::deque<TileCoordsXYZ>& newQueue)
+{
+    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    this->AGS->PathfindingQueue = newQueue;
+    int test = 2;
+    if (this->GetName() == "Samuel S.")
+        test++;
+}
+
+void Peep::removeFirstPathFindingElement()
+{
+    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    int test = 2;
+    if (this->GetName() == "Samuel S.")
+        test = 3;
+    this->AGS->PathfindingQueue.pop_front();
+}
+
+void Peep::clearPathFindingQueue()
+{
+    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    int test = 2;
+    if (this->AGS->PathfindingQueue.size() > 10000)
+    {
+        std::string name = this->GetName();
+        if (this->AGS == nullptr || this->GetName() == "Samuel S.")
+            test = 3;
+        std::vector<GuestRideRating>* RideIntensitySatisfaction = &this->AGS->RideIntensitySatisfaction;
+        std::deque<TileCoordsXYZ>* pfDeque = &this->AGS->PathfindingQueue;
+        TileCoordsXYZ blaTest = this->AGS->PathfindingQueue.front();
+        //pfDeque->resize(0);
+        //this->AGS->PathfindingQueue.resize(0);
+        //*pfDeque = std::deque<TileCoordsXYZ>{};
+    }
+    else
+        this->AGS->PathfindingQueue.clear();
+}
+
+/*
 // Currently not in use anymore.
 void Peep::updatePathFinding()
 {
@@ -3033,3 +3077,4 @@ void Peep::updatePathFinding()
         this->PathfindingQueue.clear();
     //        this->PathfindingQueue.pop_front();
 }
+*/

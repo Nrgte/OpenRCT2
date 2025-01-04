@@ -21,7 +21,10 @@
 #include <map>
 #include <string>
 #include <string_view>
+
+#include "AdvancedGuestStats.h"
 #include <deque>
+#include <memory>
 
 constexpr uint8_t kPeepMinEnergy = 32;
 constexpr uint8_t kPeepMaxEnergy = 128;
@@ -314,6 +317,12 @@ struct Staff;
 
 struct Peep : EntityBase
 {
+    Peep()
+        : EntityBase{}
+        , AGS(std::make_unique<AdvancedGuestStats>())
+    {
+    } // Correct initialization
+    ~Peep() = default; // Important for correct destruction of unique_ptr
     char* Name;
     CoordsXYZ NextLoc;
     uint8_t NextFlags;
@@ -376,7 +385,7 @@ struct Peep : EntityBase
     uint8_t WalkingAnimationFrameNum;
     uint32_t PeepFlags;
 
-    std::deque<TileCoordsXYZ> PathfindingQueue;
+    std::unique_ptr<AdvancedGuestStats> AGS;
 
 public: // Peep
     void Update();
@@ -420,10 +429,12 @@ public: // Peep
     void Serialise(class DataSerialiser& stream);
     void Paint(PaintSession& session, int32_t imageDirection) const;
 
-    void setPathfindingQueue(std::deque<TileCoordsXYZ> pfQueue);
-
     Direction getNextPathfindingDirection();
     void updatePathFinding();
+    const std::deque<TileCoordsXYZ>& getPathfindingQueue() const;
+    void setPathfindingQueue(const std::deque<TileCoordsXYZ>& newQueue);
+    void removeFirstPathFindingElement();
+    void clearPathFindingQueue();
     // TODO: Make these private again when done refactoring
 public: // Peep
     [[nodiscard]] bool CheckForPath();

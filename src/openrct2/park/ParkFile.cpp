@@ -2277,7 +2277,9 @@ namespace OpenRCT2
                 cs.ReadWrite(rideType);
                 return true;
             });
+            std::vector<RideId> rideList = LegacyGetRidesBeenOn(ridesBeenOn);
             OpenRCT2::RideUse::GetHistory().Set(guest.Id, LegacyGetRidesBeenOn(ridesBeenOn));
+            guest.initAGS(rideList);
         }
         else
         {
