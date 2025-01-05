@@ -2362,6 +2362,15 @@ static bool PeepInteractWithShop(Peep* peep, const CoordsXYE& coords)
 
     if (guest->PeepFlags & PEEP_FLAGS_LEAVING_PARK)
     {
+        Ride* proxyRide = guest->getNextProxyRide();
+        if (proxyRide != nullptr)
+        {
+            guest->GiveItem(ShopItem::Voucher);
+            guest->VoucherType = VOUCHER_TYPE_RIDE_FREE;
+            guest->VoucherRideId = proxyRide->id;
+            guest->PeepResetRideHeadingWrapper();
+        }
+
         PeepReturnToCentreOfTile(guest);
         return true;
     }

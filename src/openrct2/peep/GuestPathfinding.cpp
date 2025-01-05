@@ -1683,7 +1683,7 @@ namespace OpenRCT2::PathFinding
      *
      *  rct2: 0x00695161
      */
-    int32_t GuestPathFindParkEntranceLeaving(Peep& peep, uint8_t edges)
+    int32_t GuestPathFindParkEntranceLeaving(Guest& peep, uint8_t edges)
     {
         TileCoordsXYZ entranceGoal{};
         if (peep.PeepFlags & PEEP_FLAGS_PARK_ENTRANCE_CHOSEN)
@@ -1708,7 +1708,28 @@ namespace OpenRCT2::PathFinding
             entranceGoal = TileCoordsXYZ(*chosenEntrance);
         }
 
-        Direction chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, entranceGoal, peep, true, RideId::GetNull());
+        if (peep.getPathfindingQueue().empty())
+        {
+            std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, entranceGoal, peep);
+            if (tileList.size() > 0)
+            {
+                if (tileList[0].x == -1)
+                {
+                    // Guest didn't find the park exit.
+                }
+                else
+                {
+                    peep.setPathfindingQueue(tileList);
+                }
+            }
+        }
+
+        Direction chosenDirection;
+        if (peep.getPathfindingQueue().empty())
+            chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, entranceGoal, peep, true, RideId::GetNull());
+        else
+            chosenDirection = peep.getNextPathfindingDirection();
+
         if (chosenDirection == INVALID_DIRECTION)
             return GuestPathfindAimless(peep, edges);
 
@@ -2047,7 +2068,7 @@ namespace OpenRCT2::PathFinding
             }
         }
 
-        if (peep.PeepFlags & PEEP_FLAGS_LEAVING_PARK)
+        if (peep.PeepFlags & PEEP_FLAGS_LEAVING_PARK && peep.GuestHeadingToRideId.IsNull())
         {
             LogPathfinding(&peep, "Completed CalculateNextDestination - peep is leaving the park.");
 

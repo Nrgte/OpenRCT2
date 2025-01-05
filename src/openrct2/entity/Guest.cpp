@@ -76,6 +76,7 @@
 #include <sfl/static_vector.hpp>
 #include <span>
 #include <windows.h>
+#include "../object/ObjectManager.h"
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Numerics;
@@ -1877,10 +1878,7 @@ void Guest::PickRideToGoOn()
             + " ; Thirst = " + std::to_string(Thirst) + " ; Toilet = " + std::to_string(Toilet) + "\n";
         OutputDebugStringA(debugGuest.c_str());
         */
-        GuestHeadingToRideId = ride->id;
-        GuestIsLostCountdown = 200;
-        ResetPathfindGoal();
-        WindowInvalidateFlags |= PEEP_INVALIDATE_PEEP_ACTION;
+        this->sendGuestToRide(*ride);
 
         // Make peep look at their map if they have one
         if (HasItem(ShopItem::Map))
@@ -2168,7 +2166,8 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
         if (!ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isTransportRide) || ride.value == RIDE_VALUE_UNDEFINED
             || RideGetPrice(ride) != 0)
         {
-            if (PeepFlags & PEEP_FLAGS_LEAVING_PARK)
+            // Guests pay for proxy rides to get to the exit.
+            if (PeepFlags & PEEP_FLAGS_LEAVING_PARK && this->getNextProxyRide() != &ride)
             {
                 ChoseNotToGoOnRide(ride, peepAtRide, false);
                 return false;
@@ -2229,7 +2228,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
         if (!ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isTransportRide) || ride.value == RIDE_VALUE_UNDEFINED
             || ridePrice != 0)
         {
-            if (PreviousRide == ride.id)
+            if (PreviousRide == ride.id && this->getNextProxyRide() != &ride)
             {
                 ChoseNotToGoOnRide(ride, peepAtRide, false);
                 return false;
@@ -2250,6 +2249,18 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                         else
                         {
                             InsertNewThought(PeepThoughtType::CantAffordRide, ride.id);
+                        }
+
+                        // Send the guest to the nearest InfoKiosk to obtain a voucher for the proxy ride.
+                        if (PeepFlags & PEEP_FLAGS_LEAVING_PARK && this->getNextProxyRide() == &ride)
+                        {
+                            // If we find a kiosk, send the Guest to the kiosk to retrieve a voucher for the proxy ride.
+                            Ride* nearest_kiosk = this->getNearestRideByType(RIDE_TYPE_INFORMATION_KIOSK);
+                            if (nearest_kiosk != nullptr)
+                            {
+                                this->clearPathFindingQueue();
+                                this->sendGuestToRide(*nearest_kiosk);
+                            }
                         }
                     }
                     ChoseNotToGoOnRide(ride, peepAtRide, true);
@@ -2307,8 +2318,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                     // If it is raining and the ride provides shelter skip the
                     // ride intensity check and get me on a sheltered ride!
                     // Also skip intensity checks if the ride is used as a proxy ride to get to another ride.
-                    if ((!isPrecipitating || !ShouldRideWhileRaining(ride))
-                        && std::find(this->proxyRides.begin(), this->proxyRides.end(), &ride) == this->proxyRides.end())
+                    if ((!isPrecipitating || !ShouldRideWhileRaining(ride)) && this->getNextProxyRide() != &ride)
                     {
                         if (!GetGameState().Cheats.ignoreRideIntensity)
                         {
@@ -2525,6 +2535,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
 bool Guest::ShouldGoToShop(Ride& ride, bool peepAtShop)
 {
     // Peeps won't go to the same shop twice in a row.
+
     if (ride.id == PreviousRide)
     {
         ChoseNotToGoOnRide(ride, peepAtShop, true);
@@ -2704,6 +2715,11 @@ void Guest::ReadMap()
     }
 }
 
+void Guest::PeepResetRideHeadingWrapper()
+{
+    PeepResetRideHeading(this);
+}
+
 static bool PeepHasVoucherForFreeRide(Guest* peep, const Ride& ride)
 {
     return peep->HasItem(ShopItem::Voucher) && peep->VoucherType == VOUCHER_TYPE_RIDE_FREE && peep->VoucherRideId == ride.id;
@@ -2720,8 +2736,7 @@ static void PeepTriedToEnterFullQueue(Guest* peep, Ride& ride)
     peep->PreviousRide = ride.id;
     peep->PreviousRideTimeOut = 0;
     // Change status "Heading to" to "Walking" if queue is full
-    if (ride.id == peep->GuestHeadingToRideId
-        || std::find(peep->proxyRides.begin(), peep->proxyRides.end(), &ride) != peep->proxyRides.end())
+    if (ride.id == peep->GuestHeadingToRideId || peep->getNextProxyRide() == &ride)
     {
         PeepResetRideHeading(peep);
     }
@@ -8196,6 +8211,51 @@ void Guest::initAGS(std::vector<RideId> rides)
         Ride* ride = GetRide(id);
         this->RateRide(*ride);
     }
+}
+
+Ride* Guest::getNextProxyRide()
+{
+    if (this->proxyRides.size() > 0)
+        return this->proxyRides[0];
+
+    return nullptr;
+}
+
+void Guest::sendGuestToRide(Ride& ride) {
+    GuestHeadingToRideId = ride.id;
+    GuestIsLostCountdown = 200;
+    ResetPathfindGoal();
+    this->WindowInvalidateFlags |= PEEP_INVALIDATE_PEEP_ACTION;
+}
+
+Ride* Guest::getNearestRideByType(ride_type_t ride_type)
+{
+    Ride* nearestRide = nullptr;
+
+    int32_t lowestDistance = 0;    
+
+    for (auto& ride : GetRideManager())
+        if (ride.type == ride_type) //RIDE_TYPE_INFORMATION_KIOSK)
+        {
+            for (RideStation& station : ride.GetStations())
+                if (!station.Start.IsNull())
+                {
+                    CoordsXYZ entranceLocation = station.Entrance.ToCoordsXYZ();
+                    if (station.Entrance.IsNull())
+                        entranceLocation = CoordsXYZ{ station.Start, station.Height };
+
+                    int32_t pfScore = PathFinding::CalculateHeuristicPathingScoreWrapper(
+                        this->GetLocation(), entranceLocation);
+
+                    if (pfScore < lowestDistance || lowestDistance == 0)
+                    {
+                        lowestDistance = pfScore;
+                        nearestRide = &ride;
+                    }
+                }
+        }
+
+    return nearestRide;
 }
 
 float getRideRatingProbability(uint8_t value, float standardDeviation, int8_t offset)

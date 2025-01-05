@@ -387,6 +387,10 @@ public:
     void RemoveRideFromMemory(RideId rideId);
 
     void initAGS(std::vector<RideId> rides);
+    Ride* getNextProxyRide();
+    void sendGuestToRide(Ride& ride);
+    Ride* getNearestRideByType(ride_type_t ride_type);
+    void PeepResetRideHeadingWrapper();
 
 private:
     void UpdateRide();
