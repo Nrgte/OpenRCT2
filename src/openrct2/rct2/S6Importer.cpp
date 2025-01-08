@@ -2051,6 +2051,7 @@ namespace OpenRCT2::RCT2
         dst->NauseaTolerance = static_cast<PeepNauseaTolerance>(src->NauseaTolerance);
         dst->PaidOnDrink = src->PaidOnDrink;
 
+        dst->initAGS(RCT12GetRidesBeenOn(src));
         OpenRCT2::RideUse::GetHistory().Set(dst->Id, RCT12GetRidesBeenOn(src));
         OpenRCT2::RideUse::GetTypeHistory().Set(dst->Id, RCT12GetRideTypesBeenOn(src));
 

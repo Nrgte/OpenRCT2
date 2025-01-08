@@ -8209,7 +8209,8 @@ void Guest::initAGS(std::vector<RideId> rides)
     for (RideId id : rides)
     {
         Ride* ride = GetRide(id);
-        this->RateRide(*ride);
+        if (ride != nullptr)
+            this->RateRide(*ride);
     }
 
     PathFinding::InitializePathFinding(*this);

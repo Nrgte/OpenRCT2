@@ -34,14 +34,13 @@
 #include <chrono>
 #include <cstring>
 #include <format>
+#include <functional>
 #include <limits>
 #include <queue>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 #include <windows.h>
-
-#include <thread>
-#include <functional>
 
 namespace OpenRCT2::PathFinding
 {
@@ -1637,7 +1636,8 @@ namespace OpenRCT2::PathFinding
 
         Direction chosenDirection;
         if (peep.getPathfindingQueue().empty())
-            chosenDirection = chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep, true, RideId::GetNull());
+            chosenDirection = chosenDirection = ChooseDirection(
+                TileCoordsXYZ{ peep.NextLoc }, goalPos, peep, true, RideId::GetNull());
         else
             chosenDirection = peep.getNextPathfindingDirection();
 
@@ -1731,7 +1731,8 @@ namespace OpenRCT2::PathFinding
 
         if (peep.getPathfindingQueue().empty())
         {
-            std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, entranceGoal, peep);
+            std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(
+                TileCoordsXYZ{ peep.NextLoc }, entranceGoal, peep);
             if (tileList.size() > 0)
             {
                 if (tileList[0].x == -1)
@@ -2011,15 +2012,12 @@ namespace OpenRCT2::PathFinding
         {
             LogPathfinding(&peep, "Completed CalculateNextDestination - taking only direction available: %d.", direction);
 
-            if (!peep.GuestHeadingToRideId.IsNull())
-            {
-                if (peep.getPathfindingQueue().empty())
-                    InitializePathFinding(peep);
+            if (peep.getPathfindingQueue().empty())
+                InitializePathFinding(peep);
 
-                Direction newDirection = peep.getNextPathfindingDirection();
-                if (!(newDirection == INVALID_DIRECTION))
-                    direction = newDirection;
-            }
+            Direction newDirection = peep.getNextPathfindingDirection();
+            if (!(newDirection == INVALID_DIRECTION))
+                direction = newDirection;
 
             // peep.updatePathFinding();
             return PeepMoveOneTile(direction, peep);
@@ -2206,14 +2204,14 @@ namespace OpenRCT2::PathFinding
     }
 
     // This method is supposed to be called when a save is loaded.
-    void InitializePathFinding(Guest& peep) {
+    void InitializePathFinding(Guest& peep)
+    {
         // Initiate pathfinding
         RideId rideIndex = peep.GuestHeadingToRideId;
         auto ride = GetRide(rideIndex);
 
         if (ride != nullptr)
         {
-
             TileCoordsXYZ loc{ peep.NextLoc };
             std::promise<TileCoordsXYZ> pathfindingPromise;
             std::future<TileCoordsXYZ> pathfindingFuture = pathfindingPromise.get_future();
@@ -2562,8 +2560,7 @@ namespace AdvancedPathfinding
         return stationDeque;
     }
 
-    void CalculatePathfinding(
-        Guest& peep, Ride* ride, TileCoordsXYZ loc, std::promise<TileCoordsXYZ> promise)
+    void CalculatePathfinding(Guest& peep, Ride* ride, TileCoordsXYZ loc, std::promise<TileCoordsXYZ> promise)
     {
         std::deque<StationIndex> sortedStations = AdvancedPathfinding::GetSortedStationQueue(
             peep, ride); //, numEntranceStations);
@@ -2641,7 +2638,7 @@ namespace AdvancedPathfinding
             catch (...)
             {
                 // If an exception occurs, store it in the promise
-                //promise.set_exception(std::current_exception());
+                // promise.set_exception(std::current_exception());
             }
 
             // Only run the pathfinding for guests who currently don't have an active pathfinding.
