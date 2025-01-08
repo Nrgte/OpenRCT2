@@ -430,7 +430,8 @@ public: // Peep
     void Paint(PaintSession& session, int32_t imageDirection) const;
 
     Direction getNextPathfindingDirection();
-    void updatePathFinding();
+    void triggerPathfindingForElement(TileCoordsXYZ coords);
+    //void updatePathFinding();
     const std::deque<TileCoordsXYZ>& getPathfindingQueue() const;
     void setPathfindingQueue(const std::deque<TileCoordsXYZ>& newQueue);
     void removeFirstPathFindingElement();

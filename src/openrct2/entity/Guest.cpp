@@ -8211,6 +8211,9 @@ void Guest::initAGS(std::vector<RideId> rides)
         Ride* ride = GetRide(id);
         this->RateRide(*ride);
     }
+
+    PathFinding::InitializePathFinding(*this);
+
 }
 
 Ride* Guest::getNextProxyRide()

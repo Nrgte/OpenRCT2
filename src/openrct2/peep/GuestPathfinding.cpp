@@ -1608,7 +1608,7 @@ namespace OpenRCT2::PathFinding
      *
      *  rct2: 0x006952C0
      */
-    int32_t GuestPathFindParkEntranceEntering(Peep& peep, uint8_t edges)
+    int32_t GuestPathFindParkEntranceEntering(Guest& peep, uint8_t edges)
     {
         // Send peeps to the nearest park entrance.
         auto chosenEntrance = GetNearestParkEntrance(peep.NextLoc);
@@ -1618,7 +1618,28 @@ namespace OpenRCT2::PathFinding
             return GuestPathfindAimless(peep, edges);
 
         const auto goalPos = TileCoordsXYZ(chosenEntrance.value());
-        Direction chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep, true, RideId::GetNull());
+
+        if (peep.getPathfindingQueue().empty())
+        {
+            std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep);
+            if (tileList.size() > 0)
+            {
+                if (tileList[0].x == -1)
+                {
+                    // Guest didn't find the park exit.
+                }
+                else
+                {
+                    peep.setPathfindingQueue(tileList);
+                }
+            }
+        }
+
+        Direction chosenDirection;
+        if (peep.getPathfindingQueue().empty())
+            chosenDirection = chosenDirection = ChooseDirection(TileCoordsXYZ{ peep.NextLoc }, goalPos, peep, true, RideId::GetNull());
+        else
+            chosenDirection = peep.getNextPathfindingDirection();
 
         if (chosenDirection == INVALID_DIRECTION)
             return GuestPathfindAimless(peep, edges);
@@ -1990,9 +2011,16 @@ namespace OpenRCT2::PathFinding
         {
             LogPathfinding(&peep, "Completed CalculateNextDestination - taking only direction available: %d.", direction);
 
-            Direction newDirection = peep.getNextPathfindingDirection();
-            if (!(newDirection == INVALID_DIRECTION))
-                direction = newDirection;
+            if (!peep.GuestHeadingToRideId.IsNull())
+            {
+                if (peep.getPathfindingQueue().empty())
+                    InitializePathFinding(peep);
+
+                Direction newDirection = peep.getNextPathfindingDirection();
+                if (!(newDirection == INVALID_DIRECTION))
+                    direction = newDirection;
+            }
+
             // peep.updatePathFinding();
             return PeepMoveOneTile(direction, peep);
         }
@@ -2117,34 +2145,39 @@ namespace OpenRCT2::PathFinding
         {
             std::cerr << "Exception from pathfinding thread: " << e.what() << "\n";
         }*/
-        bool enableMultiThreading = false;
 
-        if (enableMultiThreading)
+        if (peep.getPathfindingQueue().empty())
         {
-            std::thread pathfindingThread([&peep, ride, loc, promise = std::move(pathfindingPromise)]() mutable {
-                try
-                {
-                    AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(promise));
-                }
-                catch (...)
-                {
-                    // Handle any exceptions by setting them in the promise
-                    promise.set_exception(std::current_exception());
-                }
-            });
+            bool enableMultiThreading = false;
 
-            pathfindingThread.detach();
-            // pathfindingThread.join();
-        } else
-            AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(pathfindingPromise));
+            if (enableMultiThreading)
+            {
+                std::thread pathfindingThread([&peep, ride, loc, promise = std::move(pathfindingPromise)]() mutable {
+                    try
+                    {
+                        AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(promise));
+                    }
+                    catch (...)
+                    {
+                        // Handle any exceptions by setting them in the promise
+                        promise.set_exception(std::current_exception());
+                    }
+                });
 
-        try
-        {
-            loc = pathfindingFuture.get(); // Waits for the promise to be fulfilled
-        }
-        catch (const std::exception& e)
-        {
-            std::cerr << "Exception from pathfinding thread: " << e.what() << "\n";
+                pathfindingThread.detach();
+                // pathfindingThread.join();
+            }
+            else
+                AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(pathfindingPromise));
+
+            try
+            {
+                loc = pathfindingFuture.get(); // Waits for the promise to be fulfilled
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "Exception from pathfinding thread: " << e.what() << "\n";
+            }
         }
 
         if (peep.getPathfindingQueue().empty())
@@ -2170,6 +2203,52 @@ namespace OpenRCT2::PathFinding
         LogPathfinding(&peep, "Completed CalculateNextDestination - direction chosen: %d.", direction);
 
         return PeepMoveOneTile(direction, peep);
+    }
+
+    // This method is supposed to be called when a save is loaded.
+    void InitializePathFinding(Guest& peep) {
+        // Initiate pathfinding
+        RideId rideIndex = peep.GuestHeadingToRideId;
+        auto ride = GetRide(rideIndex);
+
+        if (ride != nullptr)
+        {
+
+            TileCoordsXYZ loc{ peep.NextLoc };
+            std::promise<TileCoordsXYZ> pathfindingPromise;
+            std::future<TileCoordsXYZ> pathfindingFuture = pathfindingPromise.get_future();
+
+            bool enableMultiThreading = false;
+
+            if (enableMultiThreading)
+            {
+                std::thread pathfindingThread([&peep, ride, loc, promise = std::move(pathfindingPromise)]() mutable {
+                    try
+                    {
+                        AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(promise));
+                    }
+                    catch (...)
+                    {
+                        // Handle any exceptions by setting them in the promise
+                        promise.set_exception(std::current_exception());
+                    }
+                });
+
+                pathfindingThread.detach();
+                // pathfindingThread.join();
+            }
+            else
+                AdvancedPathfinding::CalculatePathfinding(peep, ride, loc, std::move(pathfindingPromise));
+
+            try
+            {
+                loc = pathfindingFuture.get(); // Waits for the promise to be fulfilled
+            }
+            catch (const std::exception& e)
+            {
+                std::cerr << "Exception from pathfinding thread: " << e.what() << "\n";
+            }
+        }
     }
 
 } // namespace OpenRCT2::PathFinding
@@ -2294,10 +2373,21 @@ namespace AdvancedPathfinding
         return neighbors;
     }
 
-    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal, Guest& guest)
+    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& target, Guest& guest)
     {
         std::priority_queue<Node*, std::vector<Node*>, AStarCompare> open_set;
         std::unordered_map<TileCoordsXYZ, Node, TileCoordsXYZ::Hasher> node_map;
+
+        TileCoordsXYZ goal = target;
+        if (guest.OutsideOfPark)
+        {
+            auto chosenEntrance = GetNearestParkEntrance(guest.NextLoc);
+            if (chosenEntrance.has_value())
+            {
+                const auto goalPos = TileCoordsXYZ(chosenEntrance.value());
+                goal = goalPos;
+            }
+        }
 
         // Find Rides with multiple entrances.
         std::unordered_map<TileCoordsXYZ, std::pair<Ride*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher>
@@ -2389,7 +2479,6 @@ namespace AdvancedPathfinding
             for (const TileCoordsXYZ& neighbor : neighbours)
             {
                 PathElement* element = MapGetPathElementAt(neighbor);
-                // EntranceElement* exitElement = MapGetRideExitElementAt(neighbor.ToCoordsXYZ(), false);
                 if (!element && neighbor != goal) // && !exitElement
                     continue;
 
@@ -2552,7 +2641,7 @@ namespace AdvancedPathfinding
             catch (...)
             {
                 // If an exception occurs, store it in the promise
-                promise.set_exception(std::current_exception());
+                //promise.set_exception(std::current_exception());
             }
 
             // Only run the pathfinding for guests who currently don't have an active pathfinding.
@@ -2589,6 +2678,7 @@ namespace AdvancedPathfinding
                             peep.InsertNewThought(PeepThoughtType::CantFind, ride->id);
                             peep.HappinessTarget = std::max(peep.HappinessTarget - 30, 0);
                         }
+                        peep.PeepResetRideHeadingWrapper();
                     }
                     else
                     {

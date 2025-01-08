@@ -1824,6 +1824,7 @@ static bool PeepInteractWithEntrance(Peep* peep, const CoordsXYE& coords, uint8_
         {
             // Peep remembers that this is the last ride they
             // considered while on this path tile.
+            guest->clearPathFindingQueue();
             guest->InteractionRideIndex = rideIndex;
             PeepReturnToCentreOfTile(guest);
             return true;
@@ -1924,6 +1925,8 @@ static bool PeepInteractWithEntrance(Peep* peep, const CoordsXYE& coords, uint8_
         if (guest->State != PeepState::EnteringPark)
         {
             PeepReturnToCentreOfTile(guest);
+            if (guest->State == PeepState::LeavingPark)
+                guest->PeepResetRideHeadingWrapper();
             return true;
         }
 
@@ -1934,6 +1937,7 @@ static bool PeepInteractWithEntrance(Peep* peep, const CoordsXYE& coords, uint8_
             DecrementGuestsHeadingForPark();
             PeepWindowStateUpdate(guest);
             PeepReturnToCentreOfTile(guest);
+            guest->PeepResetRideHeadingWrapper();
             return true;
         }
 
@@ -1997,6 +2001,7 @@ static bool PeepInteractWithEntrance(Peep* peep, const CoordsXYE& coords, uint8_
             DecrementGuestsHeadingForPark();
             PeepWindowStateUpdate(guest);
             PeepReturnToCentreOfTile(guest);
+            guest->PeepResetRideHeadingWrapper();
             return true;
         }
 
@@ -2025,6 +2030,7 @@ static bool PeepInteractWithEntrance(Peep* peep, const CoordsXYE& coords, uint8_
                 DecrementGuestsHeadingForPark();
                 PeepWindowStateUpdate(guest);
                 PeepReturnToCentreOfTile(guest);
+                guest->PeepResetRideHeadingWrapper();
                 return true;
             }
 
@@ -2036,6 +2042,7 @@ static bool PeepInteractWithEntrance(Peep* peep, const CoordsXYE& coords, uint8_
         GetGameState().TotalAdmissions++;
         WindowInvalidateByNumber(WindowClass::ParkInformation, 0);
 
+        guest->clearPathFindingQueue();
         guest->Var37 = 1;
         auto destination = guest->GetDestination();
         destination += CoordsDirectionDelta[guest->PeepDirection];
@@ -2338,6 +2345,8 @@ static bool PeepInteractWithShop(Peep* peep, const CoordsXYE& coords)
         PeepReturnToCentreOfTile(peep);
         return true;
     }
+    
+    guest->triggerPathfindingForElement(TileCoordsXYZ {coords.ToTileCentre(), coords.element->BaseHeight});
 
     // If we are queuing ignore the 'shop'
     // This can happen when paths clip through track
@@ -2444,10 +2453,6 @@ void Peep::PerformNextAction(uint8_t& pathing_result, TileElement*& tile_result)
 
     if (Action == PeepActionType::Idle)
         Action = PeepActionType::Walking;
-
-    int test = 1;
-    if (this->GetName() == "Ricky P.")
-        test = 2;
 
     auto* guest = As<Guest>();
     if (State == PeepState::Queuing && guest != nullptr)
@@ -2945,14 +2950,14 @@ void Peep::ResetPathfindGoal()
 
 Direction Peep::getNextPathfindingDirection()
 {
-    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    // std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
     if (this->AGS->PathfindingQueue.empty())
     {
         return INVALID_DIRECTION;
     }
 
     int deltaX, deltaY = 0;
-    TileCoordsXYZ nextL = TileCoordsXYZ{ this->NextLoc };
+    //TileCoordsXYZ nextL = TileCoordsXYZ{ this->NextLoc };
     TileCoordsXYZ start = TileCoordsXYZ{ this->GetLocation() };
 
     do
@@ -2962,7 +2967,8 @@ Direction Peep::getNextPathfindingDirection()
         deltaX = end.x - start.x;
         deltaY = end.y - start.y;
 
-        if ((std::abs(deltaX) <= 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) <= 1))
+        // if ((std::abs(deltaX) <= 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) <= 1))
+        if (deltaX == 0 && deltaY == 0)
         {
             // if (deltaX == 0 && deltaY == 0)
             this->AGS->PathfindingQueue.pop_front();
@@ -2973,7 +2979,7 @@ Direction Peep::getNextPathfindingDirection()
     } while ((deltaX == 0 && deltaY == 0)); // && !this->PathfindingQueue.empty());
 
     // Something went wrong here and we clear the pathfinding.
-    if (std::abs(deltaX) > 1 || std::abs(deltaY) > 1)
+    if (std::abs(deltaX) > 1 || std::abs(deltaY) > 1) // || (std::abs(deltaX) == 1 && std::abs(deltaY) == 1))
         this->clearPathFindingQueue();
     // Only pop it when we're right next to the next tile.
     // if ((std::abs(deltaX) == 1 && deltaY == 0) || (deltaX == 0 && std::abs(deltaY) == 1))
@@ -3010,37 +3016,34 @@ Direction Peep::getNextPathfindingDirection()
     }
 }
 
+void Peep::triggerPathfindingForElement(TileCoordsXYZ coords)
+{
+    if (!this->AGS->PathfindingQueue.empty())
+        if (this->AGS->PathfindingQueue.front() == coords)
+            this->AGS->PathfindingQueue.pop_front();    
+}
 
 const std::deque<TileCoordsXYZ>& Peep::getPathfindingQueue() const
 {
-    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
-    int test = 2;
-    if (this->GetName() == "Samuel S.")
-        test++;
+    // std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
     return this->AGS->PathfindingQueue;
 }
 
 void Peep::setPathfindingQueue(const std::deque<TileCoordsXYZ>& newQueue)
 {
-    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    // std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
     this->AGS->PathfindingQueue = newQueue;
-    int test = 2;
-    if (this->GetName() == "Samuel S.")
-        test++;
 }
 
 void Peep::removeFirstPathFindingElement()
 {
-    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
-    int test = 2;
-    if (this->GetName() == "Samuel S.")
-        test = 3;
+    // std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
     this->AGS->PathfindingQueue.pop_front();
 }
 
 void Peep::clearPathFindingQueue()
 {
-    //std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
+    // std::lock_guard<std::mutex> lock(this->AGS->pathfindingQueueMutex);
     int test = 2;
     if (this->AGS->PathfindingQueue.size() > 10000)
     {
@@ -3050,8 +3053,8 @@ void Peep::clearPathFindingQueue()
         std::vector<GuestRideRating>* RideIntensitySatisfaction = &this->AGS->RideIntensitySatisfaction;
         std::deque<TileCoordsXYZ>* pfDeque = &this->AGS->PathfindingQueue;
         TileCoordsXYZ blaTest = this->AGS->PathfindingQueue.front();
-        //pfDeque->resize(0);
-        //this->AGS->PathfindingQueue.resize(0);
+        // pfDeque->resize(0);
+        // this->AGS->PathfindingQueue.resize(0);
         //*pfDeque = std::deque<TileCoordsXYZ>{};
     }
     else
