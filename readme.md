@@ -3,7 +3,7 @@
 The goal of OpenRCT2-SIM is to make the game more realistic especially when it comes to the guest behavior.
 
 Major features:
-- New pathfinding algorithm that goes through rides.
+- New pathfinding algorithm that goes through rides. Guests are now actively using transport rides for their intended purpose.
 - Ride Value is determined based on ride time and average ride speed. This makes long coasters more attractive. Ride prices don't degrade with time anymore.
 
 Minor features:
