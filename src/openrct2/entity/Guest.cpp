@@ -8221,7 +8221,8 @@ void Guest::initAGS(std::vector<RideId> rides)
             this->RateRide(*ride);
     }
 
-    PathFinding::InitializePathFinding(*this);
+    if (!(this->RideSubState == PeepRideSubState::OnRide))
+        PathFinding::InitializePathFinding(*this);
 
 }
 

@@ -2380,7 +2380,10 @@ static bool PeepInteractWithShop(Peep* peep, const CoordsXYE& coords)
             guest->VoucherType = VOUCHER_TYPE_RIDE_FREE;
             guest->VoucherRideId = proxyRide->id;
             guest->PeepResetRideHeadingWrapper();
-        }
+            guest->PathfindingIsOnCooldown = 0;
+        } else
+            guest->PeepResetRideHeadingWrapper();
+
 
         PeepReturnToCentreOfTile(guest);
         return true;
