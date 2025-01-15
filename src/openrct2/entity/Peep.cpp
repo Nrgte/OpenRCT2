@@ -2305,6 +2305,8 @@ static void PeepInteractWithPath(Peep* peep, const CoordsXYE& coords)
                 else
                 {
                     // Peep has decided not to go on the ride.
+                    guest->clearPathFindingQueue();
+                    guest->PathfindingIsOnCooldown = 5;
                     PeepReturnToCentreOfTile(guest);
                 }
             }

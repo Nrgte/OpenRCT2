@@ -2373,6 +2373,9 @@ namespace AdvancedPathfinding
 
     std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& target, Guest& guest)
     {
+        if (guest.PathfindingIsOnCooldown > 0)
+            return std::deque<TileCoordsXYZ>{};
+
         std::priority_queue<Node*, std::vector<Node*>, AStarCompare> open_set;
         std::unordered_map<TileCoordsXYZ, Node, TileCoordsXYZ::Hasher> node_map;
 
@@ -2392,6 +2395,9 @@ namespace AdvancedPathfinding
             proxyRideEntranceExitMappings;
         for (auto& ride : GetRideManager())
         {
+            if (ride.status != RideStatus::Open || (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN))
+                continue;
+
             std::vector<TileCoordsXYZ> exitTiles;
             std::vector<TileCoordsXYZ> entranceTiles;
             std::unordered_map<TileCoordsXYZ, TileCoordsXYZ, TileCoordsXYZ::Hasher> entranceExitMappings;

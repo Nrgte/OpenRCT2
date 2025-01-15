@@ -916,6 +916,9 @@ void Guest::UpdateConsumptionMotives()
 
 void Guest::Tick128UpdateGuest(uint32_t index)
 {
+    if (this->PathfindingIsOnCooldown > 0)
+        this->PathfindingIsOnCooldown--;
+
     const auto currentTicks = GetGameState().CurrentTicks;
     if ((index & 0x1FF) != (currentTicks & 0x1FF))
     {
@@ -1788,6 +1791,11 @@ void Guest::OnEnterRide(Ride& ride)
     SetHasRidden(ride);
     GuestUpdateFavouriteRide(*this, ride, satisfaction);
     HappinessTarget = std::clamp(HappinessTarget + satisfaction, 0, kPeepMaxHappiness);
+
+    // TODO: Remove the next two lines once people can stay seated and don't have to leave a ride.
+    this->proxyRides.clear();
+    this->clearPathFindingQueue();
+
     PeepUpdateRideNauseaGrowth(this, ride);
 }
 
@@ -2301,7 +2309,7 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                 else
                 {
                     const bool isPrecipitating = ClimateIsRaining() || ClimateIsSnowingHeavily();
-                    if (isPrecipitating && !ShouldRideWhileRaining(ride))
+                    if (isPrecipitating && !ShouldRideWhileRaining(ride) && this->getNextProxyRide() != &ride)
                     {
                         if (peepAtRide)
                         {
@@ -2317,8 +2325,8 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                     }
                     // If it is raining and the ride provides shelter skip the
                     // ride intensity check and get me on a sheltered ride!
-                    // Also skip intensity checks if the ride is used as a proxy ride to get to another ride.
-                    if ((!isPrecipitating || !ShouldRideWhileRaining(ride)) && this->getNextProxyRide() != &ride)
+                    // Also skip intensity checks if the ride is used as a proxy ride and is a transport ride to get to another ride.
+                    if ((!isPrecipitating || !ShouldRideWhileRaining(ride)) && (this->getNextProxyRide() != &ride && !ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isTransportRide)))
                     {
                         if (!GetGameState().Cheats.ignoreRideIntensity)
                         {

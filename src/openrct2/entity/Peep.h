@@ -386,6 +386,7 @@ struct Peep : EntityBase
     uint32_t PeepFlags;
 
     std::unique_ptr<AdvancedGuestStats> AGS;
+    uint8_t PathfindingIsOnCooldown = 0;
 
 public: // Peep
     void Update();
