@@ -6,7 +6,7 @@ Major features:
 - New pathfinding algorithm that goes through rides.
 - Ride Value is determined based on ride time and average ride speed. This makes long coasters more attractive. Ride prices don't degrade with time anymore.
 
-Minir features:
+Minor features:
 - Guests now rate rides according to their preferences.
 - Guest choose rides not solely based on Excitement anymore, but take various other factors into account such as how they rated a ride, the queue time and proximity.
 - An intensity of over 10 is not a death sentence for the coaster anymore if you have enough guests who like high intensity coasters. But guests who don't like intense coasters will rate it lower.
