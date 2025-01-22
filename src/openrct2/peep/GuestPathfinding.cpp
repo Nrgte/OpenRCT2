@@ -1758,149 +1758,6 @@ namespace OpenRCT2::PathFinding
         return PeepMoveOneTile(chosenDirection, peep);
     }
 
-    /**
-     *
-     *  rct2: 0x006A72C5
-     *  param dist is not used.
-     *
-     * In case where the map element at (x, y) is invalid or there is no entrance
-     * or queue leading to it the function will not update its arguments.
-     */
-    static void GetRideQueueEnd(TileCoordsXYZ& loc)
-    {
-        TileCoordsXY queueEnd = { 0, 0 };
-        TileElement* tileElement = MapGetFirstElementAt(loc);
-
-        if (tileElement == nullptr)
-        {
-            return;
-        }
-
-        bool found = false;
-        do
-        {
-            if (tileElement->GetType() != TileElementType::Entrance)
-                continue;
-
-            if (loc.z != tileElement->BaseHeight)
-                continue;
-
-            found = true;
-            break;
-        } while (!(tileElement++)->IsLastForTile());
-
-        if (!found)
-            return;
-
-        Direction direction = DirectionReverse(tileElement->GetDirection());
-        TileElement* lastPathElement = nullptr;
-        TileElement* firstPathElement = nullptr;
-
-        int16_t baseZ = tileElement->BaseHeight;
-        TileCoordsXY nextTile = { loc.x, loc.y };
-
-        while (true)
-        {
-            if (tileElement->GetType() == TileElementType::Path)
-            {
-                lastPathElement = tileElement;
-                // Update the current queue end
-                queueEnd = nextTile;
-                // queueEnd.direction = direction;
-                if (tileElement->AsPath()->IsSloped())
-                {
-                    if (tileElement->AsPath()->GetSlopeDirection() == direction)
-                    {
-                        baseZ += 2;
-                    }
-                }
-            }
-            nextTile += TileDirectionDelta[direction];
-
-            tileElement = MapGetFirstElementAt(nextTile);
-            found = false;
-            if (tileElement == nullptr)
-                break;
-            do
-            {
-                if (tileElement == firstPathElement)
-                    continue;
-
-                if (tileElement->GetType() != TileElementType::Path)
-                    continue;
-
-                if (baseZ == tileElement->BaseHeight)
-                {
-                    if (tileElement->AsPath()->IsSloped())
-                    {
-                        if (tileElement->AsPath()->GetSlopeDirection() != direction)
-                        {
-                            break;
-                        }
-                    }
-                    found = true;
-                    break;
-                }
-
-                if (baseZ - 2 == tileElement->BaseHeight)
-                {
-                    if (!tileElement->AsPath()->IsSloped())
-                        break;
-
-                    if (tileElement->AsPath()->GetSlopeDirection() != DirectionReverse(direction))
-                        break;
-
-                    baseZ -= 2;
-                    found = true;
-                    break;
-                }
-            } while (!(tileElement++)->IsLastForTile());
-
-            if (!found)
-                break;
-
-            if (!tileElement->AsPath()->IsQueue())
-                break;
-
-            if (!(tileElement->AsPath()->GetEdges() & (1 << DirectionReverse(direction))))
-                break;
-
-            if (firstPathElement == nullptr)
-                firstPathElement = tileElement;
-
-            // More queue to go.
-            if (tileElement->AsPath()->GetEdges() & (1 << (direction)))
-                continue;
-
-            direction++;
-            direction &= 3;
-            // More queue to go.
-            if (tileElement->AsPath()->GetEdges() & (1 << (direction)))
-                continue;
-
-            direction = DirectionReverse(direction);
-            // More queue to go.
-            if (tileElement->AsPath()->GetEdges() & (1 << (direction)))
-                continue;
-
-            break;
-        }
-
-        if (loc.z == kMaxTileElementHeight)
-            return;
-
-        tileElement = lastPathElement;
-        if (tileElement == nullptr)
-            return;
-
-        if (!tileElement->AsPath()->IsQueue())
-            return;
-
-        loc.x = queueEnd.x;
-        loc.y = queueEnd.y;
-        loc.z = tileElement->BaseHeight;
-    }
-
     /*
      * If a ride has multiple entrance stations and is set to sync with
      * adjacent stations, cycle through the entrance stations (based on
@@ -2263,7 +2120,7 @@ namespace AdvancedPathfinding
         double g_score; // Cost from start
         double f_score; // Estimated total cost (g_score + h_score)
         Node* parent;
-        Ride* proxyRide;
+        std::pair<Ride*, const RideStation*> proxyRide;
         std::chrono::time_point<std::chrono::high_resolution_clock> timestamp; // Timestamp
 
         Node()
@@ -2273,7 +2130,7 @@ namespace AdvancedPathfinding
             , g_score(std::numeric_limits<double>::infinity())
             , f_score(std::numeric_limits<double>::infinity())
             , parent(nullptr)
-            , proxyRide(nullptr)
+            , proxyRide(nullptr, nullptr)
         {
         }
 
@@ -2285,7 +2142,7 @@ namespace AdvancedPathfinding
             , f_score(std::numeric_limits<double>::infinity())
             , timestamp(std::chrono::high_resolution_clock::now())
             , parent(nullptr)
-            , proxyRide(nullptr)
+            , proxyRide(nullptr, nullptr)
         {
         }
     };
@@ -2391,8 +2248,8 @@ namespace AdvancedPathfinding
         }
 
         // Find Rides with multiple entrances.
-        std::unordered_map<TileCoordsXYZ, std::pair<Ride*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher>
-            proxyRideEntranceExitMappings;
+        //std::unordered_map<TileCoordsXYZ, std::pair<Ride*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher> proxyRideEntranceExitMappings;
+        std::unordered_map <TileCoordsXYZ, std::tuple<Ride*, const RideStation*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher> proxyRideEntranceExitMappings;
         for (auto& ride : GetRideManager())
         {
             if (ride.status != RideStatus::Open || (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN))
@@ -2400,7 +2257,8 @@ namespace AdvancedPathfinding
 
             std::vector<TileCoordsXYZ> exitTiles;
             std::vector<TileCoordsXYZ> entranceTiles;
-            std::unordered_map<TileCoordsXYZ, TileCoordsXYZ, TileCoordsXYZ::Hasher> entranceExitMappings;
+            //std::unordered_map<TileCoordsXYZ, TileCoordsXYZ, TileCoordsXYZ::Hasher> entranceExitMappings;
+            std::unordered_map<TileCoordsXYZ, std::pair<const RideStation*, TileCoordsXYZ>, TileCoordsXYZ::Hasher> entranceExitMappings;
             uint8_t stationCount = 0;
             for (const auto& station : ride.GetStations())
             {
@@ -2409,15 +2267,16 @@ namespace AdvancedPathfinding
 
                 stationCount++;
 
-                TileCoordsXYZ entranceCoords = TileCoordsXYZ{ station.Entrance.x, station.Entrance.y, station.Entrance.z };
+                TileCoordsXYZ entranceCoords = ride.GetRideQueueEnd(station);
                 TileCoordsXYZ exitCoords = TileCoordsXYZ{ station.Exit.x, station.Exit.y, station.Exit.z };
-                GetRideQueueEnd(entranceCoords);
 
                 // We push the queue start to the entrance list instead of the entrance tile.
                 entranceTiles.push_back(entranceCoords);
                 exitTiles.push_back(exitCoords);
 
-                entranceExitMappings.emplace(entranceCoords, exitCoords);
+                const RideStation* stationPtr = &station;
+                std::pair<const RideStation*, TileCoordsXYZ> rideExit = std::make_pair(stationPtr, exitCoords);
+                entranceExitMappings.emplace(entranceCoords, rideExit);
             }
 
             if (stationCount > 1)
@@ -2428,12 +2287,12 @@ namespace AdvancedPathfinding
                     auto itRideExits = entranceExitMappings.find(entranceTile);
                     if (itRideExits != entranceExitMappings.end())
                     {
-                        TileCoordsXYZ exitTileToExclude = itRideExits->second;
+                        TileCoordsXYZ exitTileToExclude = itRideExits->second.second;
                         std::vector<TileCoordsXYZ> filteredExits;
                         std::copy_if(
                             exitTiles.begin(), exitTiles.end(), std::back_inserter(filteredExits),
                             [&](const TileCoordsXYZ& coord) { return coord != exitTileToExclude; });
-                        std::pair<Ride*, std::vector<TileCoordsXYZ>> rideExits = std::make_pair(&ride, filteredExits);
+                        std::tuple<Ride*, const RideStation*, std::vector<TileCoordsXYZ>> rideExits = std::make_tuple(&ride, itRideExits->second.first, filteredExits);
                         proxyRideEntranceExitMappings.emplace(entranceTile, rideExits);
                     }
                 }
@@ -2457,8 +2316,8 @@ namespace AdvancedPathfinding
                 while (current)
                 {
                     path.push_back(current->coords);
-                    if (current->proxyRide != nullptr)
-                        guest.AGS->proxyRides.push_back(current->proxyRide);
+                    if (current->proxyRide.first != nullptr)
+                        guest.AGS->proxyRides.push_back(current->proxyRide.first);
                     current = current->parent;
                 }
                 std::reverse(path.begin(), path.end());
@@ -2469,9 +2328,10 @@ namespace AdvancedPathfinding
             auto itRideExits = proxyRideEntranceExitMappings.find(current->coords);
             if (itRideExits != proxyRideEntranceExitMappings.end())
             {
-                std::pair<Ride*, std::vector<TileCoordsXYZ>> rideExits = itRideExits->second;
-                current->proxyRide = rideExits.first;
-                for (TileCoordsXYZ exit : rideExits.second)
+                auto& [ride, station, coords] = itRideExits->second;
+                //std::tuple<Ride*, RideStation*, std::vector<TileCoordsXYZ>> rideExits = itRideExits->second;
+                current->proxyRide = std::make_pair(ride, station);
+                for (TileCoordsXYZ exit : coords)
                     neighbours.push_back(GetExitPathTile(exit));
                 // neighbours.push_back(exit);
             }
@@ -2500,6 +2360,13 @@ namespace AdvancedPathfinding
                     neighbor_node.parent = current;
                     neighbor_node.g_score = tentative_g_score;
                     neighbor_node.f_score = neighbor_node.g_score + CalculateHeuristicPathingScore(goal, neighbor);
+
+                    if (current->proxyRide.first != nullptr)
+                        if (current->proxyRide.first->IsQueueFull(*current->proxyRide.second))
+                        {
+                            neighbor_node.g_score += 1000;
+                            neighbor_node.f_score += 1000;
+                        }
 
                     open_set.push(&neighbor_node);
                 }
@@ -2596,7 +2463,8 @@ namespace AdvancedPathfinding
                     loc.z = entranceXYZD.z;
                 }
 
-                GetRideQueueEnd(loc);
+                loc = ride->GetRideQueueEnd(loc);
+                // GetRideQueueEnd(loc);
 
                 if (!promiseFullfilled)
                 {

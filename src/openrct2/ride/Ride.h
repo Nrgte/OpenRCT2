@@ -425,6 +425,11 @@ public:
     void setPoweredLifts(uint8_t newValue);
 
     uint8_t GetEntranceStyle() const;
+
+    bool IsQueueFull(const RideStation& station);
+    bool IsQueueFull(const TileCoordsXYZ queueEndTile);
+    TileCoordsXYZ GetRideQueueEnd(RideStation station);
+    TileCoordsXYZ GetRideQueueEnd(TileCoordsXYZ loc);
     money64 GetNormalizedRideValue() const;
     std::tuple<float, uint16_t> RideGetGuestRatings() const;
 

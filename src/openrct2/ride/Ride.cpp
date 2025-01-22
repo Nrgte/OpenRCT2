@@ -5344,7 +5344,6 @@ bool Ride::IsRide() const
     return GetClassification() == RideClassification::Ride;
 }
 
-
 std::tuple<float, uint16_t> Ride::RideGetGuestRatings() const
 {
     float total_ride_rating = 0;
@@ -6055,6 +6054,199 @@ void Ride::setPoweredLifts(uint8_t newValue)
 {
     dropsPoweredLifts &= ~kRideNumPoweredLiftsMask;
     dropsPoweredLifts |= (newValue << 6);
+}
+
+/*
+bool Ride::IsQueueFull(const TileCoordsXYZ queueEndTile )
+{
+    return this->IsQueueFull(this->GetRideQueueEnd(station));
+}*/
+
+bool Ride::IsQueueFull(const RideStation& station)
+{
+    // Check if there's room in the queue for the peep to enter.
+    TileCoordsXYZ queueEndTile = this->GetRideQueueEnd(station);
+    CoordsXYZ queueEnd = queueEndTile.ToCoordsXYZ();
+    Guest* lastPeepInQueue = GetEntity<Guest>(station.LastPeepInQueue);
+
+    if (lastPeepInQueue != nullptr && (abs(lastPeepInQueue->z - queueEnd.z) <= 6))
+    {
+        TileCoordsXYZ lastPeepInQueueTile = TileCoordsXYZ{ CoordsXYZ{ lastPeepInQueue->x, lastPeepInQueue->y,lastPeepInQueue->z } };
+
+//        PathElement* element = MapGetPathElementAt(queueEndTile);
+
+        int32_t dx = abs(lastPeepInQueueTile.x - queueEndTile.x);
+        int32_t dy = abs(lastPeepInQueueTile.y - queueEndTile.y);
+
+        if (dx == 0 && dy == 0)
+            return true;
+
+        dx = abs(lastPeepInQueue->x - queueEnd.x);
+        dy = abs(lastPeepInQueue->y - queueEnd.y);
+        int32_t maxD = std::max(dx, dy);
+
+        // Unlike normal paths, peeps cannot overlap when queueing for a ride.
+        // This check enforces a minimum distance between peeps entering the queue.
+        if (maxD < 8)
+        {
+            return true;
+        }
+
+        // This checks if there's a peep standing still at the very end of the queue.
+        if (maxD <= 13 && lastPeepInQueue->TimeInQueue > 10)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ *
+ *  rct2: 0x006A72C5
+ *  param dist is not used.
+ *
+ * In case where the map element at (x, y) is invalid or there is no entrance
+ * or queue leading to it the function will not update its arguments.
+ */
+TileCoordsXYZ Ride::GetRideQueueEnd(RideStation station)
+{
+    TileCoordsXYZ loc = TileCoordsXYZ{ station.Entrance.x, station.Entrance.y, station.Entrance.z };
+    return this->GetRideQueueEnd(loc);
+}
+
+TileCoordsXYZ Ride::GetRideQueueEnd(TileCoordsXYZ loc)
+{
+    TileCoordsXY queueEnd = { 0, 0 };
+    TileElement* tileElement = MapGetFirstElementAt(loc);
+
+    if (tileElement == nullptr)
+    {
+        return loc;
+    }
+
+    bool found = false;
+    do
+    {
+        if (tileElement->GetType() != TileElementType::Entrance)
+            continue;
+
+        if (loc.z != tileElement->BaseHeight)
+            continue;
+
+        found = true;
+        break;
+    } while (!(tileElement++)->IsLastForTile());
+
+    if (!found)
+        return loc;
+
+    Direction direction = DirectionReverse(tileElement->GetDirection());
+    TileElement* lastPathElement = nullptr;
+    TileElement* firstPathElement = nullptr;
+
+    int16_t baseZ = tileElement->BaseHeight;
+    TileCoordsXY nextTile = { loc.x, loc.y };
+
+    while (true)
+    {
+        if (tileElement->GetType() == TileElementType::Path)
+        {
+            lastPathElement = tileElement;
+            // Update the current queue end
+            queueEnd = nextTile;
+            // queueEnd.direction = direction;
+            if (tileElement->AsPath()->IsSloped())
+            {
+                if (tileElement->AsPath()->GetSlopeDirection() == direction)
+                {
+                    baseZ += 2;
+                }
+            }
+        }
+        nextTile += TileDirectionDelta[direction];
+
+        tileElement = MapGetFirstElementAt(nextTile);
+        found = false;
+        if (tileElement == nullptr)
+            break;
+        do
+        {
+            if (tileElement == firstPathElement)
+                continue;
+
+            if (tileElement->GetType() != TileElementType::Path)
+                continue;
+
+            if (baseZ == tileElement->BaseHeight)
+            {
+                if (tileElement->AsPath()->IsSloped())
+                {
+                    if (tileElement->AsPath()->GetSlopeDirection() != direction)
+                    {
+                        break;
+                    }
+                }
+                found = true;
+                break;
+            }
+
+            if (baseZ - 2 == tileElement->BaseHeight)
+            {
+                if (!tileElement->AsPath()->IsSloped())
+                    break;
+
+                if (tileElement->AsPath()->GetSlopeDirection() != DirectionReverse(direction))
+                    break;
+
+                baseZ -= 2;
+                found = true;
+                break;
+            }
+        } while (!(tileElement++)->IsLastForTile());
+
+        if (!found)
+            break;
+
+        if (!tileElement->AsPath()->IsQueue())
+            break;
+
+        if (!(tileElement->AsPath()->GetEdges() & (1 << DirectionReverse(direction))))
+            break;
+
+        if (firstPathElement == nullptr)
+            firstPathElement = tileElement;
+
+        // More queue to go.
+        if (tileElement->AsPath()->GetEdges() & (1 << (direction)))
+            continue;
+
+        direction++;
+        direction &= 3;
+        // More queue to go.
+        if (tileElement->AsPath()->GetEdges() & (1 << (direction)))
+            continue;
+
+        direction = DirectionReverse(direction);
+        // More queue to go.
+        if (tileElement->AsPath()->GetEdges() & (1 << (direction)))
+            continue;
+
+        break;
+    }
+
+    if (loc.z == kMaxTileElementHeight)
+        return loc;
+
+    tileElement = lastPathElement;
+    if (tileElement == nullptr)
+        return loc;
+
+    if (!tileElement->AsPath()->IsQueue())
+        return loc;
+
+    return TileCoordsXYZ{ queueEnd.x, queueEnd.y, tileElement->BaseHeight };
 }
 
 money64 Ride::GetNormalizedRideValue() const
