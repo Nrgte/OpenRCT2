@@ -1793,7 +1793,7 @@ void Guest::OnEnterRide(Ride& ride)
     HappinessTarget = std::clamp(HappinessTarget + satisfaction, 0, kPeepMaxHappiness);
 
     // TODO: Remove the next two lines once people can stay seated and don't have to leave a ride.
-    this->proxyRides.clear();
+    this->AGS->proxyRides.clear();
     this->clearPathFindingQueue();
 
     PeepUpdateRideNauseaGrowth(this, ride);
@@ -2755,7 +2755,7 @@ static void PeepResetRideHeading(Guest* peep)
     peep->GuestHeadingToRideId = RideId::GetNull();
     peep->WindowInvalidateFlags |= PEEP_INVALIDATE_PEEP_ACTION;
 
-    peep->proxyRides.clear();
+    peep->AGS->proxyRides.clear();
     peep->clearPathFindingQueue();
 }
 
@@ -8228,8 +8228,8 @@ void Guest::initAGS(std::vector<RideId> rides)
 
 Ride* Guest::getNextProxyRide()
 {
-    if (this->proxyRides.size() > 0)
-        return this->proxyRides[0];
+    if (this->AGS->proxyRides.size() > 0)
+        return this->AGS->proxyRides[0];
 
     return nullptr;
 }

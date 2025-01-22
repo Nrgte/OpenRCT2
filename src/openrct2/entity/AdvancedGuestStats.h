@@ -83,5 +83,6 @@ public:
 //private:
     std::vector<GuestRideRating> RideIntensitySatisfaction{};
     std::deque<TileCoordsXYZ> PathfindingQueue;
+    std::vector<Ride*> proxyRides;
 
 };

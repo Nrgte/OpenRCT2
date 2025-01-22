@@ -2458,7 +2458,7 @@ namespace AdvancedPathfinding
                 {
                     path.push_back(current->coords);
                     if (current->proxyRide != nullptr)
-                        guest.proxyRides.push_back(current->proxyRide);
+                        guest.AGS->proxyRides.push_back(current->proxyRide);
                     current = current->parent;
                 }
                 std::reverse(path.begin(), path.end());
@@ -2571,6 +2571,7 @@ namespace AdvancedPathfinding
         std::deque<StationIndex> sortedStations = AdvancedPathfinding::GetSortedStationQueue(
             peep, ride); //, numEntranceStations);
 
+        bool promiseFullfilled = false;
         do
         {
             try
@@ -2594,55 +2595,19 @@ namespace AdvancedPathfinding
                     loc.y = entranceXYZD.y;
                     loc.z = entranceXYZD.z;
                 }
-                /*
-                for (const auto& station : ride->GetStations())
-                {
-                    // Skip if stationNum has no entrance (so presumably an exit only station)
-                    if (station.Entrance.IsNull())
-                        continue;
-
-                    const auto stationIndex = ride->GetStationIndex(&station);
-
-                    numEntranceStations++;
-                    entranceStations[stationIndex.ToUnderlying()] = true;
-
-                    TileCoordsXYZD entranceLocation = station.Entrance;
-                    auto score = CalculateHeuristicPathingScore(entranceLocation, TileCoordsXYZ{ peep.NextLoc });
-                    if (score < bestScore)
-                    {
-                        bestScore = score;
-                        closestStationNum = stationIndex;
-                        continue;
-                    }
-                }*/
-
-                // Ride has no stations with an entrance, so head to station 0.
-                /*
-                if (numEntranceStations == 0)
-                    closestStationNum = StationIndex::FromUnderlying(0);
-
-                if (numEntranceStations > 1 && (ride->depart_flags & RIDE_DEPART_SYNCHRONISE_WITH_ADJACENT_STATIONS))
-                {
-                    closestStationNum = GuestPathfindingSelectRandomStation(peep, numEntranceStations, entranceStations);
-                }
-
-                if (numEntranceStations == 0)
-                {
-                    // closestStationNum is always 0 here.
-                    const auto& closestStation = ride->GetStation(closestStationNum);
-                    auto entranceXY = TileCoordsXY(closestStation.Start);
-                    loc.x = entranceXY.x;
-                    loc.y = entranceXY.y;
-                    loc.z = closestStation.Height;
-                }
-                */
 
                 GetRideQueueEnd(loc);
 
-                promise.set_value(loc);
+                if (!promiseFullfilled)
+                {
+                    promise.set_value(loc);
+                    promiseFullfilled = true;
+                }
             }
             catch (...)
             {
+                std::cerr << "Exception caught in CalculatePathfinding!\n"; // Add logging
+                promise.set_exception(std::current_exception());
                 // If an exception occurs, store it in the promise
                 // promise.set_exception(std::current_exception());
             }
