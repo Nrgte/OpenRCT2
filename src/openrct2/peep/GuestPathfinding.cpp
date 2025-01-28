@@ -1,5 +1,5 @@
 /*****************************************************************************
- * Copyright (c) 2014-2024 OpenRCT2 developers
+ * Copyright (c) 2014-2025 OpenRCT2 developers
  *
  * For a complete list of all authors, please refer to contributors.md
  * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
@@ -156,6 +156,7 @@ namespace OpenRCT2::PathFinding
 
     static const TileElement* GetBannerOnPath(const TileElement* pathElement)
     {
+        RideManager manager = GetRideManager();
         // This is an improved version of original.
         // That only checked for one fence in the way.
         if (pathElement->IsLastForTile())
@@ -2111,6 +2112,7 @@ namespace OpenRCT2::PathFinding
 namespace AdvancedPathfinding
 {
     using namespace OpenRCT2::PathFinding;
+    using namespace OpenRCT2;
 
     // Node for A* search
     struct Node
