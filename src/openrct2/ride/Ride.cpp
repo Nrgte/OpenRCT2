@@ -87,6 +87,8 @@
 #include <optional>
 #include <sfl/static_vector.hpp>
 
+#include "../peep/GuestPathfinding.h"
+
 using namespace OpenRCT2;
 using namespace OpenRCT2::TrackMetaData;
 
@@ -121,7 +123,7 @@ struct StationIndexWithMessage
 };
 
 // Static function declarations
-Staff* FindClosestMechanic(const CoordsXY& entrancePosition, int32_t forInspection);
+Staff* FindClosestMechanic(const CoordsXYZ& entrancePosition, int32_t forInspection);
 static void RideBreakdownStatusUpdate(Ride& ride);
 static void RideBreakdownUpdate(Ride& ride);
 static void RideCallClosestMechanic(Ride& ride);
@@ -1770,7 +1772,7 @@ Staff* RideFindClosestMechanic(const Ride& ride, int32_t forInspection)
  *  rct2: 0x006B774B (forInspection = 0)
  *  rct2: 0x006B78C3 (forInspection = 1)
  */
-Staff* FindClosestMechanic(const CoordsXY& entrancePosition, int32_t forInspection)
+Staff* FindClosestMechanic(const CoordsXYZ& entrancePosition, int32_t forInspection)
 {
     Staff* closestMechanic = nullptr;
     uint32_t closestDistance = std::numeric_limits<uint32_t>::max();
@@ -1811,6 +1813,12 @@ Staff* FindClosestMechanic(const CoordsXY& entrancePosition, int32_t forInspecti
         uint32_t distance = std::abs(peep->x - entrancePosition.x) + std::abs(peep->y - entrancePosition.y);
         if (distance < closestDistance)
         {
+            // Do a proper pathfinding check to make sure the Mechanic can actually reach the ride.
+            std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep->GetLocation() }, TileCoordsXYZ{ entrancePosition }, *peep, false);
+            if (tileList.size() == 0)
+                continue;
+            else if (tileList[0].x == -1)
+                continue;
             closestDistance = distance;
             closestMechanic = peep;
         }

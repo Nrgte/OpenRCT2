@@ -47,7 +47,7 @@ namespace OpenRCT2::PathFinding
 
 namespace AdvancedPathfinding
 {
-    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal, Guest& guest);
+    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& goal, Peep& guest, bool useProxyRides = true);
     std::deque<StationIndex> GetSortedStationQueue(Peep& peep, Ride* ride);
     void CalculatePathfinding(Guest& peep, Ride* ride, TileCoordsXYZ loc, std::promise<TileCoordsXYZ> promise);
 };

@@ -2113,6 +2113,7 @@ namespace AdvancedPathfinding
 {
     using namespace OpenRCT2::PathFinding;
     using namespace OpenRCT2;
+    const uint16_t PATHFINDING_PENALTY_FOR_FULL_QUEUES = 250;
 
     // Node for A* search
     struct Node
@@ -2230,72 +2231,86 @@ namespace AdvancedPathfinding
         return neighbors;
     }
 
-    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& target, Guest& guest)
+    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& target, Peep& peep, bool useProxyRides)
     {
-        if (guest.PathfindingIsOnCooldown > 0)
-            return std::deque<TileCoordsXYZ>{};
+        if (peep.PathfindingIsOnCooldown > 0)
+            return std::deque<TileCoordsXYZ>{};        
 
         std::priority_queue<Node*, std::vector<Node*>, AStarCompare> open_set;
         std::unordered_map<TileCoordsXYZ, Node, TileCoordsXYZ::Hasher> node_map;
 
         TileCoordsXYZ goal = target;
-        if (guest.OutsideOfPark)
+
+        EntranceElement* exitElement = MapGetRideExitElementAt(target.ToCoordsXYZ(), false);
+        if (exitElement)
+            goal = GetExitPathTile(target);
+
+        Guest* guest = peep.As<Guest>();
+        if (guest != nullptr)
         {
-            auto chosenEntrance = GetNearestParkEntrance(guest.NextLoc);
-            if (chosenEntrance.has_value())
+            if (guest->OutsideOfPark)
             {
-                const auto goalPos = TileCoordsXYZ(chosenEntrance.value());
-                goal = goalPos;
+                auto chosenEntrance = GetNearestParkEntrance(guest->NextLoc);
+                if (chosenEntrance.has_value())
+                {
+                    const auto goalPos = TileCoordsXYZ(chosenEntrance.value());
+                    goal = goalPos;
+                }
             }
         }
 
         // Find Rides with multiple entrances.
         //std::unordered_map<TileCoordsXYZ, std::pair<Ride*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher> proxyRideEntranceExitMappings;
         std::unordered_map <TileCoordsXYZ, std::tuple<Ride*, const RideStation*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher> proxyRideEntranceExitMappings;
-        for (auto& ride : GetRideManager())
+        if (useProxyRides)
         {
-            if (ride.status != RideStatus::Open || (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN))
-                continue;
-
-            std::vector<TileCoordsXYZ> exitTiles;
-            std::vector<TileCoordsXYZ> entranceTiles;
-            //std::unordered_map<TileCoordsXYZ, TileCoordsXYZ, TileCoordsXYZ::Hasher> entranceExitMappings;
-            std::unordered_map<TileCoordsXYZ, std::pair<const RideStation*, TileCoordsXYZ>, TileCoordsXYZ::Hasher> entranceExitMappings;
-            uint8_t stationCount = 0;
-            for (const auto& station : ride.GetStations())
+            for (auto& ride : GetRideManager())
             {
-                if (station.Entrance.IsNull() || station.Exit.IsNull())
+                if (ride.status != RideStatus::Open || (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN))
                     continue;
 
-                stationCount++;
-
-                TileCoordsXYZ entranceCoords = ride.GetRideQueueEnd(station);
-                TileCoordsXYZ exitCoords = TileCoordsXYZ{ station.Exit.x, station.Exit.y, station.Exit.z };
-
-                // We push the queue start to the entrance list instead of the entrance tile.
-                entranceTiles.push_back(entranceCoords);
-                exitTiles.push_back(exitCoords);
-
-                const RideStation* stationPtr = &station;
-                std::pair<const RideStation*, TileCoordsXYZ> rideExit = std::make_pair(stationPtr, exitCoords);
-                entranceExitMappings.emplace(entranceCoords, rideExit);
-            }
-
-            if (stationCount > 1)
-            {
-                for (TileCoordsXYZ entranceTile : entranceTiles)
+                std::vector<TileCoordsXYZ> exitTiles;
+                std::vector<TileCoordsXYZ> entranceTiles;
+                // std::unordered_map<TileCoordsXYZ, TileCoordsXYZ, TileCoordsXYZ::Hasher> entranceExitMappings;
+                std::unordered_map<TileCoordsXYZ, std::pair<const RideStation*, TileCoordsXYZ>, TileCoordsXYZ::Hasher>
+                    entranceExitMappings;
+                uint8_t stationCount = 0;
+                for (const auto& station : ride.GetStations())
                 {
-                    // For each entrance with have to filter out it's own exit.
-                    auto itRideExits = entranceExitMappings.find(entranceTile);
-                    if (itRideExits != entranceExitMappings.end())
+                    if (station.Entrance.IsNull() || station.Exit.IsNull())
+                        continue;
+
+                    stationCount++;
+
+                    TileCoordsXYZ entranceCoords = ride.GetRideQueueEnd(station);
+                    TileCoordsXYZ exitCoords = TileCoordsXYZ{ station.Exit.x, station.Exit.y, station.Exit.z };
+
+                    // We push the queue start to the entrance list instead of the entrance tile.
+                    entranceTiles.push_back(entranceCoords);
+                    exitTiles.push_back(exitCoords);
+
+                    const RideStation* stationPtr = &station;
+                    std::pair<const RideStation*, TileCoordsXYZ> rideExit = std::make_pair(stationPtr, exitCoords);
+                    entranceExitMappings.emplace(entranceCoords, rideExit);
+                }
+
+                if (stationCount > 1)
+                {
+                    for (TileCoordsXYZ entranceTile : entranceTiles)
                     {
-                        TileCoordsXYZ exitTileToExclude = itRideExits->second.second;
-                        std::vector<TileCoordsXYZ> filteredExits;
-                        std::copy_if(
-                            exitTiles.begin(), exitTiles.end(), std::back_inserter(filteredExits),
-                            [&](const TileCoordsXYZ& coord) { return coord != exitTileToExclude; });
-                        std::tuple<Ride*, const RideStation*, std::vector<TileCoordsXYZ>> rideExits = std::make_tuple(&ride, itRideExits->second.first, filteredExits);
-                        proxyRideEntranceExitMappings.emplace(entranceTile, rideExits);
+                        // For each entrance with have to filter out it's own exit.
+                        auto itRideExits = entranceExitMappings.find(entranceTile);
+                        if (itRideExits != entranceExitMappings.end())
+                        {
+                            TileCoordsXYZ exitTileToExclude = itRideExits->second.second;
+                            std::vector<TileCoordsXYZ> filteredExits;
+                            std::copy_if(
+                                exitTiles.begin(), exitTiles.end(), std::back_inserter(filteredExits),
+                                [&](const TileCoordsXYZ& coord) { return coord != exitTileToExclude; });
+                            std::tuple<Ride*, const RideStation*, std::vector<TileCoordsXYZ>> rideExits = std::make_tuple(
+                                &ride, itRideExits->second.first, filteredExits);
+                            proxyRideEntranceExitMappings.emplace(entranceTile, rideExits);
+                        }
                     }
                 }
             }
@@ -2319,7 +2334,7 @@ namespace AdvancedPathfinding
                 {
                     path.push_back(current->coords);
                     if (current->proxyRide.first != nullptr)
-                        guest.AGS->proxyRides.push_back(current->proxyRide.first);
+                        peep.AGS->proxyRides.push_back(current->proxyRide.first);
                     current = current->parent;
                 }
                 std::reverse(path.begin(), path.end());
@@ -2366,8 +2381,8 @@ namespace AdvancedPathfinding
                     if (current->proxyRide.first != nullptr)
                         if (current->proxyRide.first->IsQueueFull(*current->proxyRide.second))
                         {
-                            neighbor_node.g_score += 1000;
-                            neighbor_node.f_score += 1000;
+                            neighbor_node.g_score += PATHFINDING_PENALTY_FOR_FULL_QUEUES;
+                            neighbor_node.f_score += PATHFINDING_PENALTY_FOR_FULL_QUEUES;
                         }
 
                     open_set.push(&neighbor_node);
