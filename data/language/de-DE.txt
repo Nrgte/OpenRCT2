@@ -3776,3 +3776,4 @@ STR_6707    :(keine ausgewählt)
 STR_6708    :Weiche Stärke
 STR_6709    :Weiche Stärke zwischen {COMMA16} und {COMMA16} eingeben
 STR_28000   :Kreditkarte
+STR_28001   :Auf {STRINGID} zur Station: {UINT16}

@@ -15,6 +15,8 @@
 #include "../core/StringTypes.h"
 #include "StringIdType.h"
 
+#include "Formatting.h"
+
 #include <array>
 #include <cstring>
 
@@ -22,6 +24,7 @@ extern thread_local uint8_t gCommonFormatArgs[80];
 
 class Formatter
 {
+
     std::array<uint8_t, 256> Buffer{};
     uint8_t* StartBuf{};
     uint8_t* CurrentBuf{};
@@ -122,6 +125,19 @@ public:
         std::memcpy(CurrentBuf, &convertedValue, sizeof(TSpecified));
         Increment(sizeof(TSpecified));
         return *this;
+    }
+
+    std::string GetFormattedData() const
+    {
+        utf8 buffer[512];
+        StringId format = 0;
+        OpenRCT2::FormatStringLegacy(buffer, sizeof(buffer), format, Data());
+        return buffer;
+    }
+
+    std::array<uint8_t, 256> GetBuffer() const
+    {
+        return Buffer;
     }
 };
 

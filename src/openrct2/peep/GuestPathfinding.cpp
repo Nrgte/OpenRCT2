@@ -2123,7 +2123,9 @@ namespace AdvancedPathfinding
         double g_score; // Cost from start
         double f_score; // Estimated total cost (g_score + h_score)
         Node* parent;
-        std::pair<Ride*, const RideStation*> proxyRide;
+        Ride* proxyRide;
+        const RideStation* proxyRideEntrance;
+        std::vector<std::pair<const RideStation*, TileCoordsXYZ>> proxyRideExits;
         std::chrono::time_point<std::chrono::high_resolution_clock> timestamp; // Timestamp
 
         Node()
@@ -2133,7 +2135,9 @@ namespace AdvancedPathfinding
             , g_score(std::numeric_limits<double>::infinity())
             , f_score(std::numeric_limits<double>::infinity())
             , parent(nullptr)
-            , proxyRide(nullptr, nullptr)
+            , proxyRide(nullptr)
+            , proxyRideEntrance(nullptr)
+            , proxyRideExits()
         {
         }
 
@@ -2145,7 +2149,9 @@ namespace AdvancedPathfinding
             , f_score(std::numeric_limits<double>::infinity())
             , timestamp(std::chrono::high_resolution_clock::now())
             , parent(nullptr)
-            , proxyRide(nullptr, nullptr)
+            , proxyRide(nullptr)
+            , proxyRideEntrance(nullptr)
+            , proxyRideExits()
         {
         }
     };
@@ -2231,10 +2237,17 @@ namespace AdvancedPathfinding
         return neighbors;
     }
 
-    std::deque<TileCoordsXYZ> AStarSearch(const TileCoordsXYZ& start, const TileCoordsXYZ& target, Peep& peep, bool useProxyRides)
+    std::deque<TileCoordsXYZ> AStarSearch(
+        const TileCoordsXYZ& start, const TileCoordsXYZ& target, Peep& peep, bool useProxyRides)
+    {
+        return AStarSearch(start, target, peep, useProxyRides, nullptr);
+    }
+
+    std::deque<TileCoordsXYZ> AStarSearch(
+        const TileCoordsXYZ& start, const TileCoordsXYZ& target, Peep& peep, bool useProxyRides, Ride* ignoreThisProxyRide)
     {
         if (peep.PathfindingIsOnCooldown > 0)
-            return std::deque<TileCoordsXYZ>{};        
+            return std::deque<TileCoordsXYZ>{};
 
         std::priority_queue<Node*, std::vector<Node*>, AStarCompare> open_set;
         std::unordered_map<TileCoordsXYZ, Node, TileCoordsXYZ::Hasher> node_map;
@@ -2260,14 +2273,25 @@ namespace AdvancedPathfinding
         }
 
         // Find Rides with multiple entrances.
-        //std::unordered_map<TileCoordsXYZ, std::pair<Ride*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher> proxyRideEntranceExitMappings;
-        std::unordered_map <TileCoordsXYZ, std::tuple<Ride*, const RideStation*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher> proxyRideEntranceExitMappings;
+        // std::unordered_map<TileCoordsXYZ, std::pair<Ride*, std::vector<TileCoordsXYZ>>, TileCoordsXYZ::Hasher>
+        // proxyRideEntranceExitMappings;
+        std::unordered_map<
+            TileCoordsXYZ, std::tuple<Ride*, const RideStation*, std::vector<std::pair<const RideStation*, TileCoordsXYZ>>>,
+            TileCoordsXYZ::Hasher>
+            proxyRideEntranceExitMappings;
         if (useProxyRides)
         {
-            for (auto& ride : GetRideManager())
+            for (Ride& ride : GetRideManager())
             {
-                if (ride.status != RideStatus::Open || (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN))
+                if (ride.status != RideStatus::Open || (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN)
+                    || ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isShopOrFacility)
+                    || ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isFlatRide))
                     continue;
+
+                // Don't use this ride as proxy ride to get to itself.
+                if (ignoreThisProxyRide != nullptr)
+                    if (&ride == ignoreThisProxyRide)
+                        continue;
 
                 std::vector<TileCoordsXYZ> exitTiles;
                 std::vector<TileCoordsXYZ> entranceTiles;
@@ -2302,13 +2326,13 @@ namespace AdvancedPathfinding
                         auto itRideExits = entranceExitMappings.find(entranceTile);
                         if (itRideExits != entranceExitMappings.end())
                         {
-                            TileCoordsXYZ exitTileToExclude = itRideExits->second.second;
-                            std::vector<TileCoordsXYZ> filteredExits;
-                            std::copy_if(
-                                exitTiles.begin(), exitTiles.end(), std::back_inserter(filteredExits),
-                                [&](const TileCoordsXYZ& coord) { return coord != exitTileToExclude; });
-                            std::tuple<Ride*, const RideStation*, std::vector<TileCoordsXYZ>> rideExits = std::make_tuple(
-                                &ride, itRideExits->second.first, filteredExits);
+                            std::vector<std::pair<const RideStation*, TileCoordsXYZ>> viableExits;
+                            for (const auto& [entranceCoords, stationPair] : entranceExitMappings)
+                                if (entranceCoords != entranceTile)
+                                    viableExits.push_back(stationPair);
+
+                            std::tuple<Ride*, const RideStation*, std::vector<std::pair<const RideStation*, TileCoordsXYZ>>>
+                                rideExits = std::make_tuple(&ride, itRideExits->second.first, viableExits);
                             proxyRideEntranceExitMappings.emplace(entranceTile, rideExits);
                         }
                     }
@@ -2330,11 +2354,29 @@ namespace AdvancedPathfinding
             {
                 // Reconstruct path
                 std::deque<TileCoordsXYZ> path;
+                TileCoordsXYZ previousCoords;
                 while (current)
                 {
                     path.push_back(current->coords);
-                    if (current->proxyRide.first != nullptr)
-                        peep.AGS->proxyRides.push_back(current->proxyRide.first);
+                    if (current->proxyRide != nullptr)
+                    {
+                        int test = 1;
+                        if (current->proxyRide->GetName() == "Golden Dawn")
+                            test++;
+
+                        auto it = std::find_if(
+                            current->proxyRideExits.begin(), current->proxyRideExits.end(),
+                            [coordinates = previousCoords](const auto& pair) {
+                                uint16_t deltax = abs(pair.second.x - coordinates.x);
+                                uint16_t deltay = abs(pair.second.y - coordinates.y);
+                                uint16_t deltaz = abs(pair.second.z - coordinates.z);
+                                return deltax <= 1 && deltay <= 1 && deltaz <= 2;
+                            });
+
+                        if (it != current->proxyRideExits.end())
+                            peep.AGS->proxyRides.push_back(std::make_pair(current->proxyRide, it->first));
+                    }
+                    previousCoords = current->coords;
                     current = current->parent;
                 }
                 std::reverse(path.begin(), path.end());
@@ -2345,11 +2387,13 @@ namespace AdvancedPathfinding
             auto itRideExits = proxyRideEntranceExitMappings.find(current->coords);
             if (itRideExits != proxyRideEntranceExitMappings.end())
             {
-                auto& [ride, station, coords] = itRideExits->second;
-                //std::tuple<Ride*, RideStation*, std::vector<TileCoordsXYZ>> rideExits = itRideExits->second;
-                current->proxyRide = std::make_pair(ride, station);
-                for (TileCoordsXYZ exit : coords)
-                    neighbours.push_back(GetExitPathTile(exit));
+                auto [ride, rideEntranceStation, rideExits] = itRideExits->second;
+                // std::tuple<Ride*, RideStation*, std::vector<TileCoordsXYZ>> rideExits = itRideExits->second;
+                current->proxyRideEntrance = rideEntranceStation;
+                current->proxyRide = ride;
+                current->proxyRideExits = rideExits;
+                for (std::pair<const RideStation*, TileCoordsXYZ> exits : rideExits)
+                    neighbours.push_back(GetExitPathTile(exits.second));
                 // neighbours.push_back(exit);
             }
 
@@ -2378,8 +2422,8 @@ namespace AdvancedPathfinding
                     neighbor_node.g_score = tentative_g_score;
                     neighbor_node.f_score = neighbor_node.g_score + CalculateHeuristicPathingScore(goal, neighbor);
 
-                    if (current->proxyRide.first != nullptr)
-                        if (current->proxyRide.first->IsQueueFull(*current->proxyRide.second))
+                    if (current->proxyRide != nullptr)
+                        if (current->proxyRide->IsQueueFull(*current->proxyRideEntrance))
                         {
                             neighbor_node.g_score += PATHFINDING_PENALTY_FOR_FULL_QUEUES;
                             neighbor_node.f_score += PATHFINDING_PENALTY_FOR_FULL_QUEUES;
@@ -2501,7 +2545,8 @@ namespace AdvancedPathfinding
             if (peep.getPathfindingQueue().empty())
             {
                 // std::deque<TileCoordsXYZ> tileList;
-                std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(TileCoordsXYZ{ peep.NextLoc }, loc, peep);
+                std::deque<TileCoordsXYZ> tileList = AdvancedPathfinding::AStarSearch(
+                    TileCoordsXYZ{ peep.NextLoc }, loc, peep, true, ride);
                 if (tileList.size() > 0)
                 {
                     if (tileList[0].x == -1)

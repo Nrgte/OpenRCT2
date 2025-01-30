@@ -1427,7 +1427,7 @@ void PeepUpdateDaysInQueue()
     }
 }
 
-void Peep::FormatActionTo(Formatter& ft) const
+void Peep::FormatActionTo(Formatter& ft, bool showProxyRideDestination) const
 {
     switch (State)
     {
@@ -1444,8 +1444,22 @@ void Peep::FormatActionTo(Formatter& ft) const
             auto ride = GetRide(CurrentRide);
             if (ride != nullptr)
             {
-                ft.Add<StringId>(ride->GetRideTypeDescriptor().HasFlag(RtdFlag::describeAsInside) ? STR_IN_RIDE : STR_ON_RIDE);
-                ride->FormatNameTo(ft);
+                
+                if (this->AGS->proxyRides.size() == 0 || !showProxyRideDestination)
+                {
+                    ft.Add<StringId>(ride->GetRideTypeDescriptor().HasFlag(RtdFlag::describeAsInside) ? STR_IN_RIDE : STR_ON_RIDE);
+                    ride->FormatNameTo(ft);
+                }
+                else
+                {
+                    ft.Add<StringId>(STR_ON_RIDE_TO_STATION);
+                    std::pair<Ride*, const RideStation*> proxyRide = this->AGS->proxyRides[0];
+                    StationIndex index = proxyRide.first->GetStationIndex(proxyRide.second);
+
+                    ride->FormatNameTo(ft);
+
+                    ft.Add<uint16_t>(index.ToUnderlying() + 1);                    
+                }
             }
             else
             {
@@ -2362,8 +2376,8 @@ static bool PeepInteractWithShop(Peep* peep, const CoordsXYE& coords)
         PeepReturnToCentreOfTile(peep);
         return true;
     }
-    
-    guest->triggerPathfindingForElement(TileCoordsXYZ {coords.ToTileCentre(), coords.element->BaseHeight});
+
+    guest->triggerPathfindingForElement(TileCoordsXYZ{ coords.ToTileCentre(), coords.element->BaseHeight });
 
     // If we are queuing ignore the 'shop'
     // This can happen when paths clip through track
@@ -2396,9 +2410,9 @@ static bool PeepInteractWithShop(Peep* peep, const CoordsXYE& coords)
             guest->VoucherRideId = proxyRide->id;
             guest->PeepResetRideHeadingWrapper();
             guest->PathfindingIsOnCooldown = 0;
-        } else
+        }
+        else
             guest->PeepResetRideHeadingWrapper();
-
 
         PeepReturnToCentreOfTile(guest);
         return true;
@@ -2977,7 +2991,7 @@ Direction Peep::getNextPathfindingDirection()
     }
 
     int deltaX, deltaY = 0;
-    //TileCoordsXYZ nextL = TileCoordsXYZ{ this->NextLoc };
+    // TileCoordsXYZ nextL = TileCoordsXYZ{ this->NextLoc };
     TileCoordsXYZ start = TileCoordsXYZ{ this->GetLocation() };
 
     do
@@ -3040,7 +3054,7 @@ void Peep::triggerPathfindingForElement(TileCoordsXYZ coords)
 {
     if (!this->AGS->PathfindingQueue.empty())
         if (this->AGS->PathfindingQueue.front() == coords)
-            this->AGS->PathfindingQueue.pop_front();    
+            this->AGS->PathfindingQueue.pop_front();
 }
 
 const std::deque<TileCoordsXYZ>& Peep::getPathfindingQueue() const

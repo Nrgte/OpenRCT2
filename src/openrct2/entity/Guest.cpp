@@ -1794,10 +1794,6 @@ void Guest::OnEnterRide(Ride& ride)
     GuestUpdateFavouriteRide(*this, ride, satisfaction);
     HappinessTarget = std::clamp(HappinessTarget + satisfaction, 0, kPeepMaxHappiness);
 
-    // TODO: Remove the next two lines once people can stay seated and don't have to leave a ride.
-    this->AGS->proxyRides.clear();
-    this->clearPathFindingQueue();
-
     PeepUpdateRideNauseaGrowth(this, ride);
 }
 
@@ -1808,6 +1804,7 @@ void Guest::OnEnterRide(Ride& ride)
 void Guest::OnExitRide(Ride& ride)
 {
     this->RateRide(ride);
+
     // std::string rideValue = "Guest Ride Rating for Ride: " + ride.GetName() + ": " + ride.GetRideTypeDescriptor().EnumName
     //     + " ; rating: (" + std::to_string(this->RideIntensitySatisfaction[ride.id]) + ")\n";
     // OutputDebugStringA(rideValue.c_str());
@@ -1856,6 +1853,13 @@ void Guest::OnExitRide(Ride& ride)
         {
             OpenRCT2::Audio::Play3D(laughs[laughType], GetLocation());
         }
+    }
+
+    // TODO: Remove the next two lines once people can stay seated and don't have to leave a ride.
+    if (this->AGS->proxyRides.size() > 0)
+    {
+        this->AGS->proxyRides.erase(this->AGS->proxyRides.begin());
+        this->clearPathFindingQueue();
     }
 
     ride.total_customers++;
@@ -3196,6 +3200,9 @@ static bool PeepShouldGoOnRideAgain(Guest* peep, const Ride& ride)
     if (!ride.GetRideTypeDescriptor().HasFlag(RtdFlag::guestsWillRideAgain))
         return false;
     if (!RideHasRatings(ride))
+        return false;
+
+    if (peep->getNextProxyRide() == &ride)
         return false;
 
     /*
@@ -8231,7 +8238,7 @@ void Guest::initAGS(std::vector<RideId> rides)
 Ride* Guest::getNextProxyRide()
 {
     if (this->AGS->proxyRides.size() > 0)
-        return this->AGS->proxyRides[0];
+        return this->AGS->proxyRides[0].first;
 
     return nullptr;
 }

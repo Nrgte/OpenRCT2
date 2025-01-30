@@ -803,7 +803,7 @@ namespace OpenRCT2::Ui::Windows
 
             {
                 auto ft = Formatter();
-                peep->FormatActionTo(ft);
+                peep->FormatActionTo(ft, true);
                 int32_t textWidth = actionLabelWidget.width();
                 DrawTextEllipsised(dpi, screenPos, textWidth, STR_BLACK_STRING, ft, { TextAlignment::CENTRE });
             }

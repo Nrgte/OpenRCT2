@@ -1700,4 +1700,5 @@ enum : StringId
     /* MAX_STR_COUNT = 32768 */ // MAX_STR_COUNT - upper limit for number of strings, not the current count strings
 
     STR_SHOP_ITEM_SINGULAR_CREDITCARD = 28000,
+    STR_ON_RIDE_TO_STATION = 28001,
 };

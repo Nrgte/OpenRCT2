@@ -401,7 +401,7 @@ public: // Peep
     void PickupAbort(int32_t old_x);
     [[nodiscard]] OpenRCT2::GameActions::Result Place(const TileCoordsXYZ& location, bool apply);
     void RemoveFromRide();
-    void FormatActionTo(Formatter&) const;
+    void FormatActionTo(Formatter&, bool showProxyRideDestination = true) const;
     void FormatNameTo(Formatter&) const;
     [[nodiscard]] std::string GetName() const;
     bool SetName(std::string_view value);

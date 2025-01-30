@@ -7,6 +7,8 @@
  * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
 
+#include "Windows.h"
+
 #include <cmath>
 #include <openrct2-ui/interface/Dropdown.h>
 #include <openrct2-ui/interface/Widget.h>
@@ -97,7 +99,7 @@ namespace OpenRCT2::Ui::Windows
 
         struct FilterArguments
         {
-            uint8_t args[12]{};
+            uint8_t args[256]{};
 
             StringId GetFirstStringId()
             {
@@ -890,6 +892,7 @@ namespace OpenRCT2::Ui::Windows
         {
             FilterArguments result;
             Formatter ft(result.args);
+            //Formatter ft;
             switch (type)
             {
                 case GuestViewType::Actions:
@@ -905,6 +908,43 @@ namespace OpenRCT2::Ui::Windows
                     break;
                 }
             }
+            /*
+            size_t i = 0;
+            for (uint8_t& byte : ft.GetBuffer())
+            {
+                result.args[i++] = byte;
+            }*/
+            
+
+            //std::copy(ft.GetBuffer().begin(), ft.GetBuffer().end(), result.args);
+
+            auto ride = GetRide(peep.CurrentRide);
+            if (peep.State == PeepState::OnRide || peep.State == PeepState::LeavingRide
+                || peep.State == PeepState::EnteringRide)
+                if (ride && peep.AGS->proxyRides.size() > 0)
+                {
+                    StringId format = STR_BLACK_STRING;
+                    utf8 buffer[512];
+                    OpenRCT2::FormatStringLegacy(buffer, sizeof(buffer), format, ft.Data());
+
+                    std::pair<Ride*, const RideStation*> proxyRide = peep.AGS->proxyRides[0];
+                    StationIndex index = proxyRide.first->GetStationIndex(proxyRide.second);
+                    std::string toRideStationString = ride->GetName()
+                        + " to Station: " + std::to_string(index.ToUnderlying() + 1);
+
+                    std::string_view argsView(reinterpret_cast<char*>(result.args), sizeof(result.args));
+                    std::hash<std::string_view> hasher;
+                    size_t stringHash = hasher(argsView);
+
+                    std::string argsString = "Hash: " + std::to_string(stringHash) + " ; " + toRideStationString
+                        + "; Formatter Results = ";
+                    //argsString += buffer;
+                    for (int i = 0; i < 12; ++i)
+                         argsString += std::to_string(static_cast<int>(result.args[i])) + " ";
+                    argsString += "\n";
+                    OutputDebugStringA(argsString.c_str());
+                }
+
             return result;
         }
 

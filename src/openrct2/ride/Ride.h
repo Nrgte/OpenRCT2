@@ -426,8 +426,9 @@ public:
 
     uint8_t GetEntranceStyle() const;
 
+
     bool IsQueueFull(const RideStation& station);
-    bool IsQueueFull(const TileCoordsXYZ queueEndTile);
+    //bool IsQueueFull(const TileCoordsXYZ queueEndTile);
     TileCoordsXYZ GetRideQueueEnd(RideStation station);
     TileCoordsXYZ GetRideQueueEnd(TileCoordsXYZ loc);
     money64 GetNormalizedRideValue() const;

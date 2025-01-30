@@ -3788,3 +3788,4 @@ STR_6710    :Stable sort
 STR_6711    :Filename:
 STR_6712    :Save
 STR_28000   :Credit Card
+STR_28001   :On {STRINGID} to station: {UINT16}
