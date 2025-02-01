@@ -98,7 +98,8 @@ enum class PeepRideSubState : uint8_t
     LeaveExit = 18,
     ApproachShop = 19,
     InteractShop = 20,
-    LeaveShop = 21
+    LeaveShop = 21,
+    WaitForTrain = 22
 };
 
 enum class PeepUsingBinSubState : uint8_t

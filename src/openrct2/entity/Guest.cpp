@@ -33,6 +33,7 @@
 #include "../network/network.h"
 #include "../object/LargeSceneryEntry.h"
 #include "../object/MusicObject.h"
+#include "../object/ObjectManager.h"
 #include "../object/PathAdditionEntry.h"
 #include "../object/WallSceneryEntry.h"
 #include "../peep/GuestPathfinding.h"
@@ -78,7 +79,6 @@
 #include <sfl/static_vector.hpp>
 #include <span>
 #include <windows.h>
-#include "../object/ObjectManager.h"
 
 using namespace OpenRCT2;
 using namespace OpenRCT2::Numerics;
@@ -2331,8 +2331,11 @@ bool Guest::ShouldGoOnRide(Ride& ride, StationIndex entranceNum, bool atQueue, b
                     }
                     // If it is raining and the ride provides shelter skip the
                     // ride intensity check and get me on a sheltered ride!
-                    // Also skip intensity checks if the ride is used as a proxy ride and is a transport ride to get to another ride.
-                    if ((!isPrecipitating || !ShouldRideWhileRaining(ride)) && (this->getNextProxyRide() != &ride && !ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isTransportRide)))
+                    // Also skip intensity checks if the ride is used as a proxy ride and is a transport ride to get to another
+                    // ride.
+                    if ((!isPrecipitating || !ShouldRideWhileRaining(ride))
+                        && (this->getNextProxyRide() != &ride
+                            && !ride.GetRideTypeDescriptor().HasFlag(RtdFlag::isTransportRide)))
                     {
                         if (!GetGameState().Cheats.ignoreRideIntensity)
                         {
@@ -2903,7 +2906,10 @@ static bool FindVehicleToEnter(
     }
     else
     {
-        chosen_train = ride.GetStation(guest.CurrentRideStation).TrainAtStation;
+        if (guest.RideSubState == PeepRideSubState::WaitForTrain)
+            chosen_train = guest.CurrentTrain;
+        else
+            chosen_train = ride.GetStation(guest.CurrentRideStation).TrainAtStation;
     }
     if (chosen_train >= OpenRCT2::Limits::kMaxTrainsPerRide)
     {
@@ -3811,6 +3817,10 @@ void Guest::UpdateRideAtEntrance()
     if (ride == nullptr)
         return;
 
+    int test = 1;
+    if (ride->GetName() == "Rundschau")
+        test++;
+
     // The peep will keep advancing in the entranceway
     // whilst in this state. When it has reached the very
     // front of the queue destination tolerance is set to
@@ -4027,6 +4037,10 @@ void Guest::UpdateRideAdvanceThroughEntrance()
     if (ride == nullptr)
         return;
 
+    int test = 1;
+    if (this->GetName() == "Roberta S.")
+        test++;
+
     int16_t actionZ, xy_distance;
 
     const auto* rideEntry = ride->GetRideEntry();
@@ -4060,6 +4074,15 @@ void Guest::UpdateRideAdvanceThroughEntrance()
         MoveTo({ loc.value(), actionZ });
         return;
     }
+
+    if (this->GetName() == "Roberta S.")
+        test++;
+
+    if (ride->GetName() == "Rundschau")
+        test++;
+
+    if (RideSubState == PeepRideSubState::WaitForTrain)
+        return;
 
     if (RideSubState == PeepRideSubState::InEntrance)
     {
@@ -4201,6 +4224,58 @@ static void PeepGoToRideExit(Peep* peep, const Ride& ride, int16_t x, int16_t y,
 
     peep->Orientation = exit_direction * 8;
     peep->RideSubState = PeepRideSubState::ApproachExit;
+}
+
+bool Guest::PeepGoToNewCar(const Ride& ride, int16_t xLocal, int16_t yLocal, int16_t zLocal)
+{
+    if (ride.status != RideStatus::Open || ride.vehicle_change_timeout != 0)
+        return false;
+
+    this->RideSubState = PeepRideSubState::WaitForTrain;
+
+    int test = 0;
+    if (this->GetName() == "Roberta S.")
+        test++;
+
+    if (ride.GetName() == "Rundschau")
+        test++;
+
+    zLocal += ride.GetRideTypeDescriptor().Heights.PlatformHeight;
+
+    this->MoveTo({ xLocal, yLocal, zLocal });
+
+    sfl::static_vector<uint8_t, OpenRCT2::Limits::kMaxTrainsPerRide> carArray;
+
+    if (!FindVehicleToEnter(*this, ride, carArray))
+        return false;
+
+    Vehicle* vehicle = PeepChooseCarFromRide(this, ride, carArray);
+    PeepChooseSeatFromCar(this, ride, vehicle);
+
+    // this->UpdateRideLeaveEntranceWaypoints(ride);
+    // TileCoordsXY testCoords = TileCoordsXY{ this->GetDestination() };
+
+    this->SetRideEntranceWaypoint(ride);
+    return true;
+}
+
+void Guest::SetRideEntranceWaypoint(const Ride& ride)
+{
+    const auto& station = ride.GetStation(CurrentRideStation);
+
+    auto location = station.Entrance.ToCoordsXYZD().ToTileCentre();
+    int16_t x_shift = DirectionOffsets[location.direction].x;
+    int16_t y_shift = DirectionOffsets[location.direction].y;
+
+    uint8_t shift_multiplier = 21;
+
+    x_shift *= shift_multiplier;
+    y_shift *= shift_multiplier;
+
+    location.x += x_shift;
+    location.y += y_shift;
+
+    SetDestination(location, 2);
 }
 
 /**
@@ -4401,6 +4476,23 @@ void Guest::UpdateRideFreeVehicleCheck()
     PeepUpdateRideNoFreeVehicleRejoinQueue(this, *ride);
 }
 
+// This is a function to transfer people within the same station.
+void Guest::UpdateRideWaitForTrain()
+{
+    auto ride = GetRide(CurrentRide);
+    if (ride == nullptr)
+        return;
+
+    this->UpdateRideAdvanceThroughEntrance();
+
+    uint8_t chosen_train = ride->GetStation(this->CurrentRideStation).TrainAtStation;
+
+    if (chosen_train != this->CurrentTrain)
+        return;
+
+    RideSubState = PeepRideSubState::LeaveEntrance;
+}
+
 void Guest::UpdateRideApproachVehicle()
 {
     if (auto loc = UpdateAction(); loc.has_value())
@@ -4416,6 +4508,13 @@ void Guest::UpdateRideEnterVehicle()
     auto* ride = GetRide(CurrentRide);
     if (ride != nullptr)
     {
+        int test = 0;
+        if (this->GetName() == "Roberta S.")
+            test++;
+
+        if (ride->GetName() == "Rundschau")
+            test++;
+
         auto* vehicle = GetEntity<Vehicle>(ride->vehicles[CurrentTrain]);
         if (vehicle != nullptr)
         {
@@ -4425,6 +4524,7 @@ void Guest::UpdateRideEnterVehicle()
                 return;
             }
 
+            
             if (ride->mode != RideMode::ForwardRotation && ride->mode != RideMode::BackwardRotation)
             {
                 if (CurrentSeat != vehicle->num_peeps)
@@ -4477,6 +4577,10 @@ void Guest::UpdateRideLeaveVehicle()
     auto ride = GetRide(CurrentRide);
     if (ride == nullptr)
         return;
+
+    int test = 1;
+    if (this->GetName() == "Roberta S.")
+        test++;
 
     Vehicle* vehicle = GetEntity<Vehicle>(ride->vehicles[CurrentTrain]);
     if (vehicle == nullptr)
@@ -4603,8 +4707,14 @@ void Guest::UpdateRideLeaveVehicle()
             platformLocation.x = vehicle->x + xShift * shiftMultiplier;
             platformLocation.y = vehicle->y + yShift * shiftMultiplier;
 
-            PeepGoToRideExit(
-                this, *ride, platformLocation.x, platformLocation.y, platformLocation.z, platformLocation.direction);
+            bool shouldExitStation = this->shouldExitOnRideStation(*ride, station);
+            if (!shouldExitStation)
+                shouldExitStation = !this->PeepGoToNewCar(*ride, platformLocation.x, platformLocation.y, platformLocation.z);
+
+            if (shouldExitStation)
+                PeepGoToRideExit(
+                    this, *ride, platformLocation.x, platformLocation.y, platformLocation.z, platformLocation.direction);
+
             return;
         }
 
@@ -4816,6 +4926,10 @@ void Guest::UpdateRideApproachVehicleWaypoints()
     auto ride = GetRide(CurrentRide);
     if (ride == nullptr)
         return;
+
+    int test = 0;
+    if (this->GetName() == "Roberta S.")
+        test++;
 
     int16_t xy_distance;
     uint8_t waypoint = Var37 & 3;
@@ -5581,6 +5695,10 @@ void Guest::UpdateRide()
 {
     NextFlags &= ~PEEP_NEXT_FLAG_IS_SLOPED;
 
+    int test = 1;
+    if (this->GetName() == "Roberta S.")
+        test++;
+
     switch (RideSubState)
     {
         case PeepRideSubState::AtEntrance:
@@ -5591,6 +5709,9 @@ void Guest::UpdateRide()
             break;
         case PeepRideSubState::FreeVehicleCheck:
             UpdateRideFreeVehicleCheck();
+            break;
+        case PeepRideSubState::WaitForTrain:
+            UpdateRideWaitForTrain();
             break;
         case PeepRideSubState::LeaveEntrance:
             UpdateRideAdvanceThroughEntrance();
@@ -7525,7 +7646,7 @@ Guest* Guest::Generate(const CoordsXYZ& coords)
     peep->WindowInvalidateFlags = 0;
 
     // increase this to gravitate towards higher intensity preferences.
-    uint8_t intensityOffset = 7;
+    int8_t intensityOffset = 7;
     const int8_t offsetParkPrefLessIntenseRides = -2;
     const uint8_t offsetParkPrefMoreIntenseRides = 10;
 
@@ -8232,7 +8353,8 @@ void Guest::initAGS(std::vector<RideId> rides)
 
     if (!(this->RideSubState == PeepRideSubState::OnRide))
         PathFinding::InitializePathFinding(*this);
-
+    else if (GetRide(this->CurrentRide)->GetRideTypeDescriptor().HasFlag(RtdFlag::isTransportRide))
+        PathFinding::InitializePathFinding(*this);
 }
 
 Ride* Guest::getNextProxyRide()
@@ -8243,7 +8365,29 @@ Ride* Guest::getNextProxyRide()
     return nullptr;
 }
 
-void Guest::sendGuestToRide(Ride& ride) {
+const RideStation* Guest::getNextProxyRideStation()
+{
+    if (this->AGS->proxyRides.size() > 0)
+        return this->AGS->proxyRides[0].second;
+
+    return nullptr;
+}
+
+bool Guest::shouldExitOnRideStation(const Ride& ride, const RideStation& station)
+{
+    Ride* nextProxyRide = this->getNextProxyRide();
+    if (nextProxyRide != &ride)
+        return true;
+
+    const RideStation* rideStation = this->getNextProxyRideStation();
+    if (rideStation == &station)
+        return true;
+
+    return false;
+}
+
+void Guest::sendGuestToRide(Ride& ride)
+{
     GuestHeadingToRideId = ride.id;
     GuestIsLostCountdown = 200;
     ResetPathfindGoal();
@@ -8254,10 +8398,10 @@ Ride* Guest::getNearestRideByType(ride_type_t ride_type)
 {
     Ride* nearestRide = nullptr;
 
-    int32_t lowestDistance = 0;    
+    int32_t lowestDistance = 0;
 
     for (auto& ride : GetRideManager())
-        if (ride.type == ride_type) //RIDE_TYPE_INFORMATION_KIOSK)
+        if (ride.type == ride_type) // RIDE_TYPE_INFORMATION_KIOSK)
         {
             for (RideStation& station : ride.GetStations())
                 if (!station.Start.IsNull())
@@ -8266,8 +8410,7 @@ Ride* Guest::getNearestRideByType(ride_type_t ride_type)
                     if (station.Entrance.IsNull())
                         entranceLocation = CoordsXYZ{ station.Start, station.Height };
 
-                    int32_t pfScore = PathFinding::CalculateHeuristicPathingScoreWrapper(
-                        this->GetLocation(), entranceLocation);
+                    int32_t pfScore = PathFinding::CalculateHeuristicPathingScoreWrapper(this->GetLocation(), entranceLocation);
 
                     if (pfScore < lowestDistance || lowestDistance == 0)
                     {

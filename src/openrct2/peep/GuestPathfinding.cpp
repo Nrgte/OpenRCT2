@@ -2360,10 +2360,6 @@ namespace AdvancedPathfinding
                     path.push_back(current->coords);
                     if (current->proxyRide != nullptr)
                     {
-                        int test = 1;
-                        if (current->proxyRide->GetName() == "Golden Dawn")
-                            test++;
-
                         auto it = std::find_if(
                             current->proxyRideExits.begin(), current->proxyRideExits.end(),
                             [coordinates = previousCoords](const auto& pair) {

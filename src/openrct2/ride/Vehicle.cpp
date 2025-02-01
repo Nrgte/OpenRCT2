@@ -1323,6 +1323,7 @@ void Vehicle::Update()
         case Vehicle::Status::Arriving:
             UpdateArriving();
             break;
+        case Vehicle::Status::WaitingForStationBusy:
         case Vehicle::Status::UnloadingPassengers:
             UpdateUnloadingPassengers();
             break;
@@ -1577,15 +1578,36 @@ void Vehicle::UpdateWaitingForPassengers()
 
         ClearFlag(VehicleFlags::ReadyToDepart);
 
+        int test = 0;
+        if (curRide->GetName() == "Rundschau")
+            test++;
+
         // 0xF64E31, 0xF64E32, 0xF64E33
         uint8_t num_peeps_on_train = 0, num_used_seats_on_train = 0, num_seats_on_train = 0;
-
+        const Vehicle* mainTrain = GetEntity<Vehicle>(Id);
         for (const Vehicle* trainCar = GetEntity<Vehicle>(Id); trainCar != nullptr;
              trainCar = GetEntity<Vehicle>(trainCar->next_vehicle_on_train))
         {
             num_peeps_on_train += trainCar->num_peeps;
             num_used_seats_on_train += trainCar->next_free_seat;
             num_seats_on_train += trainCar->num_seats;
+
+            /*
+            uint8_t num_seats = trainCar->num_seats;
+            num_seats &= kVehicleSeatNumMask;
+            for (uint8_t i = 0; i < num_seats; i++)
+            {
+                Guest* curPeep = GetEntity<Guest>(trainCar->peep[i]);
+                if (curPeep != nullptr)
+                {
+                    std::string guestName = curPeep->GetName();
+                    if (curPeep->RideSubState != PeepRideSubState::OnRide
+                        && curPeep->RideSubState != PeepRideSubState::InEntrance
+                        && (curPeep->State == PeepState::OnRide || curPeep->State == PeepState::EnteringRide))
+                        if (curPeep->CurrentRide == curRide->id && curRide->vehicles[curPeep->CurrentTrain] == mainTrain->Id)
+                            return;
+                }
+            }*/
         }
 
         num_seats_on_train &= 0x7F;
@@ -3441,36 +3463,77 @@ void Vehicle::UpdateUnloadingPassengers()
             return;
         }
 
+        bool allRestraintsOpen = true;
         for (Vehicle* train = GetEntity<Vehicle>(Id); train != nullptr;
              train = GetEntity<Vehicle>(train->next_vehicle_on_train))
         {
             if (train->restraints_position != 255)
-                continue;
+            {
+                allRestraintsOpen = false;
+                break;
+            }
 
             if (train->next_free_seat == 0)
                 continue;
 
-            train->next_free_seat = 0;
+            int test = 1;
+            if (curRide->GetName() == "Rundschau")
+                test++;
+
+            if (status == Vehicle::Status::UnloadingPassengers)
+            //if (sub_state == 1)                
+                train->next_free_seat = 0;
+            
             for (uint8_t peepIndex = 0; peepIndex < train->num_peeps; peepIndex++)
             {
-                Peep* curPeep = GetEntity<Guest>(train->peep[peepIndex]);
+                Guest* curPeep = GetEntity<Guest>(train->peep[peepIndex]);
                 if (curPeep != nullptr)
                 {
-                    curPeep->SetState(PeepState::LeavingRide);
-                    curPeep->RideSubState = PeepRideSubState::LeaveVehicle;
+                    int test = 0;
+                    if (curPeep->GetName() == "Roberta S.")
+                        test++;
+
+                    if (curPeep->RideSubState != PeepRideSubState::WaitForTrain)
+                    {
+                        curPeep->SetState(PeepState::LeavingRide);
+                        curPeep->RideSubState = PeepRideSubState::LeaveVehicle;
+                    }
+                    /*
+                    int test = 0;
+                    if (curPeep->GetName() == "Roberta S.")
+                        test++;
+                    if (curPeep->shouldExitOnRideStation(*curRide, currentStation))
+                    {
+                        curPeep->SetState(PeepState::LeavingRide);
+                        curPeep->RideSubState = PeepRideSubState::LeaveVehicle;
+                    }
+                    else
+                    {
+                        train->next_free_seat++;
+                        // curPeep->SetState(PeepState::)
+                        curPeep->RideSubState = PeepRideSubState::ApproachVehicle;
+                    }*/
                 }
             }
         }
+        //sub_state = 2;
+        if (allRestraintsOpen)
+            SetState(Vehicle::Status::WaitingForStationBusy, sub_state);
     }
 
     if (sub_state != 1)
         return;
 
-    for (Vehicle* train = GetEntity<Vehicle>(Id); train != nullptr; train = GetEntity<Vehicle>(train->next_vehicle_on_train))
-    {
-        if (train->num_peeps != train->next_free_seat)
-            return;
-    }
+    int test = 1;
+    if (curRide->GetName() == "Rundschau")
+        test++;
+
+    if (currentStation.TrainAtStation < OpenRCT2::Limits::kMaxTrainsPerRide)
+        for (Vehicle* train = GetEntity<Vehicle>(Id); train != nullptr; train = GetEntity<Vehicle>(train->next_vehicle_on_train))
+        {
+            if (train->num_peeps != train->next_free_seat)
+                return;
+        }
 
     if (!(curRide->lifecycle_flags & RIDE_LIFECYCLE_TESTED) && HasFlag(VehicleFlags::Testing)
         && curRide->current_test_segment + 1 >= curRide->num_stations)

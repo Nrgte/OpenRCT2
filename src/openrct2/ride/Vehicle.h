@@ -98,7 +98,8 @@ struct Vehicle : EntityBase
         Operating1A,
         Stopping1B,
         UnloadingPassengers1C,
-        StoppedByBlockBrakes
+        StoppedByBlockBrakes,
+        WaitingForStationBusy
     };
 
     Type SubType;

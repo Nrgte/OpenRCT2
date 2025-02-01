@@ -387,6 +387,8 @@ public:
 
     void initAGS(std::vector<RideId> rides);
     Ride* getNextProxyRide();
+    const RideStation* getNextProxyRideStation();
+    bool shouldExitOnRideStation(const Ride& ride, const RideStation& station);
     void sendGuestToRide(Ride& ride);
     Ride* getNearestRideByType(ride_type_t ride_type);
     void PeepResetRideHeadingWrapper();
@@ -437,9 +439,11 @@ private:
     Ride* FindBestRideToGoOn();
     OpenRCT2::BitSet<OpenRCT2::Limits::kMaxRidesInPark> FindRidesToGoOn();
     void GoToRideEntrance(const Ride& ride);
-   
-    void RateRide(Ride&);
 
+    void UpdateRideWaitForTrain();
+    void RateRide(Ride&);
+    bool PeepGoToNewCar(const Ride& ride, int16_t x, int16_t y, int16_t z);
+    void SetRideEntranceWaypoint(const Ride& ride);
 };
 
 void UpdateRideApproachVehicleWaypointsMotionSimulator(Guest&, const CoordsXY&, int16_t&);
