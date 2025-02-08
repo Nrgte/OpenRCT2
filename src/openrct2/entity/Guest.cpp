@@ -4246,7 +4246,7 @@ bool Guest::PeepGoToNewCar(const Ride& ride)
     this->RideSubState = PeepRideSubState::WaitForTrain;
 
     int test = 0;
-    if (this->GetName() == "Roberta S.")
+    if (this->GetName() == "Molly T.")
         test++;
 
     if (ride.GetName() == "Rundschau")
@@ -4254,11 +4254,13 @@ bool Guest::PeepGoToNewCar(const Ride& ride)
 
     sfl::static_vector<uint8_t, OpenRCT2::Limits::kMaxTrainsPerRide> carArray;
 
-    if (!FindVehicleToEnter(*this, ride, carArray))
-        return false;
-
-    Vehicle* vehicle = PeepChooseCarFromRide(this, ride, carArray);
-    PeepChooseSeatFromCar(this, ride, vehicle);
+    if (FindVehicleToEnter(*this, ride, carArray))
+    {
+        Vehicle* vehicle = PeepChooseCarFromRide(this, ride, carArray);
+        PeepChooseSeatFromCar(this, ride, vehicle);
+    }
+    else
+        this->CurrentTrain = OpenRCT2::Limits::kMaxTrainsPerRide;
 
     // this->UpdateRideLeaveEntranceWaypoints(ride);
     // TileCoordsXY testCoords = TileCoordsXY{ this->GetDestination() };
