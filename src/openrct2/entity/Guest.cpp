@@ -4228,7 +4228,19 @@ static void PeepGoToRideExit(Peep* peep, const Ride& ride, int16_t x, int16_t y,
 
 bool Guest::PeepGoToNewCar(const Ride& ride, int16_t xLocal, int16_t yLocal, int16_t zLocal)
 {
+    zLocal += ride.GetRideTypeDescriptor().Heights.PlatformHeight;
+
+    this->MoveTo({ xLocal, yLocal, zLocal });
+
+    return this->PeepGoToNewCar(ride);
+}
+
+bool Guest::PeepGoToNewCar(const Ride& ride)
+{
     if (ride.status != RideStatus::Open || ride.vehicle_change_timeout != 0)
+        return false;
+
+    if (ride.lifecycle_flags & RIDE_LIFECYCLE_BROKEN_DOWN)
         return false;
 
     this->RideSubState = PeepRideSubState::WaitForTrain;
@@ -4239,10 +4251,6 @@ bool Guest::PeepGoToNewCar(const Ride& ride, int16_t xLocal, int16_t yLocal, int
 
     if (ride.GetName() == "Rundschau")
         test++;
-
-    zLocal += ride.GetRideTypeDescriptor().Heights.PlatformHeight;
-
-    this->MoveTo({ xLocal, yLocal, zLocal });
 
     sfl::static_vector<uint8_t, OpenRCT2::Limits::kMaxTrainsPerRide> carArray;
 
@@ -4483,11 +4491,50 @@ void Guest::UpdateRideWaitForTrain()
     if (ride == nullptr)
         return;
 
+    int test = 1;
+    if (this->GetName() == "Katelyn C.")
+        test++;
+
     this->UpdateRideAdvanceThroughEntrance();
 
-    uint8_t chosen_train = ride->GetStation(this->CurrentRideStation).TrainAtStation;
+    uint8_t trainAtStation = ride->GetStation(this->CurrentRideStation).TrainAtStation;
 
-    if (chosen_train != this->CurrentTrain)
+    if (this->CurrentTrain == OpenRCT2::Limits::kMaxTrainsPerRide && trainAtStation != this->CurrentTrain)
+    {
+        this->CurrentTrain = trainAtStation;
+        sfl::static_vector<uint8_t, OpenRCT2::Limits::kMaxTrainsPerRide> carArray;
+
+        if (!FindVehicleToEnter(*this, *ride, carArray))
+        {
+            this->CurrentTrain = OpenRCT2::Limits::kMaxTrainsPerRide;
+            return;
+        }
+
+        Vehicle* vehicle = PeepChooseCarFromRide(this, *ride, carArray);
+        PeepChooseSeatFromCar(this, *ride, vehicle);
+
+    }
+
+    if (trainAtStation != this->CurrentTrain || this->CurrentTrain == OpenRCT2::Limits::kMaxTrainsPerRide)
+        return;
+
+    if (this->GetName() == "Katelyn C.")
+        test++;
+
+    Vehicle* currentTrain = GetEntity<Vehicle>(ride->vehicles[this->CurrentTrain]);
+    Vehicle* currentCar = currentTrain->GetCar(this->CurrentCar);
+    if (currentTrain->HasFlag(VehicleFlags::ReadyToDepart))
+    {
+        if (!(CurrentSeat & 1) && (currentCar->next_free_seat & 1))
+        // if (currentCar->next_free_seat - 1 == CurrentSeat)
+        {
+            currentCar->next_free_seat--;
+            currentCar->peep[CurrentSeat] = EntityId::GetNull();
+            this->CurrentTrain = OpenRCT2::Limits::kMaxTrainsPerRide;
+            return;
+        }
+    }
+    else if (!(CurrentSeat & 1) && (currentCar->next_free_seat & 1))
         return;
 
     RideSubState = PeepRideSubState::LeaveEntrance;
@@ -4509,7 +4556,8 @@ void Guest::UpdateRideEnterVehicle()
     if (ride != nullptr)
     {
         int test = 0;
-        if (this->GetName() == "Roberta S.")
+        std::string guestName = this->GetName();
+        if (guestName == "Katelyn C.")
             test++;
 
         if (ride->GetName() == "Rundschau")
@@ -4524,10 +4572,26 @@ void Guest::UpdateRideEnterVehicle()
                 return;
             }
 
-            
             if (ride->mode != RideMode::ForwardRotation && ride->mode != RideMode::BackwardRotation)
             {
-                if (CurrentSeat != vehicle->num_peeps)
+                bool isPassengerOnTrain = false;
+                uint8_t num_seats = vehicle->num_seats;
+                num_seats &= kVehicleSeatNumMask;
+                for (uint8_t i = 0; i < num_seats; i++)
+                    if (vehicle->peep[i] == this->Id)
+                        isPassengerOnTrain = true;
+
+                if (!isPassengerOnTrain)
+                {
+                    if (this->State == PeepState::LeavingRide)
+                        this->State = PeepState::EnteringRide;
+
+                    this->CurrentTrain = OpenRCT2::Limits::kMaxTrainsPerRide;
+                    this->PeepGoToNewCar(*ride);
+                    return;
+                }
+
+                if (CurrentSeat < vehicle->num_peeps && vehicle->num_peeps == num_seats)
                     return;
             }
 
@@ -4536,7 +4600,9 @@ void Guest::UpdateRideEnterVehicle()
                 auto* seatedGuest = GetEntity<Guest>(vehicle->peep[CurrentSeat ^ 1]);
                 if (seatedGuest != nullptr)
                 {
-                    if (seatedGuest->RideSubState != PeepRideSubState::EnterVehicle)
+                    std::string seatedGuestName = seatedGuest->GetName();
+                    if (seatedGuest->RideSubState != PeepRideSubState::EnterVehicle
+                        && seatedGuest->RideSubState != PeepRideSubState::OnRide)
                         return;
 
                     vehicle->num_peeps++;
@@ -5645,6 +5711,10 @@ void Guest::UpdateRideShopLeave()
 
 void Guest::UpdateGuest()
 {
+    int test = 1;
+    if (this->GetName() == "Tess N.")
+        test++;
+
     switch (State)
     {
         case PeepState::QueuingFront:
@@ -5696,7 +5766,8 @@ void Guest::UpdateRide()
     NextFlags &= ~PEEP_NEXT_FLAG_IS_SLOPED;
 
     int test = 1;
-    if (this->GetName() == "Roberta S.")
+    std::string peepName = this->GetName();
+    if (peepName == "Lynne H." || peepName == "Vanessa G.")
         test++;
 
     switch (RideSubState)

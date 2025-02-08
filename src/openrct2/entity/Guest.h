@@ -440,9 +440,10 @@ private:
     OpenRCT2::BitSet<OpenRCT2::Limits::kMaxRidesInPark> FindRidesToGoOn();
     void GoToRideEntrance(const Ride& ride);
 
+    bool PeepGoToNewCar(const Ride& ride, int16_t x, int16_t y, int16_t z);
+    bool PeepGoToNewCar(const Ride& ride);
     void UpdateRideWaitForTrain();
     void RateRide(Ride&);
-    bool PeepGoToNewCar(const Ride& ride, int16_t x, int16_t y, int16_t z);
     void SetRideEntranceWaypoint(const Ride& ride);
 };
 

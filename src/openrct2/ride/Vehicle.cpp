@@ -1579,20 +1579,26 @@ void Vehicle::UpdateWaitingForPassengers()
         ClearFlag(VehicleFlags::ReadyToDepart);
 
         int test = 0;
-        if (curRide->GetName() == "Rundschau")
+        std::string rideName = curRide->GetName();
+         if (rideName == "Einschienenbahn 1")
+        //if (rideName == "Volcano Transport Purple")
             test++;
 
         // 0xF64E31, 0xF64E32, 0xF64E33
         uint8_t num_peeps_on_train = 0, num_used_seats_on_train = 0, num_seats_on_train = 0;
         const Vehicle* mainTrain = GetEntity<Vehicle>(Id);
-        for (const Vehicle* trainCar = GetEntity<Vehicle>(Id); trainCar != nullptr;
+        Vehicle* vecicleWithFreeSlots = nullptr;
+        bool missingGuestOnRide = false;
+        for (Vehicle* trainCar = GetEntity<Vehicle>(Id); trainCar != nullptr;
              trainCar = GetEntity<Vehicle>(trainCar->next_vehicle_on_train))
         {
             num_peeps_on_train += trainCar->num_peeps;
             num_used_seats_on_train += trainCar->next_free_seat;
             num_seats_on_train += trainCar->num_seats;
 
-            /*
+            if (trainCar->num_peeps < trainCar->next_free_seat)
+                vecicleWithFreeSlots = trainCar;
+
             uint8_t num_seats = trainCar->num_seats;
             num_seats &= kVehicleSeatNumMask;
             for (uint8_t i = 0; i < num_seats; i++)
@@ -1601,16 +1607,37 @@ void Vehicle::UpdateWaitingForPassengers()
                 if (curPeep != nullptr)
                 {
                     std::string guestName = curPeep->GetName();
-                    if (curPeep->RideSubState != PeepRideSubState::OnRide
-                        && curPeep->RideSubState != PeepRideSubState::InEntrance
-                        && (curPeep->State == PeepState::OnRide || curPeep->State == PeepState::EnteringRide))
-                        if (curPeep->CurrentRide == curRide->id && curRide->vehicles[curPeep->CurrentTrain] == mainTrain->Id)
-                            return;
+                    if (curPeep->CurrentRide == curRide->id && curRide->vehicles[curPeep->CurrentTrain] == mainTrain->Id && curPeep->CurrentSeat == i)
+                    {
+                        //if ((curPeep->RideSubState != PeepRideSubState::OnRide || curPeep->State != PeepState::OnRide))
+                        if (curPeep->State == PeepState::EnteringRide && curPeep->RideSubState != PeepRideSubState::OnRide)
+                        {
+                            missingGuestOnRide = true;
+                            if (curPeep->CurrentRideStation != current_station)
+                            {
+                                trainCar->next_free_seat--;
+                                trainCar->peep[i] = EntityId::GetNull();
+                                // curPeep->PeepGoToNewCar(*curRide, curPeep->x, curPeep->y, curPeep->z);
+                            }
+                        }
+                        else if (curPeep->State != PeepState::OnRide)
+                            missingGuestOnRide = true;
+                    }
+                    else
+                        test++;
                 }
-            }*/
+            }
         }
 
         num_seats_on_train &= 0x7F;
+
+        // This should not happen.
+        
+        if (num_used_seats_on_train == num_seats_on_train && !missingGuestOnRide)
+            if (vecicleWithFreeSlots != nullptr)
+                vecicleWithFreeSlots->num_peeps++;
+        
+        
 
         if (curRide->SupportsStatus(RideStatus::Testing))
         {
@@ -3419,6 +3446,7 @@ void Vehicle::UpdateUnloadingPassengers()
     if (curRide == nullptr)
         return;
 
+    std::string rideName = curRide->GetName();
     const auto& currentStation = curRide->GetStation(current_station);
 
     if (curRide->mode == RideMode::ForwardRotation || curRide->mode == RideMode::BackwardRotation)
@@ -3477,13 +3505,13 @@ void Vehicle::UpdateUnloadingPassengers()
                 continue;
 
             int test = 1;
-            if (curRide->GetName() == "Rundschau")
+            if (rideName == "Volcano Transport Pink" || rideName == "Volcano Transport Purple")
                 test++;
 
             if (status == Vehicle::Status::UnloadingPassengers)
-            //if (sub_state == 1)                
+                // if (sub_state == 1)
                 train->next_free_seat = 0;
-            
+
             for (uint8_t peepIndex = 0; peepIndex < train->num_peeps; peepIndex++)
             {
                 Guest* curPeep = GetEntity<Guest>(train->peep[peepIndex]);
@@ -3516,7 +3544,7 @@ void Vehicle::UpdateUnloadingPassengers()
                 }
             }
         }
-        //sub_state = 2;
+        // sub_state = 2;
         if (allRestraintsOpen)
             SetState(Vehicle::Status::WaitingForStationBusy, sub_state);
     }
@@ -3525,11 +3553,12 @@ void Vehicle::UpdateUnloadingPassengers()
         return;
 
     int test = 1;
-    if (curRide->GetName() == "Rundschau")
+    if (rideName == "Volcano Transport Pink" || rideName == "Volcano Transport Purple")
         test++;
 
     if (currentStation.TrainAtStation < OpenRCT2::Limits::kMaxTrainsPerRide)
-        for (Vehicle* train = GetEntity<Vehicle>(Id); train != nullptr; train = GetEntity<Vehicle>(train->next_vehicle_on_train))
+        for (Vehicle* train = GetEntity<Vehicle>(Id); train != nullptr;
+             train = GetEntity<Vehicle>(train->next_vehicle_on_train))
         {
             if (train->num_peeps != train->next_free_seat)
                 return;

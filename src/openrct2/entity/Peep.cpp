@@ -1054,6 +1054,9 @@ void Peep::Update()
     }
     else
     {
+        int test = 1;
+        if (this->GetName() == "Tess N.")
+            test++;
         // Loc68FD2F
         switch (State)
         {
