@@ -34,4 +34,6 @@ namespace OpenRCT2::Limits
     constexpr uint16_t kMaxParkEntrances = 256;
     constexpr uint8_t kMaxWaitingTime = RCT12::Limits::kMaxWaitingTime;
     constexpr uint8_t kCheatsMaxOperatingLimit = 255;
+
+    constexpr uint8_t kMaxSeatsPerTrain = 255;
 } // namespace OpenRCT2::Limits

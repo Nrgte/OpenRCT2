@@ -99,7 +99,8 @@ struct Vehicle : EntityBase
         Stopping1B,
         UnloadingPassengers1C,
         StoppedByBlockBrakes,
-        WaitingForStationBusy
+        WaitingForStationBusy,
+        ConfirmUnloadingDone
     };
 
     Type SubType;
@@ -277,6 +278,9 @@ struct Vehicle : EntityBase
 
     friend void UpdateRotatingDefault(Vehicle& vehicle);
     friend void UpdateRotatingEnterprise(Vehicle& vehicle);
+
+    uint8_t GetGuestOnVehicleCount();
+    bool IsTrainReadyForBoarding();
 
 private:
     const VehicleInfo* GetMoveInfo() const;

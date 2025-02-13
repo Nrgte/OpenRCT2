@@ -325,6 +325,9 @@ Guest* Ride::GetQueueHeadGuest(StationIndex stationIndex) const
     auto spriteIndex = GetStation(stationIndex).LastPeepInQueue;
     while ((peep = TryGetEntity<Guest>(spriteIndex)) != nullptr)
     {
+        PeepRideSubState state = peep->RideSubState;
+        PeepState peepState = peep->State;
+        std::string name = peep->GetName();
         spriteIndex = peep->GuestNextInQueue;
         result = peep;
     }

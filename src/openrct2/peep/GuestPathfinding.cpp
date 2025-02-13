@@ -2370,7 +2370,7 @@ namespace AdvancedPathfinding
                             });
 
                         if (it != current->proxyRideExits.end())
-                            peep.AGS->proxyRides.push_back(std::make_pair(current->proxyRide, it->first));
+                            peep.AGS->proxyRides.insert(peep.AGS->proxyRides.begin(), std::make_pair(current->proxyRide, it->first));
                     }
                     previousCoords = current->coords;
                     current = current->parent;

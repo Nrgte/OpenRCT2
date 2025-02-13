@@ -391,6 +391,8 @@ public:
     bool shouldExitOnRideStation(const Ride& ride, const RideStation& station);
     void sendGuestToRide(Ride& ride);
     Ride* getNearestRideByType(ride_type_t ride_type);
+    void RemoveGuestFromVehicle(Vehicle* vehicle);
+    bool IsStillOnRide();
     void PeepResetRideHeadingWrapper();
 
 private:

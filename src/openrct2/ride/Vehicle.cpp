@@ -1327,6 +1327,10 @@ void Vehicle::Update()
         case Vehicle::Status::UnloadingPassengers:
             UpdateUnloadingPassengers();
             break;
+        case Vehicle::Status::ConfirmUnloadingDone:
+            if (this->IsTrainReadyForBoarding())
+                SetState(Vehicle::Status::WaitingForPassengers);
+            break;
         case Vehicle::Status::WaitingForCableLift:
             UpdateWaitingForCableLift();
             break;
@@ -1447,7 +1451,7 @@ void Vehicle::UpdateMovingToEndOfStation()
             current_station = StationIndex::FromUnderlying(station);
             velocity = 0;
             acceleration = 0;
-            SetState(Vehicle::Status::WaitingForPassengers);
+            SetState(Vehicle::Status::ConfirmUnloadingDone);
             break;
         }
     }
@@ -1580,15 +1584,13 @@ void Vehicle::UpdateWaitingForPassengers()
 
         int test = 0;
         std::string rideName = curRide->GetName();
-         if (rideName == "Einschienenbahn 1")
-        //if (rideName == "Volcano Transport Purple")
+        if (rideName == "Moon Express" || rideName == "Volcano Transport Pink"
+            || rideName == "Volcano Transport Purple" || rideName == "Einschienenbahn 1")
+            // if (rideName == "Volcano Transport Purple")
             test++;
 
         // 0xF64E31, 0xF64E32, 0xF64E33
         uint8_t num_peeps_on_train = 0, num_used_seats_on_train = 0, num_seats_on_train = 0;
-        const Vehicle* mainTrain = GetEntity<Vehicle>(Id);
-        Vehicle* vecicleWithFreeSlots = nullptr;
-        bool missingGuestOnRide = false;
         for (Vehicle* trainCar = GetEntity<Vehicle>(Id); trainCar != nullptr;
              trainCar = GetEntity<Vehicle>(trainCar->next_vehicle_on_train))
         {
@@ -1596,48 +1598,9 @@ void Vehicle::UpdateWaitingForPassengers()
             num_used_seats_on_train += trainCar->next_free_seat;
             num_seats_on_train += trainCar->num_seats;
 
-            if (trainCar->num_peeps < trainCar->next_free_seat)
-                vecicleWithFreeSlots = trainCar;
-
-            uint8_t num_seats = trainCar->num_seats;
-            num_seats &= kVehicleSeatNumMask;
-            for (uint8_t i = 0; i < num_seats; i++)
-            {
-                Guest* curPeep = GetEntity<Guest>(trainCar->peep[i]);
-                if (curPeep != nullptr)
-                {
-                    std::string guestName = curPeep->GetName();
-                    if (curPeep->CurrentRide == curRide->id && curRide->vehicles[curPeep->CurrentTrain] == mainTrain->Id && curPeep->CurrentSeat == i)
-                    {
-                        //if ((curPeep->RideSubState != PeepRideSubState::OnRide || curPeep->State != PeepState::OnRide))
-                        if (curPeep->State == PeepState::EnteringRide && curPeep->RideSubState != PeepRideSubState::OnRide)
-                        {
-                            missingGuestOnRide = true;
-                            if (curPeep->CurrentRideStation != current_station)
-                            {
-                                trainCar->next_free_seat--;
-                                trainCar->peep[i] = EntityId::GetNull();
-                                // curPeep->PeepGoToNewCar(*curRide, curPeep->x, curPeep->y, curPeep->z);
-                            }
-                        }
-                        else if (curPeep->State != PeepState::OnRide)
-                            missingGuestOnRide = true;
-                    }
-                    else
-                        test++;
-                }
-            }
         }
 
         num_seats_on_train &= 0x7F;
-
-        // This should not happen.
-        
-        if (num_used_seats_on_train == num_seats_on_train && !missingGuestOnRide)
-            if (vecicleWithFreeSlots != nullptr)
-                vecicleWithFreeSlots->num_peeps++;
-        
-        
 
         if (curRide->SupportsStatus(RideStatus::Testing))
         {
@@ -3505,7 +3468,8 @@ void Vehicle::UpdateUnloadingPassengers()
                 continue;
 
             int test = 1;
-            if (rideName == "Volcano Transport Pink" || rideName == "Volcano Transport Purple")
+            // if (rideName == "Volcano Transport Pink" || rideName == "Volcano Transport Purple")
+            if (rideName == "One" || rideName == "Two")
                 test++;
 
             if (status == Vehicle::Status::UnloadingPassengers)
@@ -3517,8 +3481,9 @@ void Vehicle::UpdateUnloadingPassengers()
                 Guest* curPeep = GetEntity<Guest>(train->peep[peepIndex]);
                 if (curPeep != nullptr)
                 {
-                    int test = 0;
-                    if (curPeep->GetName() == "Roberta S.")
+                    test = 0;
+                    std::string peepName = curPeep->GetName();
+                    if (peepName == "Carlene J." || peepName == "Carmen M.")
                         test++;
 
                     if (curPeep->RideSubState != PeepRideSubState::WaitForTrain)
@@ -3526,21 +3491,6 @@ void Vehicle::UpdateUnloadingPassengers()
                         curPeep->SetState(PeepState::LeavingRide);
                         curPeep->RideSubState = PeepRideSubState::LeaveVehicle;
                     }
-                    /*
-                    int test = 0;
-                    if (curPeep->GetName() == "Roberta S.")
-                        test++;
-                    if (curPeep->shouldExitOnRideStation(*curRide, currentStation))
-                    {
-                        curPeep->SetState(PeepState::LeavingRide);
-                        curPeep->RideSubState = PeepRideSubState::LeaveVehicle;
-                    }
-                    else
-                    {
-                        train->next_free_seat++;
-                        // curPeep->SetState(PeepState::)
-                        curPeep->RideSubState = PeepRideSubState::ApproachVehicle;
-                    }*/
                 }
             }
         }
@@ -9061,4 +9011,80 @@ void Vehicle::Serialise(DataSerialiser& stream)
 bool Vehicle::IsOnCoveredTrack() const
 {
     return TrackElementIsCovered(GetTrackType());
+}
+
+uint8_t Vehicle::GetGuestOnVehicleCount()
+{
+    Ride* curRide = GetRide();
+
+    if (!curRide)
+        return 0;
+
+    uint8_t num_seats_on_train = this->num_seats;
+    num_seats_on_train &= 0x7F;
+
+    uint8_t guestsOnRide = 0;
+    for (uint8_t i = 0; i < num_seats_on_train; i++)
+    {
+        EntityId guestID = this->peep[i];
+
+        if (guestID.IsNull())
+            continue;
+
+        Guest* guest = GetEntity<Guest>(guestID);
+        if (!guest)
+            continue;
+
+        Vehicle* headVehicle = GetEntity<Vehicle>(curRide->vehicles[guest->CurrentTrain]);
+        if (!headVehicle)
+        {
+            guest->RemoveFromRide();
+            continue;
+        }
+
+        if (guest->CurrentCar == OpenRCT2::Limits::kMaxCarsPerTrain)
+        {
+            guest->RemoveFromRide();
+            continue;
+        }
+
+        if (guest->CurrentRide == curRide->id && headVehicle->GetCar(guest->CurrentCar) == this && guest->CurrentSeat == i)
+            if (guest->State == PeepState::OnRide && guest->RideSubState == PeepRideSubState::OnRide)
+                guestsOnRide++;
+    }
+
+    return guestsOnRide;
+}
+
+bool Vehicle::IsTrainReadyForBoarding() {
+    Ride* curRide = GetRide();
+
+    if (!curRide)
+    {
+        LOG_ERROR("Ride is null for vehicle.");
+        return true;
+    }
+
+    std::string rideName = curRide->GetName();
+    int test = 0;
+    if (rideName == "Einschienenbahn 1")
+        test++;
+
+    bool readyForBoarding = true;
+    for (Vehicle* trainCar = GetEntity<Vehicle>(Id); trainCar != nullptr;
+         trainCar = GetEntity<Vehicle>(trainCar->next_vehicle_on_train))
+    {
+        for (uint8_t i = 0; i < trainCar->num_peeps; i++)
+        {
+            Guest* guest = GetEntity<Guest>(trainCar->peep[i]);
+
+            if (!guest)
+                continue;
+
+            if (guest->CurrentRide == curRide->id && guest->RideSubState == PeepRideSubState::LeaveVehicle)
+                readyForBoarding = false;
+        }
+    }
+
+    return readyForBoarding;
 }

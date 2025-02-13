@@ -1067,8 +1067,31 @@ void Peep::Update()
                 Update1();
                 break;
             case PeepState::OnRide:
-                // No action
+                /*
+            {
+                if (guest)
+                {
+                    const auto currentTicks = GetGameState().CurrentTicks;
+                    constexpr auto kTicks128Mask = 128u - 1u;
+                    const auto currentTicksMasked = currentTicks & kTicks128Mask;
+                    if (currentTicksMasked == 0)
+                    {
+                        std::string guestName = guest->GetName();
+                        int test = 0;
+                        if (guestName == "Juanita N.")
+                            test++;
+                        if (!guest->IsStillOnRide())
+                        {
+                            LOG_WARNING("Guest: %s bugged out. Resetting guest.", guestName.c_str());
+                            guest->RemoveFromRide();                            
+                        }
+                    }
+                }
                 break;
+            }
+            */
+            // No action
+            break;
             case PeepState::Picked:
                 UpdatePicked();
                 break;
@@ -1447,10 +1470,10 @@ void Peep::FormatActionTo(Formatter& ft, bool showProxyRideDestination) const
             auto ride = GetRide(CurrentRide);
             if (ride != nullptr)
             {
-                
                 if (this->AGS->proxyRides.size() == 0 || !showProxyRideDestination)
                 {
-                    ft.Add<StringId>(ride->GetRideTypeDescriptor().HasFlag(RtdFlag::describeAsInside) ? STR_IN_RIDE : STR_ON_RIDE);
+                    ft.Add<StringId>(
+                        ride->GetRideTypeDescriptor().HasFlag(RtdFlag::describeAsInside) ? STR_IN_RIDE : STR_ON_RIDE);
                     ride->FormatNameTo(ft);
                 }
                 else
@@ -1461,7 +1484,7 @@ void Peep::FormatActionTo(Formatter& ft, bool showProxyRideDestination) const
 
                     ride->FormatNameTo(ft);
 
-                    ft.Add<uint16_t>(index.ToUnderlying() + 1);                    
+                    ft.Add<uint16_t>(index.ToUnderlying() + 1);
                 }
             }
             else
@@ -1862,6 +1885,10 @@ static bool PeepInteractWithEntrance(Peep* peep, const CoordsXYE& coords, uint8_
             return true;
         }
 
+        std::string guestName = guest->GetName();
+        int test = 1;
+        if (guestName == "Tim H." || guestName == "Marshall T." || guestName == "Cailin N." || guestName == "Bruce C.")
+            test++;
         // Guest has decided to go on the ride.
         guest->AnimationImageIdOffset = _backupAnimationImageIdOffset;
         guest->InteractionRideIndex = rideIndex;
@@ -2297,6 +2324,11 @@ static void PeepInteractWithPath(Peep* peep, const CoordsXYE& coords)
                 {
                     // Peep has decided to go on the ride at the queue.
                     guest->InteractionRideIndex = rideIndex;
+                    std::string guestName = guest->GetName();
+                    int test = 1;
+                    if (guestName == "Tim H." || guestName == "Marshall T." || guestName == "Cailin N."
+                        || guestName == "Bruce C.")
+                        test++;
 
                     // Add the peep to the ride queue.
                     auto& station = ride->GetStation(stationNum);
