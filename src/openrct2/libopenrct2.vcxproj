@@ -64,6 +64,7 @@
       <AdditionalOptions>$(OPENRCT2_CL_ADDITIONALOPTIONS) %(AdditionalOptions)</AdditionalOptions>
       <TreatWarningAsError Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</TreatWarningAsError>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Disabled</Optimization>
+      <RuntimeLibrary Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Lib>
       <TargetMachine Condition="'$(Platform)'=='Win32'">MachineX86</TargetMachine>
@@ -353,6 +354,7 @@
     <ClInclude Include="object\ObjectTypes.h" />
     <ClInclude Include="object\PathAdditionEntry.h" />
     <ClInclude Include="object\PathAdditionObject.h" />
+    <ClInclude Include="object\PeepAnimationsObject.h" />
     <ClInclude Include="object\PeepNamesObject.h" />
     <ClInclude Include="object\ResourceTable.h" />
     <ClInclude Include="object\RideObject.h" />
@@ -395,7 +397,6 @@
     <ClInclude Include="park\ParkFile.h" />
     <ClInclude Include="peep\Guest.h" />
     <ClInclude Include="peep\GuestPathfinding.h" />
-    <ClInclude Include="peep\PeepAnimationData.h" />
     <ClInclude Include="peep\PeepAnimations.h" />
     <ClInclude Include="peep\PeepSpriteIds.h" />
     <ClInclude Include="peep\PeepThoughts.h" />
@@ -891,6 +892,7 @@
     <ClCompile Include="object\ObjectRepository.cpp" />
     <ClCompile Include="object\ObjectTypes.cpp" />
     <ClCompile Include="object\PathAdditionObject.cpp" />
+    <ClCompile Include="object\PeepAnimationsObject.cpp" />
     <ClCompile Include="object\PeepNamesObject.cpp" />
     <ClCompile Include="object\ResourceTable.cpp" />
     <ClCompile Include="object\RideObject.cpp" />
@@ -1018,7 +1020,6 @@
     <ClCompile Include="park\Legacy.cpp" />
     <ClCompile Include="park\ParkFile.cpp" />
     <ClCompile Include="peep\GuestPathfinding.cpp" />
-    <ClCompile Include="peep\PeepAnimationData.cpp" />
     <ClCompile Include="peep\PeepAnimations.cpp" />
     <ClCompile Include="peep\PeepThoughts.cpp" />
     <ClCompile Include="peep\RideUseSystem.cpp" />

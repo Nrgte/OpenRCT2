@@ -57,7 +57,7 @@ static const wchar_t* _wszCommitSha1Short = WSZ("");
 static const wchar_t* _wszArchitecture = WSZ(OPENRCT2_ARCHITECTURE);
 static std::map<std::wstring, std::wstring> _uploadFiles;
 
-    #define BACKTRACE_TOKEN "164d73675f52d093fe24de22fa205b2f30cf8cfc1ed1c6f043df301b59e16d1d"
+    #define BACKTRACE_TOKEN "15ddda0f56b2fb8889b789c12b17d5291dd4e5d99032bf9ec8a411dd74ae6b88"
 
 using namespace OpenRCT2;
 
@@ -169,7 +169,7 @@ static bool OnCrash(
     wprintf(L"Dump Path: %s\n", dumpPath);
     wprintf(L"Dump File Path: %s\n", dumpFilePath);
     wprintf(L"Dump Id: %s\n", miniDumpId);
-    wprintf(L"Version: %s\n", WSZ(OPENRCT2_VERSION));
+    wprintf(L"Version: %s\n", WSZ(kOpenRCT2Version));
     wprintf(L"Commit: %s\n", _wszCommitSha1Short);
 
     bool savedGameDumped = false;
@@ -253,7 +253,7 @@ static bool OnCrash(
                                              L"We would like to upload the crash dump for automated analysis, do you agree?\n"
                                              L"The automated analysis is done by courtesy of https://backtrace.io/";
     wchar_t message[MAX_PATH * 2];
-    swprintf_s(message, MessageFormat, dumpFilePath, WSZ(OPENRCT2_VERSION), _wszCommitSha1Short);
+    swprintf_s(message, MessageFormat, dumpFilePath, WSZ(kOpenRCT2Version), _wszCommitSha1Short);
 
     // Cannot use platform_show_messagebox here, it tries to set parent window already dead.
     int answer = MessageBoxW(nullptr, message, WSZ(OPENRCT2_NAME), MB_YESNO | MB_ICONERROR);

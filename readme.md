@@ -48,9 +48,9 @@ Or this:
 ---
 
 ### Download
-| Latest release                                                                                                        | Latest development build |
-|-----------------------------------------------------------------------------------------------------------------------|--------------------------|
-| [![OpenRCT2.org](https://img.shields.io/badge/master-v0.4.18-green.svg)](https://openrct2.org/downloads/master/latest) | [![OpenRCT2.org](https://img.shields.io/github/last-commit/OpenRCT2/OpenRCT2/develop)](https://openrct2.org/downloads/develop/latest) |
+| Latest release                                                                                                           | Latest development build |
+|--------------------------------------------------------------------------------------------------------------------------|--------------------------|
+| [![OpenRCT2.org](https://img.shields.io/badge/master-v0.4.19.1-green.svg)](https://openrct2.org/downloads/master/latest) | [![OpenRCT2.org](https://img.shields.io/github/last-commit/OpenRCT2/OpenRCT2/develop)](https://openrct2.org/downloads/develop/latest) |
 
 ---
 
@@ -257,7 +257,7 @@ OpenRCT2 requires original files of RollerCoaster Tycoon 2 to play. It can be bo
 ---
 
 # 4. Contributing
-OpenRCT2 uses the [gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows#gitflow-workflow). If you are implementing a new feature or logic from the original game, please branch off and perform pull requests to ```develop```. If you are fixing a bug for the next release, please branch off and perform pull requests to the correct release branch. ```master``` only contains tagged releases, you should never branch off this.
+OpenRCT2 uses the [gitflow workflow](https://www.atlassian.com/git/tutorials/comparing-workflows#gitflow-workflow). If you are implementing a new feature or fixing a bug, please branch off and perform pull requests to ```develop```. ```master``` only contains tagged releases, you should never branch off this.
 
 Please read our [contributing guidelines](https://github.com/OpenRCT2/OpenRCT2/blob/develop/CONTRIBUTING.md) for information.
 

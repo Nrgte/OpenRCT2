@@ -29,6 +29,7 @@
 #include "../object/ObjectList.h"
 #include "../object/ObjectManager.h"
 #include "../object/PathAdditionEntry.h"
+#include "../object/PeepAnimationsObject.h"
 #include "../object/SceneryGroupEntry.h"
 #include "../object/SmallSceneryEntry.h"
 #include "../object/TerrainSurfaceObject.h"
@@ -39,6 +40,7 @@
 #include "../ride/Track.h"
 #include "../ride/Vehicle.h"
 #include "../scenario/Scenario.h"
+#include "../util/Util.h"
 #include "../windows/Intent.h"
 #include "../world/Entrance.h"
 #include "../world/Footpath.h"
@@ -56,22 +58,6 @@
 #include <iterator>
 
 using namespace OpenRCT2;
-
-// clang-format off
-const StringId StaffCostumeNames[] = {
-        STR_STAFF_OPTION_COSTUME_PANDA,
-        STR_STAFF_OPTION_COSTUME_TIGER,
-        STR_STAFF_OPTION_COSTUME_ELEPHANT,
-        STR_STAFF_OPTION_COSTUME_ROMAN,
-        STR_STAFF_OPTION_COSTUME_GORILLA,
-        STR_STAFF_OPTION_COSTUME_SNOWMAN,
-        STR_STAFF_OPTION_COSTUME_KNIGHT,
-        STR_STAFF_OPTION_COSTUME_ASTRONAUT,
-        STR_STAFF_OPTION_COSTUME_BANDIT,
-        STR_STAFF_OPTION_COSTUME_SHERIFF,
-        STR_STAFF_OPTION_COSTUME_PIRATE,
-};
-// clang-format on
 
 // Maximum manhattan distance that litter can be for a handyman to seek to it
 const uint16_t MAX_LITTER_DISTANCE = 3 * kCoordsXYStep;
@@ -145,7 +131,7 @@ bool Staff::CanIgnoreWideFlag(const CoordsXYZ& staffPos, TileElement* path) cons
     uint8_t total = 0;
     uint8_t pathcount = 0;
     uint8_t widecount = 0;
-    for (Direction adjac_dir : ALL_DIRECTIONS)
+    for (Direction adjac_dir : kAllDirections)
     {
         auto adjacPos = staffPos + CoordsXYZ{ CoordsDirectionDelta[adjac_dir].x, CoordsDirectionDelta[adjac_dir].y, 0 };
 
@@ -418,7 +404,7 @@ uint8_t Staff::HandymanDirectionToUncutGrass(uint8_t valid_directions) const
 
         if (GetNextIsSloped())
         {
-            if (surfaceElement->GetSlope() != PathSlopeToLandSlope[GetNextDirection()])
+            if (surfaceElement->GetSlope() != kPathSlopeToLandSlope[GetNextDirection()])
                 return INVALID_DIRECTION;
         }
         else if (surfaceElement->GetSlope() != kTileSlopeFlat)
@@ -600,10 +586,10 @@ Direction Staff::DirectionSurface(Direction initialDirection) const
 
         direction &= 3;
 
-        if (WallInTheWay({ NextLoc, NextLoc.z, NextLoc.z + PEEP_CLEARANCE_HEIGHT }, direction))
+        if (WallInTheWay({ NextLoc, NextLoc.z, NextLoc.z + kPeepClearanceHeight }, direction))
             continue;
 
-        if (WallInTheWay({ NextLoc, NextLoc.z, NextLoc.z + PEEP_CLEARANCE_HEIGHT }, DirectionReverse(direction)))
+        if (WallInTheWay({ NextLoc, NextLoc.z, NextLoc.z + kPeepClearanceHeight }, DirectionReverse(direction)))
             continue;
 
         CoordsXY chosenTile = CoordsXY{ NextLoc } + CoordsDirectionDelta[direction];
@@ -963,14 +949,6 @@ int32_t Staff::GetHireDate() const
     return HireDate;
 }
 
-PeepAnimationGroup EntertainerCostumeToSprite(EntertainerCostume entertainerType)
-{
-    uint8_t value = static_cast<uint8_t>(entertainerType);
-    PeepAnimationGroup newAnimationGroup = static_cast<PeepAnimationGroup>(
-        value + EnumValue(PeepAnimationGroup::EntertainerPanda));
-    return newAnimationGroup;
-}
-
 colour_t StaffGetColour(StaffType staffType)
 {
     const auto& gameState = GetGameState();
@@ -1011,44 +989,8 @@ GameActions::Result StaffSetColour(StaffType staffType, colour_t value)
     return GameActions::Result();
 }
 
-uint32_t StaffGetAvailableEntertainerCostumes()
-{
-    uint32_t entertainerCostumes = 0;
-    for (int32_t i = 0; i < kMaxSceneryGroupObjects; i++)
-    {
-        if (SceneryGroupIsInvented(i))
-        {
-            const auto sgEntry = OpenRCT2::ObjectManager::GetObjectEntry<SceneryGroupEntry>(i);
-            entertainerCostumes |= sgEntry->entertainer_costumes;
-        }
-    }
-
-    // For some reason the flags are +4 from the actual costume IDs
-    entertainerCostumes >>= 4;
-
-    // Fix #6593: force enable the default costumes, which normally get enabled through the default scenery groups.
-    entertainerCostumes |= (1 << static_cast<uint8_t>(EntertainerCostume::Panda))
-        | (1 << static_cast<uint8_t>(EntertainerCostume::Tiger)) | (1 << static_cast<uint8_t>(EntertainerCostume::Elephant));
-
-    return entertainerCostumes;
-}
-
-int32_t StaffGetAvailableEntertainerCostumeList(EntertainerCostume* costumeList)
-{
-    uint32_t availableCostumes = StaffGetAvailableEntertainerCostumes();
-    int32_t numCostumes = 0;
-    for (uint8_t i = 0; i < static_cast<uint8_t>(EntertainerCostume::Count); i++)
-    {
-        if (availableCostumes & (1 << i))
-        {
-            costumeList[numCostumes++] = static_cast<EntertainerCostume>(i);
-        }
-    }
-    return numCostumes;
-}
-
 /** rct2: 0x009929C8 */
-static constexpr CoordsXY _MowingWaypoints[] = {
+static constexpr CoordsXY kMowingWaypoints[] = {
     { 28, 28 }, { 28, 4 }, { 20, 4 }, { 20, 28 }, { 12, 28 }, { 12, 4 }, { 4, 4 }, { 4, 28 },
 };
 
@@ -1077,13 +1019,13 @@ void Staff::UpdateMowing()
             SwitchToSpecialSprite(2);
         }
 
-        if (Var37 == std::size(_MowingWaypoints))
+        if (Var37 == std::size(kMowingWaypoints))
         {
             StateReset();
             return;
         }
 
-        auto destination = _MowingWaypoints[Var37] + NextLoc;
+        auto destination = kMowingWaypoints[Var37] + NextLoc;
         SetDestination(destination);
 
         if (Var37 != 7)
@@ -1095,7 +1037,7 @@ void Staff::UpdateMowing()
             surfaceElement->SetGrassLength(GRASS_LENGTH_MOWED);
             MapInvalidateTileZoom0({ NextLoc, surfaceElement->GetBaseZ(), surfaceElement->GetBaseZ() + 16 });
         }
-        StaffLawnsMown++;
+        StaffLawnsMown = AddClamp(StaffLawnsMown, 1u);
         WindowInvalidateFlags |= PEEP_INVALIDATE_STAFF_STATS;
     }
 }
@@ -1155,7 +1097,7 @@ void Staff::UpdateWatering()
 
             tile_element->AsSmallScenery()->SetAge(0);
             MapInvalidateTileZoom0({ actionLoc, tile_element->GetBaseZ(), tile_element->GetClearanceZ() });
-            StaffGardensWatered++;
+            StaffGardensWatered = AddClamp(StaffGardensWatered, 1u);
             WindowInvalidateFlags |= PEEP_INVALIDATE_STAFF_STATS;
         } while (!(tile_element++)->IsLastForTile());
 
@@ -1239,7 +1181,7 @@ void Staff::UpdateEmptyingBin()
         tile_element->AsPath()->SetAdditionStatus(additionStatus);
 
         MapInvalidateTileZoom0({ NextLoc, tile_element->GetBaseZ(), tile_element->GetClearanceZ() });
-        StaffBinsEmptied++;
+        StaffBinsEmptied = AddClamp(StaffBinsEmptied, 1u);
         WindowInvalidateFlags |= PEEP_INVALIDATE_STAFF_STATS;
     }
 }
@@ -1258,7 +1200,7 @@ void Staff::UpdateSweeping()
     {
         // Remove sick at this location
         Litter::RemoveAt(GetLocation());
-        StaffLitterSwept++;
+        StaffLitterSwept = AddClamp(StaffLitterSwept, 1u);
         WindowInvalidateFlags |= PEEP_INVALIDATE_STAFF_STATS;
     }
     if (auto loc = UpdateAction(); loc.has_value())
@@ -1495,7 +1437,7 @@ void Staff::UpdateAnswering()
 }
 
 /** rct2: 0x00992A5C */
-static constexpr CoordsXY _WateringUseOffsets[] = {
+static constexpr CoordsXY kWateringUseOffsets[] = {
     { 3, 16 }, { 16, 29 }, { 29, 16 }, { 16, 3 }, { 3, 29 }, { 29, 29 }, { 29, 3 }, { 3, 3 },
 };
 
@@ -1561,7 +1503,7 @@ bool Staff::UpdatePatrollingFindWatering()
             Var37 = chosen_position;
 
             SubState = 0;
-            auto destination = _WateringUseOffsets[chosen_position] + GetLocation().ToTileStart();
+            auto destination = kWateringUseOffsets[chosen_position] + GetLocation().ToTileStart();
             SetDestination(destination, 3);
 
             return true;
@@ -1658,7 +1600,7 @@ bool Staff::UpdatePatrollingFindGrass()
             Var37 = 0;
             // Original code used .y for both x and y. Changed to .x to make more sense (both x and y are 28)
 
-            auto destination = _MowingWaypoints[0] + NextLoc;
+            auto destination = kMowingWaypoints[0] + NextLoc;
             SetDestination(destination, 3);
             return true;
         }
@@ -1697,9 +1639,9 @@ void Staff::Tick128UpdateStaff()
     if (AssignedStaffType != StaffType::Security)
         return;
 
-    PeepAnimationGroup newAnimationGroup = PeepAnimationGroup::SecurityAlt;
+    PeepAnimationGroup newAnimationGroup = PeepAnimationGroup::Alternate;
     if (State != PeepState::Patrolling)
-        newAnimationGroup = PeepAnimationGroup::Security;
+        newAnimationGroup = PeepAnimationGroup::Normal;
 
     if (AnimationGroup == newAnimationGroup)
         return;
@@ -1710,8 +1652,11 @@ void Staff::Tick128UpdateStaff()
     if (Action < PeepActionType::Idle)
         Action = PeepActionType::Walking;
 
+    auto& objManager = GetContext()->GetObjectManager();
+    auto* animObj = objManager.GetLoadedObject<PeepAnimationsObject>(AnimationObjectIndex);
+
     PeepFlags &= ~PEEP_FLAGS_SLOW_WALK;
-    if (gAnimationGroupToSlowWalkMap[EnumValue(newAnimationGroup)])
+    if (animObj->IsSlowWalking(newAnimationGroup))
     {
         PeepFlags |= PEEP_FLAGS_SLOW_WALK;
     }
@@ -2170,7 +2115,7 @@ bool Staff::UpdateFixingFixVehicleMalfunction(bool firstRun, const Ride& ride)
 }
 
 /** rct2: 0x00992A3C */
-static constexpr CoordsXY _StationFixingOffsets[] = {
+static constexpr CoordsXY kStationFixingOffsets[] = {
     { -12, 0 },
     { 0, 12 },
     { 12, 0 },
@@ -2207,7 +2152,7 @@ bool Staff::UpdateFixingMoveToStationEnd(bool firstRun, const Ride& ride)
         }
 
         int32_t trackDirection = tileElement->GetDirection();
-        CoordsXY offset = _StationFixingOffsets[trackDirection];
+        CoordsXY offset = kStationFixingOffsets[trackDirection];
 
         stationPos.x += 16 + offset.x;
         if (offset.x == 0)
@@ -2314,7 +2259,7 @@ bool Staff::UpdateFixingMoveToStationStart(bool firstRun, const Ride& ride)
 
         // Loc6C12ED:
         auto destination = CoordsXY{ input.x + 16, input.y + 16 };
-        auto offset = _StationFixingOffsets[stationDirection];
+        auto offset = kStationFixingOffsets[stationDirection];
 
         destination.x -= offset.x;
         if (offset.x == 0)
@@ -2468,13 +2413,13 @@ bool Staff::UpdateFixingFinishFixOrInspect(bool firstRun, int32_t steps, Ride& r
         {
             UpdateRideInspected(CurrentRide);
 
-            StaffRidesInspected++;
+            StaffRidesInspected = AddClamp(StaffRidesInspected, 1u);
             WindowInvalidateFlags |= RIDE_INVALIDATE_RIDE_INCOME | RIDE_INVALIDATE_RIDE_LIST;
             ride.mechanic_status = RIDE_MECHANIC_STATUS_UNDEFINED;
             return true;
         }
 
-        StaffRidesFixed++;
+        StaffRidesFixed = AddClamp(StaffRidesFixed, 1u);
         WindowInvalidateFlags |= RIDE_INVALIDATE_RIDE_INCOME | RIDE_INVALIDATE_RIDE_LIST;
 
         Orientation = PeepDirection << 3;
