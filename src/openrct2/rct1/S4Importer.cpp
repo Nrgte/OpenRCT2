@@ -223,6 +223,13 @@ namespace OpenRCT2::RCT1
             CheatsReset();
             ClearRestrictedScenery();
             RestrictAllMiscScenery();
+
+            for (auto* guest : EntityList<Guest>())
+            {
+                std::vector<RideId>* rideList = OpenRCT2::RideUse::GetHistory().GetAll(guest->Id);
+                if (rideList)
+                    guest->initAGS(*rideList);
+            }
         }
 
         bool GetDetails(ScenarioIndexEntry* dst) override
@@ -2906,7 +2913,7 @@ namespace OpenRCT2::RCT1
         dst->Angriness = src->Angriness;
         dst->TimeLost = src->TimeLost;
 
-        dst->initAGS(RCT12GetRidesBeenOn(src));
+        //dst->initAGS(RCT12GetRidesBeenOn(src));
         OpenRCT2::RideUse::GetHistory().Set(dst->Id, RCT12GetRidesBeenOn(src));
         OpenRCT2::RideUse::GetTypeHistory().Set(dst->Id, RCT12GetRideTypesBeenOn(src));
 

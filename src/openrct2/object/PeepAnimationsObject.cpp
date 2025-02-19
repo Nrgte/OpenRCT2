@@ -186,14 +186,6 @@ size_t PeepAnimationsObject::GetNumAnimationGroups() const
     return _animationGroups.size();
 }
 
-bool PeepAnimationsObject::AnimationGroupInitialized()
-{
-    if (_animationGroups.empty())
-        return false;
-
-    return true;
-}
-
 RCT12PeepAnimationGroup PeepAnimationsObject::GetLegacyPosition(PeepAnimationGroup animGroup) const
 {
     return _animationGroups[EnumValue(animGroup)].legacyPosition;
